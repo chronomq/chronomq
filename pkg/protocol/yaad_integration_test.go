@@ -83,16 +83,27 @@ var _ = Describe("Test protocol:", func() {
 			hw := "Hello world"
 			id, err := bconn.Put([]byte(hw), 10, 1, 1)
 			ExpectNoErr(err)
-			Expect(id).To(BeNumerically("==", 0))
+			Expect(id).To(BeNumerically(">=", 0))
 
 			id2, err := bconn.Put([]byte(hw), 10, 1, 1)
 			ExpectNoErr(err)
-			Expect(id2).To(BeNumerically("==", 1))
+			Expect(id2).To(BeNumerically(">=", id))
 
 			rid, body, err := bconn.Reserve(1 * time.Minute)
 			ExpectNoErr(err)
 			Expect(rid).To(Or(Equal(id), Equal(id2)))
 			Expect(string(body)).To(Equal(hw))
+		})
+
+		It("Puts a job and then deletes it", func(done Done) {
+			defer close(done)
+			hw := "Hello world"
+			id, err := bconn.Put([]byte(hw), 10, 1, 1)
+			ExpectNoErr(err)
+			Expect(id).To(BeNumerically(">=", 0))
+
+			//delete
+			ExpectNoErr(bconn.Delete(id))
 		})
 	})
 })

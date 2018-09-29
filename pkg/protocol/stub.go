@@ -40,10 +40,14 @@ type Tube interface {
 	pauseTube(delay time.Duration) error
 	put(delay int, pri int32, body []byte, ttr int) (int, error)
 	reserve() *Job
+	deleteJob(id int) error
 }
 
 // ErrTubeNotFound is thrown when doing an operation against an unknown tube
 var ErrTubeNotFound = errors.New("tube not found")
+
+// ErrJobNotFound is thrown when doing an operation against an unknown job
+var ErrJobNotFound = errors.New("job not found")
 
 // NewSrvStub returns a stub BeanstalkdSrv
 func NewSrvStub() BeanstalkdSrv {
@@ -103,4 +107,18 @@ func (t *TubeStub) reserve() *Job {
 	}
 
 	return nil
+}
+
+func (t *TubeStub) deleteJob(id int) error {
+	_, ok := t.jobs[id]
+	if ok {
+		delete(t.jobs, id)
+		return nil
+	}
+	_, ok = t.reserved[id]
+	if ok {
+		delete(t.reserved, id)
+		return nil
+	}
+	return ErrJobNotFound
 }

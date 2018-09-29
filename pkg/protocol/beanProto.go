@@ -130,6 +130,8 @@ func serve(conn *Connection) {
 				conn.put(parts[1:], body)
 			case reserveWithTimeout, reserve:
 				conn.reserve()
+			case deleteJob:
+				conn.deleteJob(parts[1:])
 			default:
 				// Echo cmd by default
 				conn.Writer.PrintfLine("%s", line)

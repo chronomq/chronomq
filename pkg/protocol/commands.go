@@ -21,6 +21,7 @@ const (
 	// worker commands
 	reserve            string = "reserve"
 	reserveWithTimeout string = "reserve-with-timeout"
+	deleteJob          string = "delete"
 )
 
 func (conn *Connection) listTubes() {
@@ -77,4 +78,14 @@ func (conn *Connection) reserve() {
 			break
 		}
 	}
+}
+
+func (conn *Connection) deleteJob(args []string) {
+	id, _ := strconv.Atoi(args[0])
+	err := conn.defaultTube.deleteJob(id)
+	if err != nil {
+		conn.PrintfLine("NOT_FOUND")
+		return
+	}
+	conn.PrintfLine("DELETED")
 }
