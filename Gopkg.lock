@@ -24,6 +24,14 @@
   revision = "b729f2633dfe35f4d1d8a32385f6685610ce1cb5"
 
 [[projects]]
+  branch = "master"
+  digest = "1:0d61581afe5d9869c9c472454516fa3a4a739cbc0efc657824b14a319108e876"
+  name = "github.com/kr/beanstalk"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "cae1762e4858ffcc3d648fcc5dcec9e81cf8ad85"
+
+[[projects]]
   digest = "1:42e29deef12327a69123b9cb2cb45fee4af5c12c2a23c6e477338279a052703f"
   name = "github.com/onsi/ginkgo"
   packages = [
@@ -173,10 +181,12 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/kr/beanstalk",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "github.com/pkg/errors",
     "github.com/sirupsen/logrus",
+    "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

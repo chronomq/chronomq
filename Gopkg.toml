@@ -7,3 +7,7 @@
   name = "gopkg.in/fsnotify.v1"
   source = "gopkg.in/fsnotify/fsnotify.v1"
 
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/kr/beanstalk"

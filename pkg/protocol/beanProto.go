@@ -3,6 +3,7 @@ package protocol
 import (
 	"net"
 	"net/textproto"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -22,6 +23,8 @@ const (
 	text dataType = iota
 	body
 )
+
+const yamlFMT = "---\n%s"
 
 // ErrOutOfMem - The server cannot allocate enough memory for the job.
 // 	The client should try again later.
@@ -43,6 +46,13 @@ var ErrUnknownCmd errResponse = []byte(`UNKNOWN_COMMAND\r\n`)
 // Server is a yaad server
 type Server struct {
 	l net.Listener
+}
+
+// Connection implements a yaad + beanstalkd protocol server
+type Connection struct {
+	*textproto.Conn
+	srv         BeanstalkdSrv
+	defaultTube Tube
 }
 
 // NewServer returns a pointer to a new yaad server
@@ -85,15 +95,45 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
 		// multiple connections may be served concurrently.
-		go serve(textproto.NewConn(conn))
+		srv := NewSrvStub()
+		dt, _ := srv.getTube("default")
+		go serve(&Connection{
+			Conn:        textproto.NewConn(conn),
+			srv:         srv,
+			defaultTube: dt})
 	}
 }
 
-func serve(conn *textproto.Conn) {
-	defer conn.Close()
-	data, err := conn.ReadLine()
-	if err == nil {
-		logrus.Info("I read: ", data)
-		conn.Writer.PrintfLine("%s", data)
+func serve(conn *Connection) {
+	conn.srv = NewSrvStub()
+	for {
+		line, err := conn.ReadLine()
+		if err == nil {
+			if line == "quit" {
+				err := conn.Close()
+				logrus.Error(err)
+				return
+			}
+			parts := strings.Split(line, " ")
+			cmd := parts[0]
+
+			logrus.Debugf("Serving cmd: %s", cmd)
+			switch cmd {
+			case listTubes:
+				conn.listTubes()
+			case listTubeUsed:
+				conn.listTubeUsed()
+			case pauseTube:
+				conn.pauseTube(parts[1:])
+			case put:
+				body, _ := conn.ReadLineBytes()
+				conn.put(parts[1:], body)
+			case reserveWithTimeout, reserve:
+				conn.reserve()
+			default:
+				// Echo cmd by default
+				conn.Writer.PrintfLine("%s", line)
+			}
+		}
 	}
 }
