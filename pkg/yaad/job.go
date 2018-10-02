@@ -5,6 +5,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 )
 
 // Job is the basic unit of work in yaad
@@ -57,6 +58,17 @@ func (j *Job) TriggerAt() time.Time {
 // IsReady returns true if job is ready to be worked on
 func (j *Job) IsReady() bool {
 	return time.Now().After(j.triggerAt)
+}
+
+// AsBound returns spokeBound for a hypothetical spoke that should hold this job
+func (j *Job) AsBound(spokeSpan time.Duration) spokeBound {
+	start := j.triggerAt.Truncate(spokeSpan)
+	logrus.Debugf("Start floor unixnano: %+v", start.UnixNano())
+
+	end := start.Add(spokeSpan)
+	logrus.Debugf("End unixnano: %+v", end.UnixNano())
+
+	return spokeBound{start: start, end: end}
 }
 
 // JobsByTime implements sort.Interface for a collection of jobs //

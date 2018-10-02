@@ -24,6 +24,20 @@ var _ = Describe("Test jobs", func() {
 			j, err := NewJobAutoID(time.Now(), nil)
 			Expect(err).To(BeNil())
 			Expect(j.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
+
+			Expect(j.IsReady()).To(BeTrue())
+		})
+
+		It("can create spoke bounds from job trigger time", func() {
+			t := time.Unix(0, 0)
+			j, err := NewJobAutoID(t.Add(time.Second*15), nil)
+			Expect(err).To(BeNil())
+			Expect(j.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
+
+			sb := j.AsBound(time.Second)
+
+			Expect(sb.Start().Before(j.TriggerAt()))
+			Expect(sb.End().After(j.TriggerAt()))
 		})
 	})
 

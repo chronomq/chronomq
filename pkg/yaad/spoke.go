@@ -79,8 +79,14 @@ func (s *Spoke) AddJob(j *Job) *Job {
 	}
 
 	if s.ContainsJob(j) {
-		logrus.WithFields(logrus.Fields{"job": j,
-			"spoke": s}).Debug("Accepting job")
+		logrus.WithFields(
+			logrus.Fields{
+				"jobID":        j.id,
+				"jobTriggerAt": j.triggerAt.UnixNano(),
+				"spokeID":      s.id,
+				"spokeStart":   s.start.UnixNano(),
+				"spokeEnd":     s.end.UnixNano(),
+			}).Debug("Accepting job")
 		s.jobMap[j.id] = j
 		s.jobQueue = append(s.jobQueue, j)
 		return nil
@@ -144,6 +150,11 @@ func (s *Spoke) PendingJobsLen() int {
 // ID returns the id of this spoke
 func (s *Spoke) ID() uuid.UUID {
 	return s.id
+}
+
+// AsPriorityItem returns a spoke as a prioritizable Item
+func (s *Spoke) AsPriorityItem() *Item {
+	return &Item{index: 0, priority: s.start, value: s}
 }
 
 // -- Implement Sort.Interface on Spokes ---//
