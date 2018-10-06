@@ -63,7 +63,7 @@ func (conn *Connection) put(args []string, body []byte) error {
 	ttr, _ := strconv.Atoi(args[2])
 	id, _ := conn.defaultTube.put(delay, int32(pri), body, ttr)
 
-	conn.PrintfLine("INSERTED %d", id)
+	conn.PrintfLine("INSERTED %s", id)
 
 	return nil
 }
@@ -72,7 +72,7 @@ func (conn *Connection) reserve() {
 	for {
 		j := conn.defaultTube.reserve()
 		if j != nil {
-			conn.PrintfLine("RESERVED %d %d", j.id, j.size)
+			conn.PrintfLine("RESERVED %s %d", j.id, j.size)
 			conn.W.Write(j.body)
 			conn.PrintfLine("")
 			break

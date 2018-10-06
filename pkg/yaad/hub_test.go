@@ -25,8 +25,7 @@ var _ = Describe("Test hub", func() {
 			h := NewHub(time.Second * time.Duration(rand.Intn(2999)+1))
 			Expect(len(*h.Walk())).To(Equal(0))
 
-			j, err := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
-			Expect(err).To(BeNil())
+			j := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
 			h.AddJob(j)
 
 			Expect(len(*h.Walk())).To(Equal(0))
@@ -51,9 +50,8 @@ var _ = Describe("Test hub", func() {
 			}
 
 			logrus.Debugf("Adding test job to trigger at: %s", triggerAt.String())
-			j, err := NewJobAutoID(triggerAt, nil)
+			j := NewJobAutoID(triggerAt, nil)
 
-			Expect(err).To(BeNil())
 			jobs[i] = j
 		}
 

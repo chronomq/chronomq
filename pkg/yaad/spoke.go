@@ -12,7 +12,7 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	*spokeBound
-	jobMap   map[uuid.UUID]*Job
+	jobMap   map[string]*Job
 	jobQueue JobsByTime
 }
 
@@ -66,7 +66,7 @@ func NewSpokeFromNow(duration time.Duration) *Spoke {
 // NewSpoke creates a new spoke to hold jobs
 func NewSpoke(start, end time.Time) *Spoke {
 	return &Spoke{id: uuid.NewV4(),
-		jobMap:     make(map[uuid.UUID]*Job),
+		jobMap:     make(map[string]*Job),
 		jobQueue:   JobsByTime{},
 		spokeBound: &spokeBound{start, end}}
 }
@@ -124,7 +124,7 @@ func (s *Spoke) Walk() *[]*Job {
 }
 
 // CancelJob will try to delete a job that hasn't been consumed yet
-func (s *Spoke) CancelJob(id uuid.UUID) {
+func (s *Spoke) CancelJob(id string) {
 	if _, ok := s.jobMap[id]; ok {
 		delete(s.jobMap, id)
 		for i, j := range s.jobQueue {
@@ -137,7 +137,7 @@ func (s *Spoke) CancelJob(id uuid.UUID) {
 }
 
 // OwnsJob returns true if a job by given id is owned by this spoke
-func (s *Spoke) OwnsJob(id uuid.UUID) bool {
+func (s *Spoke) OwnsJob(id string) bool {
 	_, ok := s.jobMap[id]
 	return ok
 }

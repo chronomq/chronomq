@@ -38,8 +38,7 @@ var _ = Describe("Test spokes", func() {
 
 		It("accepts jobs into spoke", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
-			j, err := NewJobAutoID(s.Start().Add(time.Second*20), nil)
-			Expect(err).To(BeNil())
+			j := NewJobAutoID(s.Start().Add(time.Second*20), nil)
 
 			// Accepts the job and returns nil
 			Expect(s.ContainsJob(j)).To(BeTrue())
@@ -53,16 +52,14 @@ var _ = Describe("Test spokes", func() {
 			s := NewSpoke(now.Add(time.Hour*1), now.Add(time.Hour*2))
 
 			// Job triggers after spoke ends
-			j, err := NewJobAutoID(s.End().Add(time.Hour*1), nil)
-			Expect(err).To(BeNil())
+			j := NewJobAutoID(s.End().Add(time.Hour*1), nil)
 
 			// Rejects the job and returns it
 			Expect(s.AddJob(j)).To(Equal(j))
 			Expect(s.PendingJobsLen()).To(Equal(0))
 
 			// Job triggers before spoke ends
-			j, err = NewJobAutoID(s.Start().Add(-10*time.Minute), nil)
-			Expect(err).To(BeNil())
+			j = NewJobAutoID(s.Start().Add(-10*time.Minute), nil)
 
 			// Rejects the job and returns it
 			Expect(s.AddJob(j)).To(Equal(j))
@@ -79,7 +76,7 @@ var _ = Describe("Test spokes", func() {
 			Expect(len(*s.Walk())).To(Equal(0))
 
 			for i := 0; i < 10; i++ {
-				j, _ := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
+				j := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
 				Expect(s.AddJob(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(10))
@@ -102,13 +99,13 @@ var _ = Describe("Test spokes", func() {
 
 			// Add some jobs < 1 sec triggerAt
 			for i := 0; i < 10; i++ {
-				j, _ := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
+				j := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
 				Expect(s.AddJob(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(10))
 			// Add some jobs > 1 sec triggerAt
 			for i := 0; i < 10; i++ {
-				j, _ := NewJobAutoID(s.Start().Add(time.Minute*time.Duration(10+rand.Intn(40))), nil)
+				j := NewJobAutoID(s.Start().Add(time.Minute*time.Duration(10+rand.Intn(40))), nil)
 				Expect(s.AddJob(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(20))
@@ -137,7 +134,7 @@ var _ = Describe("Test spokes", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
 			Expect(s.PendingJobsLen()).To(Equal(0))
 
-			j, _ := NewJobAutoID(s.Start().Add(time.Minute*10), nil)
+			j := NewJobAutoID(s.Start().Add(time.Minute*10), nil)
 			Expect(s.AddJob(j)).To(BeNil())
 			Expect(s.PendingJobsLen()).To(Equal(1))
 
@@ -148,8 +145,8 @@ var _ = Describe("Test spokes", func() {
 		It("cancels job from spoke that doesnt exist does nothing", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
 			Expect(s.PendingJobsLen()).To(Equal(0))
-			s.CancelJob(uuid.NewV4())
-			s.CancelJob(uuid.NewV4())
+			s.CancelJob(uuid.NewV4().String())
+			s.CancelJob(uuid.NewV4().String())
 		})
 	})
 

@@ -15,24 +15,13 @@ var _ = Describe("Test jobs", func() {
 	Context("Basic job tests", func() {
 		It("can create a job", func() {
 			b := []byte("foo")
-			_, err := NewJob(uuid.NewV4(), time.Now(), &b)
-			Expect(err).To(BeNil())
-
-			_, err = NewJob(uuid.NewV4(), time.Now(), nil)
-			Expect(err).To(BeNil())
-
-			j, err := NewJobAutoID(time.Now(), nil)
-			Expect(err).To(BeNil())
-			Expect(j.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
-
+			j := NewJob(uuid.NewV4().String(), time.Now(), &b)
 			Expect(j.IsReady()).To(BeTrue())
 		})
 
 		It("can create spoke bounds from job trigger time", func() {
 			t := time.Unix(0, 0)
-			j, err := NewJobAutoID(t.Add(time.Second*15), nil)
-			Expect(err).To(BeNil())
-			Expect(j.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
+			j := NewJobAutoID(t.Add(time.Second*15), nil)
 
 			sb := j.AsBound(time.Second)
 
@@ -44,9 +33,9 @@ var _ = Describe("Test jobs", func() {
 	Context("Job Ordering", func() {
 		It("orders jobs correctly", func() {
 			t := time.Now()
-			jone, _ := NewJobAutoID(t.Add(1), nil)
-			jtwo, _ := NewJobAutoID(t.Add(20), nil)
-			jthree, _ := NewJobAutoID(t.Add(50), nil)
+			jone := NewJobAutoID(t.Add(1), nil)
+			jtwo := NewJobAutoID(t.Add(20), nil)
+			jthree := NewJobAutoID(t.Add(50), nil)
 
 			jobs := JobsByTime{jtwo, jone, jthree}
 			sort.Sort(jobs)

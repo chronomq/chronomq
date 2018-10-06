@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,8 +50,16 @@ func (h *Hub) PendingJobsCount() int {
 	return count
 }
 
+// CancelJob cancels a job if found. Calls are noop for unknown jobs
+func (h *Hub) CancelJob(jobID string) {
+	s, err := h.FindOwnerSpoke(jobID)
+	if err == nil {
+		s.CancelJob(jobID)
+	}
+}
+
 // FindOwnerSpoke returns the spoke that owns this job
-func (h *Hub) FindOwnerSpoke(jobID uuid.UUID) (*Spoke, error) {
+func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 	if h.pastSpoke.OwnsJob(jobID) {
 		return h.pastSpoke, nil
 	}

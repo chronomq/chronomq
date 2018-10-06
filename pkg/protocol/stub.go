@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -13,8 +15,8 @@ type SrvStub struct {
 // TubeStub implements a stub beanstalkd tube
 type TubeStub struct {
 	name     string
-	jobs     map[int]*Job
-	reserved map[int]*Job
+	jobs     map[string]*Job
+	reserved map[string]*Job
 	paused   bool
 	jobIDCtr int
 }
@@ -22,7 +24,7 @@ type TubeStub struct {
 // Job represents a beanstalkd job
 type Job struct {
 	delay time.Duration
-	id    int
+	id    string
 	pri   int32
 	ttr   time.Duration
 	body  []byte
@@ -38,7 +40,7 @@ type BeanstalkdSrv interface {
 // Tube is a beanstalkd tube
 type Tube interface {
 	pauseTube(delay time.Duration) error
-	put(delay int, pri int32, body []byte, ttr int) (int, error)
+	put(delay int, pri int32, body []byte, ttr int) (string, error)
 	reserve() *Job
 	deleteJob(id int) error
 }
@@ -54,8 +56,8 @@ func NewSrvStub() BeanstalkdSrv {
 	stub := SrvStub{make(map[string]Tube)}
 	t := &TubeStub{
 		name:     "default",
-		jobs:     make(map[int]*Job),
-		reserved: make(map[int]*Job),
+		jobs:     make(map[string]*Job),
+		reserved: make(map[string]*Job),
 		paused:   false}
 	stub.tubes[t.name] = t
 	return &stub
@@ -84,9 +86,9 @@ func (t *TubeStub) pauseTube(delay time.Duration) error {
 	return nil
 }
 
-func (t *TubeStub) put(delay int, pri int32, body []byte, ttr int) (int, error) {
+func (t *TubeStub) put(delay int, pri int32, body []byte, ttr int) (string, error) {
 	j := &Job{
-		id:    t.jobIDCtr,
+		id:    strconv.Itoa(t.jobIDCtr),
 		delay: time.Duration(delay) * time.Second,
 		pri:   pri,
 		size:  len(body),
@@ -110,14 +112,15 @@ func (t *TubeStub) reserve() *Job {
 }
 
 func (t *TubeStub) deleteJob(id int) error {
-	_, ok := t.jobs[id]
+	sid := fmt.Sprintf("%d", id)
+	_, ok := t.jobs[sid]
 	if ok {
-		delete(t.jobs, id)
+		delete(t.jobs, sid)
 		return nil
 	}
-	_, ok = t.reserved[id]
+	_, ok = t.reserved[sid]
 	if ok {
-		delete(t.reserved, id)
+		delete(t.reserved, sid)
 		return nil
 	}
 	return ErrJobNotFound

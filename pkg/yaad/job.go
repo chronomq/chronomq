@@ -1,7 +1,6 @@
 package goyaad
 
 import (
-	"errors"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
@@ -10,38 +9,42 @@ import (
 
 // Job is the basic unit of work in yaad
 type Job struct {
-	id        uuid.UUID
+	id        string
 	triggerAt time.Time
 	body      *[]byte
+
+	pri int32
+	ttr time.Duration
 }
 
 // Impl Job
 
 //NewJob creates a new yaad job
-func NewJob(id uuid.UUID, triggerAt time.Time, b *[]byte) (*Job, error) {
-	switch id.Version() {
-	case 4:
-		return &Job{
-			id:        id,
-			triggerAt: triggerAt,
-			body:      b,
-		}, nil
-	default:
-		return nil, errors.New("Only uuid v4 ids are accepted")
+func NewJob(id string, triggerAt time.Time, b *[]byte) *Job {
+	return &Job{
+		id:        id,
+		triggerAt: triggerAt,
+		body:      b,
 	}
 }
 
 // NewJobAutoID creates a job a job id assigned automatically
-func NewJobAutoID(triggerAt time.Time, b *[]byte) (*Job, error) {
+func NewJobAutoID(triggerAt time.Time, b *[]byte) *Job {
 	return &Job{
-		id:        uuid.NewV4(),
+		id:        uuid.NewV4().String(),
 		triggerAt: triggerAt,
 		body:      b,
-	}, nil
+	}
+}
+
+// SetOpts sets job options
+func (j *Job) SetOpts(pri int32, ttr time.Duration) {
+	j.pri = pri
+	j.ttr = ttr
 }
 
 // ID returns the id of the job
-func (j *Job) ID() uuid.UUID {
+func (j *Job) ID() string {
 	return j.id
 }
 

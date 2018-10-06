@@ -105,7 +105,6 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 }
 
 func serve(conn *Connection) {
-	conn.srv = NewSrvStub()
 	for {
 		line, err := conn.ReadLine()
 		if err == nil {
