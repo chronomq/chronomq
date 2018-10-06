@@ -122,7 +122,7 @@ func (h *Hub) Prune() int {
 
 // AddJob to this hub. Hub should never reject a job - this method will panic if that happens
 func (h *Hub) AddJob(j *Job) *Hub {
-	logrus.WithField("TriggerAt", j.triggerAt.UnixNano()).Debug("Adding job to hub.")
+	logrus.WithField("TriggerAt", j.triggerAt.UnixNano()).Error("Adding job to hub.")
 	if !h.maybeAddToPast(j) {
 		h.addToSpokes(j)
 	}

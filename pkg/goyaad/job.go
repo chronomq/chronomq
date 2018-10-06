@@ -1,9 +1,9 @@
 package goyaad
 
 import (
+	"fmt"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -31,7 +31,7 @@ func NewJob(id string, triggerAt time.Time, b *[]byte) *Job {
 // NewJobAutoID creates a job a job id assigned automatically
 func NewJobAutoID(triggerAt time.Time, b *[]byte) *Job {
 	return &Job{
-		id:        uuid.NewV4().String(),
+		id:        fmt.Sprintf("%d", NextID()),
 		triggerAt: triggerAt,
 		body:      b,
 	}

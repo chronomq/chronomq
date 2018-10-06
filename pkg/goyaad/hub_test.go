@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/urjitbhatia/goyaad/pkg/yaad"
+	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
 var _ = Describe("Test hub", func() {

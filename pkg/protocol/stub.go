@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 //SrvStub implements a stub beanstalkd instance
@@ -87,6 +89,7 @@ func (t *TubeStub) pauseTube(delay time.Duration) error {
 }
 
 func (t *TubeStub) put(delay int, pri int32, body []byte, ttr int) (string, error) {
+	logrus.Debug("Putting job in stub")
 	j := &Job{
 		id:    strconv.Itoa(t.jobIDCtr),
 		delay: time.Duration(delay) * time.Second,

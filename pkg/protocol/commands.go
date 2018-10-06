@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -58,6 +60,7 @@ func (conn *Connection) pauseTube(args []string) error {
 }
 
 func (conn *Connection) put(args []string, body []byte) error {
+	logrus.Warnf("protocol putting job with args: %s", args)
 	pri, _ := strconv.ParseInt(args[0], 10, 32)
 	delay, _ := strconv.Atoi(args[1])
 	ttr, _ := strconv.Atoi(args[2])
@@ -69,14 +72,11 @@ func (conn *Connection) put(args []string, body []byte) error {
 }
 
 func (conn *Connection) reserve() {
-	for {
-		j := conn.defaultTube.reserve()
-		if j != nil {
-			conn.PrintfLine("RESERVED %s %d", j.id, j.size)
-			conn.W.Write(j.body)
-			conn.PrintfLine("")
-			break
-		}
+	j := conn.defaultTube.reserve()
+	if j != nil {
+		conn.PrintfLine("RESERVED %s %d", j.id, j.size)
+		conn.W.Write(j.body)
+		conn.PrintfLine("")
 	}
 }
 

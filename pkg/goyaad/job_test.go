@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	uuid "github.com/satori/go.uuid"
-	. "github.com/urjitbhatia/goyaad/pkg/yaad"
+	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
 var _ = Describe("Test jobs", func() {
