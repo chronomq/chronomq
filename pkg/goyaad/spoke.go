@@ -16,44 +16,6 @@ type Spoke struct {
 	jobQueue JobsByTime
 }
 
-// spokeBound defines time bounds for a spoke
-type spokeBound struct {
-	start time.Time
-	end   time.Time
-}
-
-// -- SpokeBound -- //
-// Start returns the starting time of this spoke bound (inclusive)
-func (sb *spokeBound) Start() time.Time {
-	return sb.start
-}
-
-// End returns the ending time of this spoke bound (exclusive)
-func (sb *spokeBound) End() time.Time {
-	return sb.end
-}
-
-// Contains returns true if sb fully contains o
-func (sb *spokeBound) Contains(o *spokeBound) bool {
-	return sb.start.Sub(o.start) <= 0 && sb.end.After(o.end)
-}
-
-// ContainsJob returns true if this job is bounded by this spoke
-func (sb *spokeBound) ContainsJob(j *Job) bool {
-	return sb.start.Sub(j.triggerAt) <= 0 && sb.end.After(j.triggerAt)
-}
-
-// IsReady returns true if SpokeBound started in the past
-// This spoke bound may end in the future
-func (sb *spokeBound) IsReady() bool {
-	return time.Now().After(sb.start)
-}
-
-// IsExpired returns true if SpokeBound ended in the past
-func (sb *spokeBound) IsExpired() bool {
-	return time.Now().After(sb.end)
-}
-
 // -- Spoke -- //
 
 // NewSpokeFromNow creates a new spoke to hold jobs that starts from now
@@ -100,27 +62,27 @@ func (s *Spoke) AddJob(j *Job) *Job {
 func (s *Spoke) Walk() *[]*Job {
 	ready := []*Job{}
 
-	if len(s.jobQueue) == 0 {
-		return &ready
-	}
-
-	sort.Sort(s.jobQueue)
-	var j *Job
-	for {
-		if len(s.jobQueue) == 0 {
-			break
-		}
-
-		if time.Now().Before(s.jobQueue[0].triggerAt) {
-			break
-		}
-
-		j, s.jobQueue = s.jobQueue[0], s.jobQueue[1:]
-		delete(s.jobMap, j.id)
+	j := s.Next()
+	for j != nil {
 		ready = append(ready, j)
-
+		j = s.Next()
 	}
 	return &ready
+}
+
+// Next returns the next ready job
+func (s *Spoke) Next() *Job {
+	if len(s.jobQueue) == 0 {
+		return nil
+	}
+	sort.Sort(s.jobQueue)
+	if time.Now().After(s.jobQueue[0].triggerAt) {
+		var j *Job
+		j, s.jobQueue = s.jobQueue[0], s.jobQueue[1:]
+		delete(s.jobMap, j.id)
+		return j
+	}
+	return nil
 }
 
 // CancelJob will try to delete a job that hasn't been consumed yet

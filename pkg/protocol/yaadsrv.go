@@ -69,9 +69,8 @@ func (t *TubeYaad) put(delay int, pri int32, body []byte, ttr int) (string, erro
 }
 
 func (t *TubeYaad) reserve() *Job {
-	// Walk with iterator pattern?
 	logrus.Debug("yaad srv reserve")
-	for _, j := range *t.hub.Walk() {
+	if j := t.hub.Next(); j != nil {
 		return &Job{
 			body: *j.Body(),
 			id:   j.ID(),

@@ -106,6 +106,44 @@ func (h *Hub) Walk() *[]*Job {
 	return &ready
 }
 
+// Next returns the next job that is ready now or returns nil.
+func (h *Hub) Next() *Job {
+
+	j := h.pastSpoke.Next()
+	if j != nil {
+		logrus.Debug("Got job from past spoke")
+		return j
+	}
+
+	pq := &PriorityQueue{}
+	heap.Init(pq)
+	defer h.mergeQueues(pq)
+
+	logrus.Debug("queries all spokes")
+	for h.spokes.Len() > 0 {
+		// iterate spokes in order
+		i := heap.Pop(h.spokes).(*Item)
+		// save it in our temp pq
+		heap.Push(pq, i)
+
+		// extract read job from this spoke
+		s := i.value.(*Spoke)
+		j = s.Next()
+		if j != nil {
+			return j
+		}
+	}
+
+	return nil
+}
+
+func (h *Hub) mergeQueues(pq *PriorityQueue) {
+	for pq.Len() > 0 {
+		i := heap.Pop(pq)
+		h.spokes.Push(i)
+	}
+}
+
 // Prune clears spokes which are expired and have no jobs
 // returns the number of spokes pruned
 func (h *Hub) Prune() int {
