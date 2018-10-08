@@ -86,23 +86,12 @@ func (h *Hub) Walk() *[]*Job {
 	ready = append(ready, *h.pastSpoke.Walk()...)
 	logrus.Debugf("Got %d jobs from past spoke", len(ready))
 
-	pq := &PriorityQueue{}
-	heap.Init(pq)
-
-	for h.spokes.Len() > 0 {
-		// iterate spokes in order
-		i := heap.Pop(h.spokes).(*Item)
-		// save it in our temp pq
-		heap.Push(pq, i)
-
-		// extract ready jobs from this spoke
-		s := i.value.(*Spoke)
-		ready = append(ready, *s.Walk()...)
-	}
 	logrus.Debug("queries all spokes")
 
-	// Restore the pq
-	h.spokes = pq
+	for j := h.Next(); j != nil; j = h.Next() {
+		ready = append(ready, j)
+	}
+
 	return &ready
 }
 
