@@ -45,3 +45,8 @@ func (pq *PriorityQueue) Pop() interface{} {
 	*pq = old[0 : n-1]
 	return item
 }
+
+// AtIdx gets item at given index
+func (pq PriorityQueue) AtIdx(i int) *Item {
+	return pq[i]
+}

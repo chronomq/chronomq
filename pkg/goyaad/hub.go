@@ -171,11 +171,47 @@ func (h *Hub) maybeAddToPast(j *Job) bool {
 	return false
 }
 
-func (h *Hub) addToSpokes(j *Job) {
+func (h *Hub) addToSpokesFast(j *Job) {
+	// Traverse in order
+	acceped := false
+
+	// heap.Init(h.spokes)
+
+	scanned := 0
+	for j != nil && scanned < h.spokes.Len() {
+		s := h.spokes.AtIdx(scanned).value.(*Spoke)
+		j = s.AddJob(j)
+		if j == nil {
+			acceped = true
+		}
+		scanned++
+	}
+
+	if !acceped {
+		// none of the current spokes accepted, create a new spoke for this job's bounds
+		jobBound := j.AsBound(h.spokeSpan)
+		logrus.WithFields(
+			logrus.Fields{
+				"start": jobBound.start,
+				"end":   jobBound.end}).Debug("Creating new spoke to accomodate job")
+		s := NewSpoke(jobBound.start, jobBound.end)
+		j := s.AddJob(j)
+		if j != nil {
+			logrus.WithField("JobID", j.id).Panic("Hub should always accept a job. No spoke accepted")
+		}
+		h.AddSpoke(s)
+	}
+}
+
+func (h *Hub) addToSpokes(j *Job) { h.addToSpokesFast(j) }
+
+func (h *Hub) addToSpokesSlow(j *Job) {
 	// Traverse in order
 	acceped := false
 	pq := &PriorityQueue{}
 	heap.Init(pq)
+
+	heap.Init(h.spokes)
 
 	// Take the items out; they arrive in decreasing priority order.
 	for h.spokes.Len() > 0 {
