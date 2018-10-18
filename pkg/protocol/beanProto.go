@@ -92,6 +92,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 	if err := s.Listen(protocol, address); err != nil {
 		return err
 	}
+
 	for {
 		// Wait for a connection.
 		conn, err := s.l.Accept()
@@ -114,7 +115,9 @@ func serve(conn *Connection) {
 		line, err := conn.ReadLine()
 		if err != nil || line == "quit" {
 			err := conn.Close()
-			logrus.Error(err)
+			if err != nil {
+				logrus.Error(err)
+			}
 			return
 		}
 

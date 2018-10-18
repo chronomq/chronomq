@@ -9,7 +9,7 @@ import (
 
 func main() {
 	logrus.Info("I AM GROOT!")
-	logrus.SetLevel(logrus.DebugLevel)
+	// logrus.SetLevel(logrus.DebugLevel)
 
 	s := protocol.NewYaadServer()
 

@@ -3,6 +3,7 @@ package goyaad
 import (
 	"container/heap"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,10 +15,14 @@ const (
 
 // Hub is a time ordered collection of spokes
 type Hub struct {
-	spokeSpan time.Duration
-	spokeMap  map[*spokeBound]*Spoke // quick lookup map
-	spokes    *PriorityQueue
-	pastSpoke *Spoke
+	spokeSpan    time.Duration
+	spokeMap     map[*spokeBound]*Spoke // quick lookup map
+	spokes       *PriorityQueue
+	pastSpoke    *Spoke
+	reservedJobs map[string]*Job // This could also be a spoke that order by TTL - optimize later
+
+	removedJobsCount uint64
+	lock             *sync.Mutex
 }
 
 // NewHub creates a new hub where adjacent spokes lie at the given
@@ -29,8 +34,12 @@ func NewHub(spokeSpan time.Duration) *Hub {
 		&PriorityQueue{},
 		// Spoke from -100 years to 100 years
 		NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
+		make(map[string]*Job),
+		0,
+		&sync.Mutex{},
 	}
 	heap.Init(h.spokes)
+	go h.pruner()
 
 	logrus.WithFields(logrus.Fields{
 		"start": h.pastSpoke.start.String(),
@@ -38,6 +47,28 @@ func NewHub(spokeSpan time.Duration) *Hub {
 	}).Debug("Created hub with past spoke")
 
 	return h
+}
+
+func (h *Hub) pruner() {
+	pruneT := time.NewTicker(time.Second * 5)
+	statusT := time.NewTicker(time.Second * 30)
+	for {
+		select {
+		case <-pruneT.C:
+			h.lock.Lock()
+			for k, v := range h.reservedJobs {
+				if time.Now().Sub(v.triggerAt) < v.ttr {
+					delete(h.reservedJobs, k)
+					h.AddJob(v)
+				}
+			}
+			// Also prune empty spokes
+			h.Prune()
+			h.lock.Unlock()
+		case <-statusT.C:
+			h.Status()
+		}
+	}
 }
 
 // PendingJobsCount return the number of jobs currently pending
@@ -51,11 +82,24 @@ func (h *Hub) PendingJobsCount() int {
 }
 
 // CancelJob cancels a job if found. Calls are noop for unknown jobs
-func (h *Hub) CancelJob(jobID string) {
-	s, err := h.FindOwnerSpoke(jobID)
-	if err == nil {
-		s.CancelJob(jobID)
+func (h *Hub) CancelJob(jobID string) error {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	// Search if this job is reserved
+	if _, ok := h.reservedJobs[jobID]; ok {
+		delete(h.reservedJobs, jobID)
+		h.removedJobsCount++
+		return nil
 	}
+	s, err := h.FindOwnerSpoke(jobID)
+	if err != nil {
+		return err
+	}
+
+	s.CancelJob(jobID)
+	h.removedJobsCount++
+	return nil
 }
 
 // FindOwnerSpoke returns the spoke that owns this job
@@ -97,6 +141,8 @@ func (h *Hub) Walk() *[]*Job {
 
 // Next returns the next job that is ready now or returns nil.
 func (h *Hub) Next() *Job {
+	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	j := h.pastSpoke.Next()
 	if j != nil {
@@ -119,11 +165,16 @@ func (h *Hub) Next() *Job {
 		s := i.value.(*Spoke)
 		j = s.Next()
 		if j != nil {
+			h.reserve(j)
 			return j
 		}
 	}
 
 	return nil
+}
+
+func (h *Hub) reserve(j *Job) {
+	h.reservedJobs[j.id] = j
 }
 
 func (h *Hub) mergeQueues(pq *PriorityQueue) {
@@ -149,7 +200,8 @@ func (h *Hub) Prune() int {
 
 // AddJob to this hub. Hub should never reject a job - this method will panic if that happens
 func (h *Hub) AddJob(j *Job) *Hub {
-	logrus.WithField("TriggerAt", j.triggerAt.UnixNano()).Error("Adding job to hub.")
+
+	logrus.WithField("TriggerAt", j.triggerAt.UnixNano()).Debug("Adding job to hub.")
 	if !h.maybeAddToPast(j) {
 		h.addToSpokes(j)
 	}
@@ -249,15 +301,14 @@ func (h *Hub) addToSpokesSlow(j *Job) {
 
 // Status prints the state of the spokes of this hub
 func (h *Hub) Status() {
-	logrus.Debug("-------------------------------------------------------------")
-	logrus.Debugf("Hub has %d spokes", len(h.spokeMap))
-	logrus.Debugf("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
+	logrus.Info("-------------------------------------------------------------")
+	logrus.Infof("Hub has %d spokes", len(h.spokeMap))
+	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
+	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
+	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
 	for _, s := range h.spokeMap {
 		logrus.Debugf("Spoke %s has %d jobs", s.id, s.PendingJobsLen())
 		logrus.Debugf("Spoke %s start: %s end %s", s.id, s.start.String(), s.end.String())
-		for _, j := range s.jobMap {
-			logrus.Debugf("Spoke %s job %s triggerAt: %s", s.id, j.id, j.triggerAt.String())
-		}
 	}
-	logrus.Debug("-------------------------------------------------------------")
+	logrus.Info("-------------------------------------------------------------")
 }

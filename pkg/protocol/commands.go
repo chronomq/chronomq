@@ -60,7 +60,7 @@ func (conn *Connection) pauseTube(args []string) error {
 }
 
 func (conn *Connection) put(args []string, body []byte) error {
-	logrus.Warnf("protocol putting job with args: %s", args)
+	logrus.Debugf("protocol putting job with args: %s", args)
 	pri, _ := strconv.ParseInt(args[0], 10, 32)
 	delay, _ := strconv.Atoi(args[1])
 	ttr, _ := strconv.Atoi(args[2])

@@ -83,8 +83,6 @@ func (t *TubeYaad) reserve() *Job {
 
 // Todo: handle cancelations for reserved jobs
 func (t *TubeYaad) deleteJob(id int) error {
-
 	strID := strconv.Itoa(id)
-	t.hub.CancelJob(strID)
-	return nil
+	return t.hub.CancelJob(strID)
 }
