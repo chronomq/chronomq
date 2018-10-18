@@ -5,6 +5,7 @@ import (
 	"net/textproto"
 	"strings"
 
+	"github.com/classdojo/governor/metrics"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -89,6 +90,13 @@ func (s *Server) Close() error {
 
 // ListenAndServe starts listening for new connections (blocking)
 func (s *Server) ListenAndServe(protocol, address string) error {
+	metrics.SetupMetrics(true, "yaad")
+	stats = &protoMetrics{}
+	stats.putJob = metrics.NewCounter("putjob")
+	stats.deleteJob = metrics.NewCounter("deletejob")
+	stats.reserveJob = metrics.NewCounter("reservejob")
+	stats.connections = metrics.NewCounter("connections")
+
 	if err := s.Listen(protocol, address); err != nil {
 		return err
 	}
@@ -96,6 +104,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 	for {
 		// Wait for a connection.
 		conn, err := s.l.Accept()
+		go stats.connections.Incr(1)
 		if err != nil {
 			logrus.Fatal(err)
 		}
@@ -133,11 +142,14 @@ func serve(conn *Connection) {
 		case pauseTube:
 			conn.pauseTube(parts[1:])
 		case put:
+			go stats.putJob.Incr(1)
 			body, _ := conn.ReadLineBytes()
 			conn.put(parts[1:], body)
 		case reserveWithTimeout, reserve:
+			go stats.reserveJob.Incr(1)
 			conn.reserve()
 		case deleteJob:
+			go stats.deleteJob.Incr(1)
 			conn.deleteJob(parts[1:])
 		default:
 			// Echo cmd by default
@@ -145,3 +157,12 @@ func serve(conn *Connection) {
 		}
 	}
 }
+
+type protoMetrics struct {
+	connections metrics.Counter
+	putJob      metrics.Counter
+	deleteJob   metrics.Counter
+	reserveJob  metrics.Counter
+}
+
+var stats *protoMetrics
