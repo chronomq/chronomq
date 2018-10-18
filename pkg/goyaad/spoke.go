@@ -2,6 +2,7 @@ package goyaad
 
 import (
 	"sort"
+	"sync"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
@@ -12,7 +13,7 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	*spokeBound
-	jobMap   map[string]*Job
+	jobMap   sync.Map
 	jobQueue JobsByTime
 }
 
@@ -28,7 +29,7 @@ func NewSpokeFromNow(duration time.Duration) *Spoke {
 // NewSpoke creates a new spoke to hold jobs
 func NewSpoke(start, end time.Time) *Spoke {
 	return &Spoke{id: uuid.NewV4(),
-		jobMap:     make(map[string]*Job),
+		jobMap:     sync.Map{},
 		jobQueue:   JobsByTime{},
 		spokeBound: &spokeBound{start, end}}
 }
@@ -49,7 +50,7 @@ func (s *Spoke) AddJob(j *Job) *Job {
 				"spokeStart":   s.start.UnixNano(),
 				"spokeEnd":     s.end.UnixNano(),
 			}).Debug("Accepting job")
-		s.jobMap[j.id] = j
+		s.jobMap.Store(j.id, j)
 		s.jobQueue = append(s.jobQueue, j)
 		return nil
 	}
@@ -79,7 +80,7 @@ func (s *Spoke) Next() *Job {
 	if time.Now().After(s.jobQueue[0].triggerAt) {
 		var j *Job
 		j, s.jobQueue = s.jobQueue[0], s.jobQueue[1:]
-		delete(s.jobMap, j.id)
+		s.jobMap.Delete(j.id)
 		return j
 	}
 	return nil
@@ -87,8 +88,8 @@ func (s *Spoke) Next() *Job {
 
 // CancelJob will try to delete a job that hasn't been consumed yet
 func (s *Spoke) CancelJob(id string) {
-	if _, ok := s.jobMap[id]; ok {
-		delete(s.jobMap, id)
+	if _, ok := s.jobMap.Load(id); ok {
+		s.jobMap.Delete(id)
 		for i, j := range s.jobQueue {
 			if j.id == id {
 				s.jobQueue = append(s.jobQueue[:i], s.jobQueue[i+1:]...)
@@ -100,13 +101,13 @@ func (s *Spoke) CancelJob(id string) {
 
 // OwnsJob returns true if a job by given id is owned by this spoke
 func (s *Spoke) OwnsJob(id string) bool {
-	_, ok := s.jobMap[id]
+	_, ok := s.jobMap.Load(id)
 	return ok
 }
 
 // PendingJobsLen returns the number of jobs remaining in this spoke
 func (s *Spoke) PendingJobsLen() int {
-	return len(s.jobMap)
+	return s.jobQueue.Len()
 }
 
 // ID returns the id of this spoke

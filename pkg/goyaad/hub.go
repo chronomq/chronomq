@@ -130,8 +130,6 @@ func (h *Hub) Walk() *[]*Job {
 	ready = append(ready, *h.pastSpoke.Walk()...)
 	logrus.Debugf("Got %d jobs from past spoke", len(ready))
 
-	logrus.Debug("queries all spokes")
-
 	for j := h.Next(); j != nil; j = h.Next() {
 		ready = append(ready, j)
 	}
@@ -226,9 +224,6 @@ func (h *Hub) maybeAddToPast(j *Job) bool {
 func (h *Hub) addToSpokesFast(j *Job) {
 	// Traverse in order
 	acceped := false
-
-	// heap.Init(h.spokes)
-
 	scanned := 0
 	for j != nil && scanned < h.spokes.Len() {
 		s := h.spokes.AtIdx(scanned).value.(*Spoke)
@@ -255,7 +250,9 @@ func (h *Hub) addToSpokesFast(j *Job) {
 	}
 }
 
-func (h *Hub) addToSpokes(j *Job) { h.addToSpokesFast(j) }
+func (h *Hub) addToSpokes(j *Job) {
+	h.addToSpokesFast(j)
+}
 
 func (h *Hub) addToSpokesSlow(j *Job) {
 	// Traverse in order
