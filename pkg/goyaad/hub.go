@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -89,7 +90,7 @@ func (h *Hub) CancelJob(jobID string) error {
 	// Search if this job is reserved
 	if _, ok := h.reservedJobs[jobID]; ok {
 		delete(h.reservedJobs, jobID)
-		h.removedJobsCount++
+		atomic.AddUint64(&h.removedJobsCount, 1)
 		return nil
 	}
 	s, err := h.FindOwnerSpoke(jobID)
@@ -98,7 +99,7 @@ func (h *Hub) CancelJob(jobID string) error {
 	}
 
 	s.CancelJob(jobID)
-	h.removedJobsCount++
+	atomic.AddUint64(&h.removedJobsCount, 1)
 	return nil
 }
 
@@ -118,6 +119,9 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 
 // AddSpoke adds spoke s to this hub
 func (h *Hub) AddSpoke(s *Spoke) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	h.spokeMap[s.spokeBound] = s
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
@@ -222,6 +226,9 @@ func (h *Hub) maybeAddToPast(j *Job) bool {
 }
 
 func (h *Hub) addToSpokesFast(j *Job) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	// Traverse in order
 	acceped := false
 	scanned := 0
