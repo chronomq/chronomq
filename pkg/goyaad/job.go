@@ -2,6 +2,7 @@ package goyaad
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -74,6 +75,11 @@ func (j *Job) AsBound(spokeSpan time.Duration) spokeBound {
 	return spokeBound{start: start, end: end}
 }
 
+// AsPriorityItem returns this job as a prioritizable item
+func (j *Job) AsPriorityItem() *Item {
+	return &Item{index: 0, priority: j.triggerAt, value: j}
+}
+
 // JobsByTime implements sort.Interface for a collection of jobs //
 type JobsByTime []*Job
 
@@ -85,6 +91,9 @@ func (b JobsByTime) Len() int {
 // Less reports whether the element with
 // index i should sort before the element with index j.
 func (b JobsByTime) Less(i, j int) bool {
+	// If i should trigger before j, i < j
+	log.Println("i trigger at: ", b[i].triggerAt)
+	log.Println("j trigger at: ", b[i].triggerAt)
 	return b[i].triggerAt.Before(b[j].triggerAt)
 }
 

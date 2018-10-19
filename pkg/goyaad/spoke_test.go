@@ -66,14 +66,8 @@ var _ = Describe("Test spokes", func() {
 			Expect(s.PendingJobsLen()).To(Equal(0))
 		})
 
-		It("walks empty spoke", func() {
-			s := NewSpokeFromNow(time.Minute * 1)
-			Expect(len(*s.Walk())).To(Equal(0))
-		})
-
 		It("walks spoke with jobs", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
-			Expect(len(*s.Walk())).To(Equal(0))
 
 			for i := 0; i < 10; i++ {
 				j := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
@@ -84,7 +78,10 @@ var _ = Describe("Test spokes", func() {
 			// Wait for all jobs to be ready
 			time.Sleep(time.Second * 1)
 
-			jobs := *s.Walk()
+			jobs := []*Job{}
+			for s.PendingJobsLen() > 0 {
+				jobs = append(jobs, s.Next())
+			}
 			Expect(len(jobs)).To(Equal(10))
 			prev := jobs[0]
 			for i := 1; i < len(jobs); i++ {
@@ -95,25 +92,28 @@ var _ = Describe("Test spokes", func() {
 
 		It("repeated walks spoke with jobs as they expire", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
-			Expect(len(*s.Walk())).To(Equal(0))
 
 			// Add some jobs < 1 sec triggerAt
 			for i := 0; i < 10; i++ {
-				j := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
+				j := NewJobAutoID(s.Start().Add(time.Duration(rand.Intn(900))), nil)
 				Expect(s.AddJob(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(10))
 			// Add some jobs > 1 sec triggerAt
 			for i := 0; i < 10; i++ {
-				j := NewJobAutoID(s.Start().Add(time.Minute*time.Duration(10+rand.Intn(40))), nil)
+				j := NewJobAutoID(s.Start().Add(time.Second*20+time.Duration(10+rand.Intn(40))), nil)
 				Expect(s.AddJob(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(20))
 
 			// Wait for all jobs to be ready
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second)
 
-			jobs := *s.Walk()
+			jobs := []*Job{}
+			for s.PendingJobsLen() > 10 {
+				j := s.Next()
+				jobs = append(jobs, j)
+			}
 			Expect(len(jobs)).To(Equal(10))
 			prev := jobs[0]
 			for i := 1; i < len(jobs); i++ {
@@ -122,11 +122,6 @@ var _ = Describe("Test spokes", func() {
 			}
 
 			// 10 jobs should remain
-			Expect(s.PendingJobsLen()).To(Equal(10))
-
-			// Walk is idempotent
-			jobs = *s.Walk()
-			Expect(len(jobs)).To(Equal(0))
 			Expect(s.PendingJobsLen()).To(Equal(10))
 		})
 

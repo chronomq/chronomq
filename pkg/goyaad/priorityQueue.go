@@ -19,7 +19,7 @@ func (pq PriorityQueue) Len() int { return len(pq) }
 func (pq PriorityQueue) Less(i, j int) bool {
 	// We want Pop to give us the item nearest in time, not highest.
 	// if i starts AFTER j, i has lower priority
-	return pq[i].priority.After(pq[j].priority)
+	return pq[i].priority.Before(pq[j].priority)
 }
 
 func (pq PriorityQueue) Swap(i, j int) {

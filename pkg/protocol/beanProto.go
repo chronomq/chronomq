@@ -5,7 +5,7 @@ import (
 	"net/textproto"
 	"strings"
 
-	"github.com/classdojo/governor/metrics"
+	metrics "github.com/classdojo/governor/metrics"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )

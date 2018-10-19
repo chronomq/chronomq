@@ -16,19 +16,16 @@ var _ = Describe("Test hub", func() {
 	It("can create a hub", func() {
 		// A hub with 10ms spokes
 		h := NewHub(time.Millisecond * 10)
-		Expect(len(*h.Walk())).To(Equal(0))
 		Expect(h.PendingJobsCount()).To(Equal(0))
 	})
 
 	It("accepts jobs with random times and random spoke durations into a hub", func() {
 		for i := 0; i < 50; i++ {
 			h := NewHub(time.Second * time.Duration(rand.Intn(2999)+1))
-			Expect(len(*h.Walk())).To(Equal(0))
 
 			j := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
 			h.AddJob(j)
 
-			Expect(len(*h.Walk())).To(Equal(0))
 			Expect(h.PendingJobsCount()).To(Equal(1))
 		}
 	})
@@ -38,7 +35,6 @@ var _ = Describe("Test hub", func() {
 
 		// hub with spokes spanning  3000 microseconds (Faster for testing)
 		h := NewHub(time.Microsecond * 3000)
-		Expect(len(*h.Walk())).To(Equal(0))
 
 		// Add a jobs with a random trigger time in the future - max 9999 Microseconds
 		jobs := [2]*Job{}
@@ -67,13 +63,9 @@ var _ = Describe("Test hub", func() {
 		}
 
 		// Walk should return all jobs in global order
-		walked := [len(jobs)]*Job{}
-		i := 0
+		walked := []*Job{}
 		for h.PendingJobsCount() > 0 {
-			for _, j := range *h.Walk() {
-				walked[i] = j
-				i++
-			}
+			walked = append(walked, h.Next())
 			time.Sleep(100 * time.Millisecond)
 			logrus.Debugf("Now nano: %d", time.Now().UnixNano())
 			logrus.Debugf("Now: %s", time.Now().String())
