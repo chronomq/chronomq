@@ -145,9 +145,12 @@ func serve(conn *Connection) {
 			go stats.putJob.Incr(1)
 			body, _ := conn.ReadLineBytes()
 			conn.put(parts[1:], body)
-		case reserveWithTimeout, reserve:
+		case reserve:
 			go stats.reserveJob.Incr(1)
-			conn.reserve()
+			conn.reserve("0")
+		case reserveWithTimeout:
+			go stats.reserveJob.Incr(1)
+			conn.reserve(parts[1])
 		case deleteJob:
 			go stats.deleteJob.Incr(1)
 			conn.deleteJob(parts[1:])

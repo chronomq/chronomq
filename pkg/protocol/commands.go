@@ -71,8 +71,8 @@ func (conn *Connection) put(args []string, body []byte) error {
 	return nil
 }
 
-func (conn *Connection) reserve() {
-	j := conn.defaultTube.reserve()
+func (conn *Connection) reserve(timeoutSec string) {
+	j := conn.defaultTube.reserve(timeoutSec)
 	if j != nil {
 		conn.PrintfLine("RESERVED %s %d", j.id, j.size)
 		conn.W.Write(j.body)

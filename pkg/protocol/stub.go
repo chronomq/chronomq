@@ -43,7 +43,7 @@ type BeanstalkdSrv interface {
 type Tube interface {
 	pauseTube(delay time.Duration) error
 	put(delay int, pri int32, body []byte, ttr int) (string, error)
-	reserve() *Job
+	reserve(timeoutSec string) *Job
 	deleteJob(id int) error
 }
 
@@ -104,7 +104,11 @@ func (t *TubeStub) put(delay int, pri int32, body []byte, ttr int) (string, erro
 	return j.id, nil
 }
 
-func (t *TubeStub) reserve() *Job {
+func (t *TubeStub) reserve(timeoutSec string) *Job {
+	// ts, err := strconv.Atoi(timeoutSec)
+	// if err != nil {
+	// 	return nil
+	// }
 	for k := range t.jobs {
 		j := t.jobs[k]
 		t.reserved[j.id] = j
