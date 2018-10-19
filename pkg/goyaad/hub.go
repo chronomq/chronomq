@@ -118,6 +118,9 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 
 // AddSpoke adds spoke s to this hub
 func (h *Hub) AddSpoke(s *Spoke) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	h.spokeMap[s.spokeBound] = s
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
@@ -144,6 +147,7 @@ func (h *Hub) Next() *Job {
 
 	j := h.pastSpoke.Next()
 	if j != nil {
+		h.reserve(j)
 		logrus.Debug("Got job from past spoke")
 		return j
 	}
@@ -298,9 +302,13 @@ func (h *Hub) addToSpokesSlow(j *Job) {
 
 // Status prints the state of the spokes of this hub
 func (h *Hub) Status() {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	logrus.Info("-------------------------------------------------------------")
 	logrus.Infof("Hub has %d spokes", len(h.spokeMap))
 	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
+	logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
 	for _, s := range h.spokeMap {
