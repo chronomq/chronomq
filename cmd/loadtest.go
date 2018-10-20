@@ -22,11 +22,13 @@ var statsAddr = ":8125"
 var enqueueMode = false
 var dequeueMode = false
 var addr = ":11300"
+var sizeBytes = 100
 
 var statsConn *statsd.Client
 
 func init() {
 
+	loadTestCmd.Flags().IntVarP(&sizeBytes, "size", "z", 1000, "Job size in bytes")
 	loadTestCmd.Flags().IntVarP(&jobs, "num", "n", 1000, "Number of total jobs")
 	loadTestCmd.Flags().IntVarP(&connections, "con", "c", 5, "Number of total connections")
 	loadTestCmd.Flags().IntVarP(&maxDelaySec, "delayMax", "M", 60, "Max delay in seconds (Delay is random over delayMin, delayMax)")
@@ -168,7 +170,7 @@ func generateJobs() chan *testJob {
 	go func() {
 		for i := 0; i < jobs; i++ {
 			j := &testJob{
-				data:     randStringBytes(10), // 10b body
+				data:     randStringBytes(sizeBytes),
 				delaySec: rand.Intn(maxDelaySec-minDelaySec) + minDelaySec,
 			}
 			out <- j
