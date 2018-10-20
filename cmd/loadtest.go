@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/DataDog/datadog-go/statsd"
 	"github.com/kr/beanstalk"
 	"github.com/sirupsen/logrus"
 
@@ -16,10 +18,12 @@ var jobs = 1000
 var connections = 1000
 var maxDelaySec = 0
 var minDelaySec = 0
-var statsDPort = 8125
+var statsAddr = ":8125"
 var enqueueMode = false
 var dequeueMode = false
 var addr = ":11300"
+
+var statsConn *statsd.Client
 
 func init() {
 
@@ -27,7 +31,7 @@ func init() {
 	loadTestCmd.Flags().IntVarP(&connections, "con", "c", 5, "Number of total connections")
 	loadTestCmd.Flags().IntVarP(&maxDelaySec, "delayMax", "M", 60, "Max delay in seconds (Delay is random over delayMin, delayMax)")
 	loadTestCmd.Flags().IntVarP(&minDelaySec, "delayMin", "N", 0, "Min delay in seconds (Delay is random over delayMin, delayMax)")
-	loadTestCmd.Flags().IntVarP(&statsDPort, "statsd", "s", 8125, "StatsD port")
+	loadTestCmd.Flags().StringVarP(&statsAddr, "statsAddr", "s", ":8125", "Stats addr (host:port)")
 	loadTestCmd.Flags().BoolVarP(&enqueueMode, "enqueue", "e", false, "Enqueue jobs")
 	loadTestCmd.Flags().BoolVarP(&dequeueMode, "dequeueMode", "d", false, "Dequeue jobs")
 	loadTestCmd.Flags().StringVarP(&addr, "addr", "a", ":11300", "Server address (host:port)")
@@ -45,6 +49,16 @@ var loadTestCmd = &cobra.Command{
 }
 
 func runLoadTest() {
+	var err error
+	statsConn, err = statsd.New(statsAddr) // Connect to the UDP port 8125 by default.
+	if err != nil {
+		// If nothing is listening on the target port, an error is returned and
+		// the returned client does nothing but is still usable. So we can
+		// just log the error and go on.
+		log.Print(err)
+	}
+	defer statsConn.Close()
+
 	logrus.WithFields(logrus.Fields{
 		"MaxJobs":        jobs,
 		"MaxConnections": connections,
@@ -70,6 +84,8 @@ func runLoadTest() {
 		go func() {
 			for range deqJobs {
 				dequeueCount++
+				statsConn.Incr("yaad.dequeue", nil, 1)
+
 				if dequeueCount == jobs {
 					logrus.Infof("Dequeued all jobs: %d", dequeueCount)
 					for c := 0; c < connections; c++ {
@@ -94,7 +110,7 @@ func runLoadTest() {
 
 		if enqueueMode {
 			logrus.Infof("Enqueuing using connection: %d", c)
-			enqWG.Add(connections)
+			enqWG.Add(1)
 			go enqueue(enqWG, c, conn, enqJobs)
 		}
 
@@ -137,6 +153,8 @@ func enqueue(wg *sync.WaitGroup, c int, conn *beanstalk.Conn, jobs chan *testJob
 	defer wg.Done()
 	for j := range jobs {
 		_, err := conn.Put(j.data, 0, time.Second*time.Duration(j.delaySec), time.Second*10)
+		statsConn.Incr("yaad.enqueue", nil, 1)
+
 		if err != nil {
 			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", c)
 		}
@@ -150,7 +168,7 @@ func generateJobs() chan *testJob {
 	go func() {
 		for i := 0; i < jobs; i++ {
 			j := &testJob{
-				data:     randStringBytes(1000), // 1Kb body
+				data:     randStringBytes(10), // 10b body
 				delaySec: rand.Intn(maxDelaySec-minDelaySec) + minDelaySec,
 			}
 			out <- j
