@@ -15,8 +15,8 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	spokeBound
-	jobMap   sync.Map       // Provides quicker lookup of jobs owned by this spoke
-	jobQueue *PriorityQueue // Orders the jobs by trigger priority
+	jobMap   sync.Map      // Provides quicker lookup of jobs owned by this spoke
+	jobQueue PriorityQueue // Orders the jobs by trigger priority
 
 	lock *sync.Mutex
 }
@@ -36,8 +36,8 @@ func NewSpokeFromNow(duration time.Duration) *Spoke {
 
 // NewSpoke creates a new spoke to hold jobs
 func NewSpoke(start, end time.Time) *Spoke {
-	jq := &PriorityQueue{}
-	heap.Init(jq)
+	jq := PriorityQueue{}
+	heap.Init(&jq)
 	return &Spoke{id: uuid.NewV4(),
 		jobMap:     sync.Map{},
 		jobQueue:   jq,
@@ -88,7 +88,7 @@ func (s *Spoke) AddJob(j *Job) error {
 			"spokeEnd":     s.end.UnixNano(),
 		}).Debug("Accepting job")
 	s.jobMap.Store(j.id, j)
-	heap.Push(s.jobQueue, j.AsPriorityItem())
+	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
 }
 
@@ -108,7 +108,7 @@ func (s *Spoke) Next() *Job {
 	case Past, Current:
 		// pop from queue
 		s.jobMap.Delete(j.id)
-		heap.Pop(s.jobQueue)
+		heap.Pop(&s.jobQueue)
 		return j
 	default:
 		return nil
@@ -123,10 +123,11 @@ func (s *Spoke) CancelJob(id string) error {
 	if _, ok := s.jobMap.Load(id); ok {
 		logrus.Info("canceling from spoke job map")
 		s.jobMap.Delete(id)
-		for i, j := range *s.jobQueue {
+		// Also delete from pq
+		for i, j := range s.jobQueue {
 			if j.value.(*Job).id == id {
 				logrus.Info("canceling from spoke job q")
-				heap.Remove(s.jobQueue, i)
+				heap.Remove(&s.jobQueue, i)
 				return nil
 			}
 		}
