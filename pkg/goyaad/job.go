@@ -2,7 +2,6 @@ package goyaad
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -35,6 +34,19 @@ func NewJobAutoID(triggerAt time.Time, b *[]byte) *Job {
 		id:        fmt.Sprintf("%d", NextID()),
 		triggerAt: triggerAt,
 		body:      b,
+	}
+}
+
+// AsTemporalState returns the job's temporal classification at the point in time
+func (j *Job) AsTemporalState() TemporalState {
+	now := time.Now()
+	switch {
+	case now.After(j.triggerAt):
+		return Past
+	case j.triggerAt.After(now):
+		return Future
+	default:
+		return Past
 	}
 }
 
@@ -78,26 +90,4 @@ func (j *Job) AsBound(spokeSpan time.Duration) spokeBound {
 // AsPriorityItem returns this job as a prioritizable item
 func (j *Job) AsPriorityItem() *Item {
 	return &Item{index: 0, priority: j.triggerAt, value: j}
-}
-
-// JobsByTime implements sort.Interface for a collection of jobs //
-type JobsByTime []*Job
-
-// Len is the number of elements in the collection.
-func (b JobsByTime) Len() int {
-	return len(b)
-}
-
-// Less reports whether the element with
-// index i should sort before the element with index j.
-func (b JobsByTime) Less(i, j int) bool {
-	// If i should trigger before j, i < j
-	log.Println("i trigger at: ", b[i].triggerAt)
-	log.Println("j trigger at: ", b[i].triggerAt)
-	return b[i].triggerAt.Before(b[j].triggerAt)
-}
-
-// Swap swaps the elements with indexes i and j.
-func (b JobsByTime) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
 }

@@ -1,8 +1,8 @@
 package goyaad_test
 
 import (
+	"container/heap"
 	"math/rand"
-	"sort"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -55,14 +55,14 @@ var _ = Describe("Test spokes", func() {
 			j := NewJobAutoID(s.End().Add(time.Hour*1), nil)
 
 			// Rejects the job and returns it
-			Expect(s.AddJob(j)).To(Equal(j))
+			Expect(s.AddJob(j)).To(Not(BeNil()))
 			Expect(s.PendingJobsLen()).To(Equal(0))
 
 			// Job triggers before spoke ends
 			j = NewJobAutoID(s.Start().Add(-10*time.Minute), nil)
 
 			// Rejects the job and returns it
-			Expect(s.AddJob(j)).To(Equal(j))
+			Expect(s.AddJob(j)).To(Not(BeNil()))
 			Expect(s.PendingJobsLen()).To(Equal(0))
 		})
 
@@ -151,13 +151,17 @@ var _ = Describe("Test spokes", func() {
 			sone := NewSpoke(t.Add(1), t.Add(10))
 			stwo := NewSpoke(t.Add(20), t.Add(30))
 			sthree := NewSpoke(t.Add(50), t.Add(55))
+			ordList := []*Spoke{sone, stwo, sthree}
 
-			spokes := SpokesByTime{stwo, sone, sthree}
-			sort.Sort(spokes)
+			spokes := &PriorityQueue{stwo.AsPriorityItem(), sone.AsPriorityItem(), sthree.AsPriorityItem()}
+			heap.Init(spokes)
 
-			Expect(spokes[0].ID()).To(Equal(sone.ID()))
-			Expect(spokes[1].ID()).To(Equal(stwo.ID()))
-			Expect(spokes[2].ID()).To(Equal(sthree.ID()))
+			// Expected order pop
+			for _, spoke := range ordList {
+				s := heap.Pop(spokes)
+				item := s.(*Item)
+				Expect(item.Value().(*Spoke).ID()).To(Equal(spoke.ID()))
+			}
 		})
 	})
 })

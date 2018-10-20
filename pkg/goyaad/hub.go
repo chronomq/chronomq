@@ -15,10 +15,13 @@ const (
 
 // Hub is a time ordered collection of spokes
 type Hub struct {
-	spokeSpan    time.Duration
-	spokeMap     map[*spokeBound]*Spoke // quick lookup map
-	spokes       *PriorityQueue
-	pastSpoke    *Spoke
+	spokeSpan time.Duration
+	spokeMap  map[*spokeBound]*Spoke // quick lookup map
+	spokes    *PriorityQueue
+
+	pastSpoke    *Spoke // Permanently pinned to the past
+	currentSpoke *Spoke // The current spoke
+
 	reservedJobs map[string]*Job // This could also be a spoke that order by TTL - optimize later
 
 	removedJobsCount uint64
@@ -29,46 +32,25 @@ type Hub struct {
 // spokeSpan duration boundary.
 func NewHub(spokeSpan time.Duration) *Hub {
 	h := &Hub{
-		spokeSpan,
-		make(map[*spokeBound]*Spoke),
-		&PriorityQueue{},
-		// Spoke from -100 years to 100 years
-		NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
-		make(map[string]*Job),
-		0,
-		&sync.Mutex{},
+		spokeSpan:        spokeSpan,
+		spokeMap:         make(map[*spokeBound]*Spoke),
+		spokes:           &PriorityQueue{},
+		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
+		currentSpoke:     nil,
+		reservedJobs:     make(map[string]*Job),
+		removedJobsCount: 0,
+		lock:             &sync.Mutex{},
 	}
 	heap.Init(h.spokes)
-	go h.pruner()
 
 	logrus.WithFields(logrus.Fields{
 		"start": h.pastSpoke.start.String(),
 		"end":   h.pastSpoke.end.String(),
 	}).Debug("Created hub with past spoke")
 
-	return h
-}
+	go h.StatusPrinter()
 
-func (h *Hub) pruner() {
-	pruneT := time.NewTicker(time.Second * 5)
-	statusT := time.NewTicker(time.Second * 30)
-	for {
-		select {
-		case <-pruneT.C:
-			h.lock.Lock()
-			for k, v := range h.reservedJobs {
-				if time.Now().Sub(v.triggerAt) < v.ttr {
-					delete(h.reservedJobs, k)
-					h.AddJob(v)
-				}
-			}
-			// Also prune empty spokes
-			h.Prune()
-			h.lock.Unlock()
-		case <-statusT.C:
-			h.Status()
-		}
-	}
+	return h
 }
 
 // PendingJobsCount return the number of jobs currently pending
@@ -104,6 +86,7 @@ func (h *Hub) CancelJob(jobID string) error {
 
 // FindOwnerSpoke returns the spoke that owns this job
 func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
+
 	if h.pastSpoke.OwnsJob(jobID) {
 		return h.pastSpoke, nil
 	}
@@ -116,48 +99,85 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 	return nil, errors.New("Cannot find job owner spoke")
 }
 
-// AddSpoke adds spoke s to this hub
-func (h *Hub) AddSpoke(s *Spoke) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-
+// addSpoke adds spoke s to this hub
+func (h *Hub) addSpoke(s *Spoke) {
 	h.spokeMap[s.spokeBound] = s
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
 
 // Next returns the next job that is ready now or returns nil.
 func (h *Hub) Next() *Job {
-	h.lock.Lock()
-	defer h.lock.Unlock()
+	pastLocker := h.pastSpoke.GetLocker()
+	pastLocker.Lock()
+	defer pastLocker.Unlock()
 
+	// Find a job in past spoke
 	j := h.pastSpoke.Next()
 	if j != nil {
 		h.reserve(j)
 		logrus.Debug("Got job from past spoke")
 		return j
 	}
+	// Checked past spoke
 
-	pq := &PriorityQueue{}
-	heap.Init(pq)
-	defer h.mergeQueues(pq)
+	// Find a job in current spoke
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	// Fix the heap
+	heap.Init(h.spokes)
 
-	logrus.Debug("queries all spokes")
-	for h.spokes.Len() > 0 {
-		// iterate spokes in order
-		i := heap.Pop(h.spokes).(*Item)
-		// save it in our temp pq
-		heap.Push(pq, i)
-
-		// extract read job from this spoke
-		s := i.value.(*Spoke)
-		j = s.Next()
-		if j != nil {
-			h.reserve(j)
-			return j
+	// If current is empty and now expired, prune it...
+	if h.currentSpoke != nil {
+		if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
+			// This routine could be unfortunate - it found a currentspoke that was expired
+			// so it has the pay the price finding the next candidate
+			h.currentSpoke = nil
+			delete(h.spokeMap, h.currentSpoke.spokeBound)
 		}
 	}
 
-	return nil
+	// No currently assigned spoke
+	if h.currentSpoke == nil {
+		item := h.spokes.AtIdx(0)
+		if item == nil {
+			// No spokes - can't do anything. Return
+			return nil
+		}
+
+		// New current candidate
+		current := item.value.(*Spoke)
+		switch current.AsTemporalState() {
+		case Future:
+			// Next in time is still not current. Can't do anything. Return
+			return nil
+		case Past, Current:
+			// We have found a new current spoke
+			h.currentSpoke = current
+			// Pop it from the queue - this is now a current spoke
+			heap.Pop(h.spokes)
+		}
+	}
+
+	// Read from current spoke
+
+	// Assert - At this point, hub should have a current spoke
+	if h.currentSpoke == nil {
+		logrus.Panic("Unreachable state :: hub has a nil spoke after candidate search")
+	}
+
+	currentLocker := h.currentSpoke.GetLocker()
+	currentLocker.Lock()
+	defer currentLocker.Unlock()
+
+	j = h.currentSpoke.Next()
+	if j == nil {
+		// no job - return
+		return nil
+	}
+
+	h.reserve(j)
+
+	return j
 }
 
 func (h *Hub) reserve(j *Job) {
@@ -186,100 +206,55 @@ func (h *Hub) Prune() int {
 }
 
 // AddJob to this hub. Hub should never reject a job - this method will panic if that happens
-func (h *Hub) AddJob(j *Job) *Hub {
+func (h *Hub) AddJob(j *Job) error {
 
-	logrus.WithField("TriggerAt", j.triggerAt.UnixNano()).Debug("Adding job to hub.")
-	if !h.maybeAddToPast(j) {
-		h.addToSpokes(j)
-	}
-	return h
-}
+	switch j.AsTemporalState() {
+	case Past:
+		pastLocker := h.pastSpoke.GetLocker()
+		pastLocker.Lock()
+		defer pastLocker.Unlock()
 
-func (h *Hub) maybeAddToPast(j *Job) bool {
-	if j.triggerAt.Before(time.Now()) {
 		logrus.WithField("JobID", j.ID).Debug("Adding job to past spoke")
-		rejected := h.pastSpoke.AddJob(j)
-		if rejected != nil {
-			logrus.Error("Past spoke rejected job. This should never happen")
+		err := h.pastSpoke.AddJob(j)
+		if err != nil {
+			logrus.WithError(err).Error("Past spoke rejected job. This should never happen")
+			return err
+		}
+	case Future:
+		// Lock hub so that current spoke isn't replaced
+		h.lock.Lock()
+		defer h.lock.Unlock()
+
+		// Lock current spoke so that add fixes the PQ as it adds
+		if h.currentSpoke != nil {
+			currLocker := h.currentSpoke.GetLocker()
+			currLocker.Lock()
+			defer currLocker.Unlock()
+
+			if h.currentSpoke.ContainsJob(j) {
+				err := h.currentSpoke.AddJob(j)
+				if err != nil {
+					logrus.WithError(err).Error("Current spoke rejected job. This should never happen")
+					return err
+				}
+				return nil
+			}
 		}
 
-		return true
-	}
-
-	// rejected job
-	return false
-}
-
-func (h *Hub) addToSpokesFast(j *Job) {
-	// Traverse in order
-	scanned := 0
-	for j != nil && scanned < h.spokes.Len() {
-		s := h.spokes.AtIdx(scanned).value.(*Spoke)
-		j = s.AddJob(j)
-		if j == nil {
-			return
-		}
-		scanned++
-	}
-
-	// none of the current spokes accepted, create a new spoke for this job's bounds
-	jobBound := j.AsBound(h.spokeSpan)
-	logrus.WithFields(
-		logrus.Fields{
-			"start": jobBound.start,
-			"end":   jobBound.end}).Debug("Creating new spoke to accomodate job")
-	s := NewSpoke(jobBound.start, jobBound.end)
-	j = s.AddJob(j)
-	if j != nil {
-		logrus.WithField("JobID", j.id).Panic("Hub should always accept a job. No spoke accepted")
-	}
-	h.AddSpoke(s)
-}
-
-func (h *Hub) addToSpokes(j *Job) {
-	h.addToSpokesFast(j)
-}
-
-func (h *Hub) addToSpokesSlow(j *Job) {
-	// Traverse in order
-	acceped := false
-	pq := &PriorityQueue{}
-	heap.Init(pq)
-
-	heap.Init(h.spokes)
-
-	// Take the items out; they arrive in decreasing priority order.
-	for h.spokes.Len() > 0 {
-		i := heap.Pop(h.spokes).(*Item)
-		// Add it to the new pq - this should be cheap because we are only arranging pointers
-		heap.Push(pq, i)
-
-		s := i.value.(*Spoke)
-		j = s.AddJob(j)
-
-		if j == nil {
-			acceped = true
-			break
-		}
-	}
-	// Merge the items we extracted back into the main PQ
-	for pq.Len() > 0 {
-		heap.Push(h.spokes, heap.Pop(pq))
-	}
-	if !acceped {
-		// none of the current spokes accepted, create a new spoke for this job's bounds
+		// Just create a new spoke - the chance of collision is very small
+		// Reads are still going to be ordered anyways
 		jobBound := j.AsBound(h.spokeSpan)
-		logrus.WithFields(
-			logrus.Fields{
-				"start": jobBound.start,
-				"end":   jobBound.end}).Debug("Creating new spoke to accomodate job")
 		s := NewSpoke(jobBound.start, jobBound.end)
-		j := s.AddJob(j)
-		if j != nil {
-			logrus.WithField("JobID", j.id).Panic("Hub should always accept a job. No spoke accepted")
+		err := s.AddJob(j)
+		if err != nil {
+			logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
+			return err
 		}
-		h.AddSpoke(s)
+
+		// h is still locked here so it's ok
+		h.addSpoke(s)
 	}
+	return nil
 }
 
 // Status prints the state of the spokes of this hub
@@ -298,4 +273,12 @@ func (h *Hub) Status() {
 		logrus.Debugf("Spoke %s start: %s end %s", s.id, s.start.String(), s.end.String())
 	}
 	logrus.Info("-------------------------------------------------------------")
+}
+
+// StatusPrinter starts a status printer that prints hub stats over some time interval
+func (h *Hub) StatusPrinter() {
+	t := time.NewTicker(time.Second * 10)
+	for range t.C {
+		h.Status()
+	}
 }

@@ -10,6 +10,16 @@ type Item struct {
 	index int // The index of the item in the heap.
 }
 
+// Value pointed to by the item
+func (i *Item) Value() interface{} {
+	return i.value
+}
+
+// Priority of the item
+func (i *Item) Priority() time.Time {
+	return i.priority
+}
+
 // A PriorityQueue implements heap.Interface and holds Items.
 type PriorityQueue []*Item
 

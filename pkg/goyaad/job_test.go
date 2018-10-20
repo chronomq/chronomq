@@ -1,7 +1,7 @@
 package goyaad_test
 
 import (
-	"sort"
+	"container/heap"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -36,13 +36,15 @@ var _ = Describe("Test jobs", func() {
 			jone := NewJobAutoID(t.Add(1), nil)
 			jtwo := NewJobAutoID(t.Add(20), nil)
 			jthree := NewJobAutoID(t.Add(50), nil)
+			ordList := []*Job{jone, jtwo, jthree}
 
-			jobs := JobsByTime{jtwo, jone, jthree}
-			sort.Sort(jobs)
+			jobs := &PriorityQueue{jtwo.AsPriorityItem(), jone.AsPriorityItem(), jthree.AsPriorityItem()}
+			heap.Init(jobs)
 
-			Expect(jobs[0].ID()).To(Equal(jone.ID()))
-			Expect(jobs[1].ID()).To(Equal(jtwo.ID()))
-			Expect(jobs[2].ID()).To(Equal(jthree.ID()))
+			for _, job := range ordList {
+				j := heap.Pop(jobs).(*Item).Value().(*Job)
+				Expect(j.ID()).To(Equal(job.ID()))
+			}
 		})
 	})
 })
