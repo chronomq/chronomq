@@ -60,7 +60,7 @@ func (t *TubeYaad) pauseTube(delay time.Duration) error {
 }
 
 func (t *TubeYaad) put(delay int, pri int32, body []byte, ttr int) (string, error) {
-	j := goyaad.NewJobAutoID(time.Now().Add(time.Second*time.Duration(delay)), &body)
+	j := goyaad.NewJobAutoID(time.Now().Add(time.Second*time.Duration(delay)), body)
 	j.SetOpts(pri, time.Duration(ttr)*time.Second)
 
 	t.hub.AddJob(j)
@@ -78,9 +78,9 @@ func (t *TubeYaad) reserve(timeoutSec string) *Job {
 	// try once
 	if j := t.hub.Next(); j != nil {
 		return &Job{
-			body: *j.Body(),
+			body: j.Body(),
 			id:   j.ID(),
-			size: len(*j.Body()),
+			size: len(j.Body()),
 		}
 	}
 
@@ -91,9 +91,9 @@ func (t *TubeYaad) reserve(timeoutSec string) *Job {
 	for start.Add(time.Duration(ts) * time.Second).After(time.Now()) {
 		if j := t.hub.Next(); j != nil {
 			return &Job{
-				body: *j.Body(),
+				body: j.Body(),
 				id:   j.ID(),
-				size: len(*j.Body()),
+				size: len(j.Body()),
 			}
 		}
 		time.Sleep(time.Millisecond * 200)

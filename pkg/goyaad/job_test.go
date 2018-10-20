@@ -15,7 +15,7 @@ var _ = Describe("Test jobs", func() {
 	Context("Basic job tests", func() {
 		It("can create a job", func() {
 			b := []byte("foo")
-			j := NewJob(uuid.NewV4().String(), time.Now(), &b)
+			j := NewJob(uuid.NewV4().String(), time.Now(), b)
 			Expect(j.IsReady()).To(BeTrue())
 		})
 

@@ -289,11 +289,13 @@ func (h *Hub) Status() {
 	logrus.Info("-------------------------------------------------------------")
 	logrus.Infof("Hub has %d spokes", len(h.spokeMap))
 	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
-	// logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
+	h.lock.Lock()
+	logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
+	h.lock.Unlock()
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
 	for _, s := range h.spokeMap {
-		logrus.Debugf("Spoke %s has %d jobs", s.id, s.PendingJobsLen())
+		logrus.Infof("Spoke %s has %d jobs", s.id, s.PendingJobsLen())
 		logrus.Debugf("Spoke %s start: %s end %s", s.id, s.start.String(), s.end.String())
 	}
 	logrus.Info("-------------------------------------------------------------")

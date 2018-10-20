@@ -9,7 +9,7 @@ import (
 type Job struct {
 	id        string
 	triggerAt time.Time
-	body      *[]byte
+	body      []byte
 
 	pri int32
 	ttr time.Duration
@@ -18,7 +18,7 @@ type Job struct {
 // Impl Job
 
 //NewJob creates a new yaad job
-func NewJob(id string, triggerAt time.Time, b *[]byte) *Job {
+func NewJob(id string, triggerAt time.Time, b []byte) *Job {
 	return &Job{
 		id:        id,
 		triggerAt: triggerAt,
@@ -27,7 +27,7 @@ func NewJob(id string, triggerAt time.Time, b *[]byte) *Job {
 }
 
 // NewJobAutoID creates a job a job id assigned automatically
-func NewJobAutoID(triggerAt time.Time, b *[]byte) *Job {
+func NewJobAutoID(triggerAt time.Time, b []byte) *Job {
 	return &Job{
 		id:        fmt.Sprintf("%d", NextID()),
 		triggerAt: triggerAt,
@@ -60,7 +60,7 @@ func (j *Job) ID() string {
 }
 
 // Body returns the job of the job
-func (j *Job) Body() *[]byte {
+func (j *Job) Body() []byte {
 	return j.body
 }
 
