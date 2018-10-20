@@ -3,8 +3,6 @@ package goyaad
 import (
 	"fmt"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Job is the basic unit of work in yaad
@@ -79,10 +77,7 @@ func (j *Job) IsReady() bool {
 // AsBound returns spokeBound for a hypothetical spoke that should hold this job
 func (j *Job) AsBound(spokeSpan time.Duration) spokeBound {
 	start := j.triggerAt.Truncate(spokeSpan)
-	logrus.Debugf("Start floor unixnano: %+v", start.UnixNano())
-
 	end := start.Add(spokeSpan)
-	logrus.Debugf("End unixnano: %+v", end.UnixNano())
 
 	return spokeBound{start: start, end: end}
 }

@@ -55,6 +55,7 @@ type Connection struct {
 	*textproto.Conn
 	srv         BeanstalkdSrv
 	defaultTube Tube
+	id          int
 }
 
 // NewStubServer returns a pointer to a new yaad server
@@ -101,13 +102,15 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		return err
 	}
 
+	connectionID := 0
 	for {
 		// Wait for a connection.
 		conn, err := s.l.Accept()
-		go stats.connections.Incr(1)
 		if err != nil {
 			logrus.Fatal(err)
 		}
+		go stats.connections.Incr(1)
+		connectionID++
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
 		// multiple connections may be served concurrently.
@@ -115,7 +118,8 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		go serve(&Connection{
 			Conn:        textproto.NewConn(conn),
 			srv:         s.srv,
-			defaultTube: dt})
+			defaultTube: dt,
+			id:          connectionID})
 	}
 }
 
@@ -153,6 +157,7 @@ func serve(conn *Connection) {
 			conn.reserve(parts[1])
 		case deleteJob:
 			go stats.deleteJob.Incr(1)
+			logrus.Debugf("I am deleting job: %s cid: %d", parts[1:], conn.id)
 			conn.deleteJob(parts[1:])
 		default:
 			// Echo cmd by default

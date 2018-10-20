@@ -16,7 +16,7 @@ const (
 // Hub is a time ordered collection of spokes
 type Hub struct {
 	spokeSpan time.Duration
-	spokeMap  map[*spokeBound]*Spoke // quick lookup map
+	spokeMap  map[spokeBound]*Spoke // quick lookup map
 	spokes    *PriorityQueue
 
 	pastSpoke    *Spoke // Permanently pinned to the past
@@ -33,7 +33,7 @@ type Hub struct {
 func NewHub(spokeSpan time.Duration) *Hub {
 	h := &Hub{
 		spokeSpan:        spokeSpan,
-		spokeMap:         make(map[*spokeBound]*Spoke),
+		spokeMap:         make(map[spokeBound]*Spoke),
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
 		currentSpoke:     nil,
@@ -68,17 +68,21 @@ func (h *Hub) CancelJob(jobID string) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
+	logrus.Debug("cancel: ", jobID)
 	// Search if this job is reserved
 	if _, ok := h.reservedJobs[jobID]; ok {
+		logrus.Debug("found in reserved: ", jobID)
 		delete(h.reservedJobs, jobID)
 		h.removedJobsCount++
 		return nil
 	}
+
 	s, err := h.FindOwnerSpoke(jobID)
 	if err != nil {
+		logrus.Debug("cancel found no owner spoke: ", jobID)
 		return err
 	}
-
+	logrus.Debug("cancel found owner spoke: ", jobID)
 	s.CancelJob(jobID)
 	h.removedJobsCount++
 	return nil
@@ -89,6 +93,11 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 
 	if h.pastSpoke.OwnsJob(jobID) {
 		return h.pastSpoke, nil
+	}
+
+	// Checking the current spoke - lock the hub
+	if h.currentSpoke != nil && h.currentSpoke.OwnsJob(jobID) {
+		return h.currentSpoke, nil
 	}
 
 	for _, v := range h.spokeMap {
@@ -129,22 +138,24 @@ func (h *Hub) Next() *Job {
 	// If current is empty and now expired, prune it...
 	if h.currentSpoke != nil {
 		if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
+			logrus.Debug("pruning the current spoke")
 			// This routine could be unfortunate - it found a currentspoke that was expired
 			// so it has the pay the price finding the next candidate
-			h.currentSpoke = nil
 			delete(h.spokeMap, h.currentSpoke.spokeBound)
+			h.currentSpoke = nil
 		}
 	}
 
 	// No currently assigned spoke
 	if h.currentSpoke == nil {
-		item := h.spokes.AtIdx(0)
-		if item == nil {
+		if h.spokes.Len() == 0 {
+			logrus.Debug("No spokes")
 			// No spokes - can't do anything. Return
 			return nil
 		}
 
 		// New current candidate
+		item := h.spokes.AtIdx(0)
 		current := item.value.(*Spoke)
 		switch current.AsTemporalState() {
 		case Future:
@@ -172,9 +183,11 @@ func (h *Hub) Next() *Job {
 	j = h.currentSpoke.Next()
 	if j == nil {
 		// no job - return
+		logrus.Debug("No job in current spoke")
 		return nil
 	}
 
+	logrus.Debug("reserving job: ", j.id)
 	h.reserve(j)
 
 	return j
@@ -241,9 +254,22 @@ func (h *Hub) AddJob(j *Job) error {
 			}
 		}
 
-		// Just create a new spoke - the chance of collision is very small
+		// Search for a spoke that can take ownership of this job
 		// Reads are still going to be ordered anyways
 		jobBound := j.AsBound(h.spokeSpan)
+		candidate, ok := h.spokeMap[jobBound]
+		if ok {
+			// Found a candidate that can take this job
+			err := candidate.AddJob(j)
+			if err != nil {
+				logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
+				return err
+			}
+			// Accepted, all done...
+			return nil
+		}
+
+		// Time to create a new spoke for this job
 		s := NewSpoke(jobBound.start, jobBound.end)
 		err := s.AddJob(j)
 		if err != nil {
@@ -259,9 +285,6 @@ func (h *Hub) AddJob(j *Job) error {
 
 // Status prints the state of the spokes of this hub
 func (h *Hub) Status() {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-
 	logrus.Info("-------------------------------------------------------------")
 	logrus.Infof("Hub has %d spokes", len(h.spokeMap))
 	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())

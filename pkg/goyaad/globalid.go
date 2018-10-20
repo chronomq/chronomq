@@ -1,15 +1,14 @@
 package goyaad
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
-var globalIDCtr = 0
+var globalIDCtr uint64
 var idMutex = sync.Mutex{}
 
 // NextID generates the next int id monotonically increasing
-func NextID() int {
-	idMutex.Lock()
-	defer idMutex.Unlock()
-
-	globalIDCtr++
-	return globalIDCtr
+func NextID() uint64 {
+	return atomic.AddUint64(&globalIDCtr, 1)
 }

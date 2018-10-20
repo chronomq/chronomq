@@ -13,7 +13,7 @@ import (
 // Spoke is a time bound chain of jobs
 type Spoke struct {
 	id uuid.UUID
-	*spokeBound
+	spokeBound
 	jobMap   sync.Map
 	jobQueue *PriorityQueue
 
@@ -40,7 +40,7 @@ func NewSpoke(start, end time.Time) *Spoke {
 	return &Spoke{id: uuid.NewV4(),
 		jobMap:     sync.Map{},
 		jobQueue:   jq,
-		spokeBound: &spokeBound{start, end},
+		spokeBound: spokeBound{start, end},
 		lock:       &sync.Mutex{}}
 }
 
@@ -106,12 +106,12 @@ func (s *Spoke) Next() *Job {
 	switch j.AsTemporalState() {
 	case Past, Current:
 		// pop from queue
-		s.jobQueue.Pop()
+		s.jobMap.Delete(j.id)
+		heap.Pop(s.jobQueue)
 		return j
 	default:
 		return nil
 	}
-
 }
 
 // CancelJob will try to delete a job that hasn't been consumed yet
