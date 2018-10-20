@@ -167,10 +167,11 @@ func enqueue(wg *sync.WaitGroup, c int, conn *beanstalk.Conn, jobs chan *testJob
 func generateJobs() chan *testJob {
 	out := make(chan *testJob, connections)
 
+	data := randStringBytes(sizeBytes)
 	go func() {
 		for i := 0; i < jobs; i++ {
 			j := &testJob{
-				data:     randStringBytes(sizeBytes),
+				data:     data,
 				delaySec: rand.Intn(maxDelaySec-minDelaySec) + minDelaySec,
 			}
 			out <- j
