@@ -116,6 +116,9 @@ func (h *Hub) addSpoke(s *Spoke) {
 
 // Next returns the next job that is ready now or returns nil.
 func (h *Hub) Next() *Job {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	pastLocker := h.pastSpoke.GetLocker()
 	pastLocker.Lock()
 	defer pastLocker.Unlock()
@@ -129,12 +132,10 @@ func (h *Hub) Next() *Job {
 	}
 	// Checked past spoke
 
-	// Find a job in current spoke
-	h.lock.Lock()
-	defer h.lock.Unlock()
 	// Fix the heap
 	heap.Init(h.spokes)
 
+	// Find a job in current spoke
 	// If current is empty and now expired, prune it...
 	if h.currentSpoke != nil {
 		if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
@@ -288,7 +289,7 @@ func (h *Hub) Status() {
 	logrus.Info("-------------------------------------------------------------")
 	logrus.Infof("Hub has %d spokes", len(h.spokeMap))
 	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
-	logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
+	// logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
 	for _, s := range h.spokeMap {
