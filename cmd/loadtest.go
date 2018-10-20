@@ -141,7 +141,10 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 					logrus.WithError(err).Fatalf("Failed to dequeue for worker: %d", c)
 				}
 			}
-			conn.Delete(id)
+			err = conn.Delete(id)
+			if err != nil {
+				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
+			}
 			deqJobs <- struct{}{}
 		}
 	}()
