@@ -3,6 +3,7 @@ package goyaad
 import (
 	"container/heap"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -14,8 +15,8 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	spokeBound
-	jobMap   sync.Map
-	jobQueue *PriorityQueue
+	jobMap   sync.Map       // Provides quicker lookup of jobs owned by this spoke
+	jobQueue *PriorityQueue // Orders the jobs by trigger priority
 
 	lock *sync.Mutex
 }
@@ -115,19 +116,22 @@ func (s *Spoke) Next() *Job {
 }
 
 // CancelJob will try to delete a job that hasn't been consumed yet
-func (s *Spoke) CancelJob(id string) {
+func (s *Spoke) CancelJob(id string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	if _, ok := s.jobMap.Load(id); ok {
+		logrus.Info("canceling from spoke job map")
 		s.jobMap.Delete(id)
 		for i, j := range *s.jobQueue {
 			if j.value.(*Job).id == id {
+				logrus.Info("canceling from spoke job q")
 				heap.Remove(s.jobQueue, i)
-				break
+				return nil
 			}
 		}
 	}
+	return fmt.Errorf("Cannot find job to cancel")
 }
 
 // OwnsJob returns true if a job by given id is owned by this spoke
