@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
@@ -21,12 +24,17 @@ var minDelaySec = 0
 var statsAddr = ":8125"
 var enqueueMode = false
 var dequeueMode = false
+var msTolerance = 1000
+var enableTolerance = false
 var addr = ":11300"
 var sizeBytes = 100
 
 var statsConn *statsd.Client
 
 func init() {
+
+	loadTestCmd.Flags().IntVarP(&msTolerance, "msTolerance", "t", 1000, "Dequeued jobs time order tolerance in ms. Consumed jobs can't be monotonic due to clock jumps")
+	loadTestCmd.Flags().BoolVarP(&enableTolerance, "enableTolerance", "T", false, "Calculate time tolerance")
 
 	loadTestCmd.Flags().IntVarP(&sizeBytes, "size", "z", 1000, "Job size in bytes")
 	loadTestCmd.Flags().IntVarP(&jobs, "num", "n", 1000, "Number of total jobs")
@@ -129,9 +137,13 @@ func runLoadTest() {
 
 func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan struct{}, stopDeq chan struct{}) {
 
+	// 10 Ms tolerance because clocks are not monotonous
+	toleranceNS := float64(time.Millisecond.Nanoseconds() * 1000)
+
 	go func() {
+		var prevTriggerAt int64
 		for {
-			id, _, err := conn.Reserve(time.Second * 1)
+			id, body, err := conn.Reserve(time.Second * 1)
 			if err != nil {
 				switch err {
 				case beanstalk.ErrTimeout:
@@ -141,6 +153,21 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 					logrus.WithError(err).Fatalf("Failed to dequeue for worker: %d", c)
 				}
 			}
+
+			if enableTolerance {
+				parts := bytes.Split(body, []byte(` `))
+				triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
+				if err != nil {
+					logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", c)
+				}
+				delta := math.Abs(float64(triggerAt - prevTriggerAt))
+
+				if delta > toleranceNS && prevTriggerAt > 0 {
+					logrus.Fatalf("Dequeue got jobs out of order for worker: %d triggerAt: %d, prevTriggerAt: %d", c, triggerAt, prevTriggerAt)
+				}
+				prevTriggerAt = triggerAt
+			}
+
 			err = conn.Delete(id)
 			if err != nil {
 				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
@@ -169,14 +196,27 @@ func enqueue(wg *sync.WaitGroup, c int, conn *beanstalk.Conn, jobs chan *testJob
 
 func generateJobs() chan *testJob {
 	out := make(chan *testJob, connections)
-
 	data := randStringBytes(sizeBytes)
 	go func() {
 		for i := 0; i < jobs; i++ {
-			j := &testJob{
-				data:     data,
-				delaySec: rand.Intn(maxDelaySec-minDelaySec) + minDelaySec,
+			delaySec := rand.Intn(maxDelaySec-minDelaySec) + minDelaySec
+			triggerAt := time.Now().Add(time.Second * time.Duration(delaySec))
+			// Save the trigger at delay with the body so that we can verify order later on dequeue
+			// By converting it to a time, it gives us global natural ordering...
+			var j *testJob
+			if enableTolerance {
+				body := []byte(strconv.FormatInt(triggerAt.UnixNano(), 10) + " ")
+				j = &testJob{
+					data:     append(body, data...),
+					delaySec: delaySec,
+				}
+			} else {
+				j = &testJob{
+					data:     data,
+					delaySec: delaySec,
+				}
 			}
+
 			out <- j
 		}
 		close(out)
