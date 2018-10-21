@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	// logrus.SetLevel(logrus.DebugLevel)
 	go func() {
 		log.Println(http.ListenAndServe(":6060", nil))
 	}()

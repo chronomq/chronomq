@@ -16,7 +16,6 @@ type SrvYaad struct {
 // TubeYaad implements a yaad hub as a beanstalkd tube
 type TubeYaad struct {
 	name     string
-	reserved map[string]*goyaad.Job
 	paused   bool
 	jobIDCtr int
 	// Backed by a yaad hub
@@ -27,10 +26,9 @@ type TubeYaad struct {
 func NewSrvYaad() BeanstalkdSrv {
 	y := SrvYaad{make(map[string]Tube)}
 	t := &TubeYaad{
-		name:     "default",
-		reserved: make(map[string]*goyaad.Job),
-		paused:   false,
-		hub:      goyaad.NewHub(time.Second * 5),
+		name:   "default",
+		paused: false,
+		hub:    goyaad.NewHub(time.Second * 5),
 	}
 	y.tubes[t.name] = t
 	return &y

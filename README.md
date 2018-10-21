@@ -1,4 +1,3 @@
-=======
 ###A simple beanstalkd-like job queue implementation in go
 
 ##### Goals
@@ -30,3 +29,4 @@ whose `trigger time` is in the past. The `Hub` walks this spoke before walking a
 the start of each rotation. This way, we maintain a total order on `trigger_at` times for all
 Jobs that we accept responsibility for.
 
+- `ulimit -Sv 500000` 500mb mem limit for load testing mem leaks locally

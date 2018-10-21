@@ -1,14 +1,9 @@
 package protocol
 
 import (
-	"errors"
-	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/sirupsen/logrus"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -27,11 +22,11 @@ const (
 )
 
 func (conn *Connection) listTubes() {
-	listsYML, _ := yaml.Marshal(conn.srv.listTubes())
+	// listsYML, _ := yaml.Marshal(conn.srv.listTubes())
 
-	preamble := fmt.Sprintf("OK %d", len(listsYML))
-	conn.Writer.PrintfLine("%s", preamble)
-	conn.Writer.PrintfLine("%s", listsYML)
+	// preamble := fmt.Sprintf("OK %d", len(listsYML))
+	// conn.Writer.PrintfLine("%s", preamble)
+	// conn.Writer.PrintfLine("%s", listsYML)
 }
 
 func (conn *Connection) listTubeUsed() {
@@ -39,23 +34,23 @@ func (conn *Connection) listTubeUsed() {
 }
 
 func (conn *Connection) pauseTube(args []string) error {
-	if len(args) != 2 {
-		return errors.New("Pause tube missing args")
-	}
-	name := args[0]
-	t, err := conn.srv.getTube(name)
-	if err != nil {
-		conn.Writer.PrintfLine("NOT_FOUND")
-		return nil
-	}
+	// if len(args) != 2 {
+	// 	return errors.New("Pause tube missing args")
+	// }
+	// name := args[0]
+	// t, err := conn.defaultTube
+	// if err != nil {
+	// 	conn.Writer.PrintfLine("NOT_FOUND")
+	// 	return nil
+	// }
 
-	delayStr := args[1]
-	d, err := strconv.Atoi(delayStr)
-	if err != nil {
-		return err
-	}
-	t.pauseTube(time.Duration(d))
-	conn.Writer.PrintfLine("PAUSED")
+	// delayStr := args[1]
+	// d, err := strconv.Atoi(delayStr)
+	// if err != nil {
+	// 	return err
+	// }
+	// t.pauseTube(time.Duration(d))
+	// conn.Writer.PrintfLine("PAUSED")
 	return nil
 }
 
@@ -77,7 +72,10 @@ func (conn *Connection) reserve(timeoutSec string) {
 		conn.PrintfLine("RESERVED %s %d", j.id, j.size)
 		conn.W.Write(j.body)
 		conn.PrintfLine("")
+		return
 	}
+
+	conn.PrintfLine("TIMED_OUT")
 }
 
 func (conn *Connection) deleteJob(args []string) {

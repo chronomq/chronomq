@@ -132,14 +132,11 @@ func (h *Hub) Next() *Job {
 	}
 	// Checked past spoke
 
-	// Fix the heap
-	heap.Init(h.spokes)
-
 	// Find a job in current spoke
 	// If current is empty and now expired, prune it...
 	if h.currentSpoke != nil {
 		if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
-			logrus.Debug("pruning the current spoke")
+			logrus.Info("pruning the current spoke")
 			// This routine could be unfortunate - it found a currentspoke that was expired
 			// so it has the pay the price finding the next candidate
 			delete(h.spokeMap, h.currentSpoke.spokeBound)
@@ -149,8 +146,10 @@ func (h *Hub) Next() *Job {
 
 	// No currently assigned spoke
 	if h.currentSpoke == nil {
+		// Fix the heap
+		heap.Init(h.spokes)
+
 		if h.spokes.Len() == 0 {
-			logrus.Debug("No spokes")
 			// No spokes - can't do anything. Return
 			return nil
 		}
@@ -167,6 +166,9 @@ func (h *Hub) Next() *Job {
 			h.currentSpoke = current
 			// Pop it from the queue - this is now a current spoke
 			heap.Pop(h.spokes)
+			logrus.Infof("Hub spoke pop cap: %d", h.spokes.Cap())
+			// h.spokes = h.spokes.Shrink()
+			// logrus.Infof("Shrink: Hub spoke cap: %d", h.spokes.Cap())
 		}
 	}
 
@@ -224,6 +226,7 @@ func (h *Hub) AddJob(j *Job) error {
 
 	switch j.AsTemporalState() {
 	case Past:
+		logrus.Debugf("Adding job: %s to past spoke", j.id)
 		pastLocker := h.pastSpoke.GetLocker()
 		pastLocker.Lock()
 		defer pastLocker.Unlock()
@@ -235,6 +238,7 @@ func (h *Hub) AddJob(j *Job) error {
 			return err
 		}
 	case Future:
+		logrus.Debugf("Adding job: %s to future spoke", j.id)
 		// Lock hub so that current spoke isn't replaced
 		h.lock.Lock()
 		defer h.lock.Unlock()
@@ -246,6 +250,7 @@ func (h *Hub) AddJob(j *Job) error {
 			defer currLocker.Unlock()
 
 			if h.currentSpoke.ContainsJob(j) {
+				logrus.Infof("IGNORING - Current spoke contains job: %s", j.id)
 				err := h.currentSpoke.AddJob(j)
 				if err != nil {
 					logrus.WithError(err).Error("Current spoke rejected job. This should never happen")
@@ -261,6 +266,7 @@ func (h *Hub) AddJob(j *Job) error {
 		candidate, ok := h.spokeMap[jobBound]
 		if ok {
 			// Found a candidate that can take this job
+			logrus.Debugf("Adding job: %s to candidate spoke", j.id)
 			err := candidate.AddJob(j)
 			if err != nil {
 				logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
@@ -271,6 +277,7 @@ func (h *Hub) AddJob(j *Job) error {
 		}
 
 		// Time to create a new spoke for this job
+		logrus.Infof("Adding job: %s to new spoke", j.id)
 		s := NewSpoke(jobBound.start, jobBound.end)
 		err := s.AddJob(j)
 		if err != nil {
@@ -291,13 +298,24 @@ func (h *Hub) Status() {
 	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
 	h.lock.Lock()
 	logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
-	h.lock.Unlock()
+	// for _, j := range h.reservedJobs {
+	// 	logrus.Infof("Hub has reserved job: %s", j.id)
+	// }
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
 	for _, s := range h.spokeMap {
 		logrus.Infof("Spoke %s has %d jobs", s.id, s.PendingJobsLen())
 		logrus.Debugf("Spoke %s start: %s end %s", s.id, s.start.String(), s.end.String())
 	}
+
+	logrus.Infof("current Spoke is nil %v", h.currentSpoke == nil)
+
+	c := *h.spokes
+	foo := c[:cap(*h.spokes)]
+	for i, s := range foo {
+		logrus.Infof("Spoke from cap: %d is %v", i, s)
+	}
+	h.lock.Unlock()
 	logrus.Info("-------------------------------------------------------------")
 }
 

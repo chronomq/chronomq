@@ -73,6 +73,7 @@ func runLoadTest() {
 		"MaxJobs":        jobs,
 		"MaxConnections": connections,
 		"MaxDelaySec":    maxDelaySec,
+		"MinDelaySec":    minDelaySec,
 		"EnqueueMode":    enqueueMode,
 		"DequeueMode":    dequeueMode,
 		"Addr":           addr,
@@ -83,6 +84,7 @@ func runLoadTest() {
 
 	stopDeq := make(chan struct{})
 	deqJobs := make(chan struct{})
+	data := randStringBytes(sizeBytes)
 
 	if jobs == 0 {
 		dequeueMode = false
@@ -108,7 +110,7 @@ func runLoadTest() {
 
 	var enqJobs chan *testJob
 	if enqueueMode {
-		enqJobs = generateJobs()
+		enqJobs = generateJobs(data)
 	}
 
 	for c := 0; c < connections; c++ {
@@ -127,7 +129,7 @@ func runLoadTest() {
 		if dequeueMode {
 			deqWG.Add(1)
 			logrus.Infof("Dequeuing using connection: %d", c)
-			go dequeue(deqWG, c, conn, deqJobs, stopDeq)
+			go dequeue(deqWG, c, conn, deqJobs, stopDeq, data)
 		}
 	}
 
@@ -135,7 +137,7 @@ func runLoadTest() {
 	deqWG.Wait()
 }
 
-func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan struct{}, stopDeq chan struct{}) {
+func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
 
 	// 10 Ms tolerance because clocks are not monotonous
 	toleranceNS := float64(time.Millisecond.Nanoseconds() * 1000)
@@ -145,13 +147,23 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 		for {
 			id, body, err := conn.Reserve(time.Second * 1)
 			if err != nil {
-				switch err {
-				case beanstalk.ErrTimeout:
-					// ok?
+				cerr, ok := err.(beanstalk.ConnError)
+				if !ok {
+					logrus.WithError(err).Fatalf("expected a beanstalkd ConnError - error type unknown")
+				}
+				if ok && cerr.Err == beanstalk.ErrTimeout {
+					// no jobs ready yet - this returns err timout
+					// break this batch iteration, wait for next tick
+					logrus.Infof("Reserve timedout...")
 					continue
-				default:
+				} else {
 					logrus.WithError(err).Fatalf("Failed to dequeue for worker: %d", c)
 				}
+			}
+			logrus.Infof("Reserved: %d", id)
+			err = conn.Delete(id)
+			if err != nil {
+				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
 			}
 
 			if enableTolerance {
@@ -168,10 +180,11 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 				prevTriggerAt = triggerAt
 			}
 
-			err = conn.Delete(id)
-			if err != nil {
-				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
+			if !bytes.Equal(body, data) {
+				logrus.Fatalf("Dequeue got wrong body for worker: %d Expected: %s Got: %s",
+					c, data, body)
 			}
+
 			deqJobs <- struct{}{}
 		}
 	}()
@@ -194,9 +207,8 @@ func enqueue(wg *sync.WaitGroup, c int, conn *beanstalk.Conn, jobs chan *testJob
 	logrus.Infof("Connection: %c done enqueueing", c)
 }
 
-func generateJobs() chan *testJob {
+func generateJobs(data []byte) chan *testJob {
 	out := make(chan *testJob, connections)
-	data := randStringBytes(sizeBytes)
 	go func() {
 		for i := 0; i < jobs; i++ {
 			delaySec := rand.Intn(maxDelaySec-minDelaySec) + minDelaySec
@@ -233,6 +245,7 @@ type testJob struct {
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func randStringBytes(n int) []byte {
+	rand.Seed(0)
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]

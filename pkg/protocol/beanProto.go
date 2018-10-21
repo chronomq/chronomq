@@ -53,7 +53,7 @@ type Server struct {
 // Connection implements a yaad + beanstalkd protocol server
 type Connection struct {
 	*textproto.Conn
-	srv         BeanstalkdSrv
+	// srv         BeanstalkdSrv
 	defaultTube Tube
 	id          int
 }
@@ -102,7 +102,6 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		return err
 	}
 
-	connectionID := 0
 	for {
 		// Wait for a connection.
 		conn, err := s.l.Accept()
@@ -110,16 +109,15 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 			logrus.Fatal(err)
 		}
 		go stats.connections.Incr(1)
-		connectionID++
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
 		// multiple connections may be served concurrently.
 		dt, _ := s.srv.getTube("default")
+		logrus.Debugf("num tubes: %d", len(s.srv.listTubes()))
 		go serve(&Connection{
-			Conn:        textproto.NewConn(conn),
-			srv:         s.srv,
-			defaultTube: dt,
-			id:          connectionID})
+			Conn: textproto.NewConn(conn),
+			// srv:         s.srv,
+			defaultTube: dt})
 	}
 }
 
@@ -129,8 +127,10 @@ func serve(conn *Connection) {
 		if err != nil || line == "quit" {
 			err := conn.Close()
 			if err != nil {
-				logrus.Error(err)
+				logrus.WithError(err).Panic("Error closing proto connection")
 			}
+			// conn.srv = nil
+			conn = nil
 			return
 		}
 
@@ -147,8 +147,11 @@ func serve(conn *Connection) {
 			conn.pauseTube(parts[1:])
 		case put:
 			go stats.putJob.Incr(1)
-			body, _ := conn.ReadLineBytes()
-			conn.put(parts[1:], body)
+			body, err := conn.ReadLine()
+			if err != nil {
+				logrus.WithError(err).Fatal("error reading data")
+			}
+			conn.put(parts[1:], []byte(body))
 		case reserve:
 			go stats.reserveJob.Incr(1)
 			conn.reserve("0")

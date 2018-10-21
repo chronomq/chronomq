@@ -15,7 +15,7 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	spokeBound
-	jobMap   sync.Map      // Provides quicker lookup of jobs owned by this spoke
+	jobMap   *sync.Map     // Provides quicker lookup of jobs owned by this spoke
 	jobQueue PriorityQueue // Orders the jobs by trigger priority
 
 	lock *sync.Mutex
@@ -39,7 +39,7 @@ func NewSpoke(start, end time.Time) *Spoke {
 	jq := PriorityQueue{}
 	heap.Init(&jq)
 	return &Spoke{id: uuid.NewV4(),
-		jobMap:     sync.Map{},
+		jobMap:     &sync.Map{},
 		jobQueue:   jq,
 		spokeBound: spokeBound{start, end},
 		lock:       &sync.Mutex{}}
