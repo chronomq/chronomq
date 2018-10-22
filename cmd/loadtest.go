@@ -175,9 +175,12 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
 			}
 
-			if enableTolerance {
-				parts := bytes.Split(body, []byte(` `))
+			parts := bytes.Split(body, []byte(` `))
+			if len(parts) == 2 {
 				body = parts[1] // leave just the body for equality check
+			}
+
+			if enableTolerance {
 				triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", c)
