@@ -3,11 +3,14 @@ package protocol
 import (
 	"net"
 	"net/textproto"
+	"runtime"
 	"strings"
+	"time"
 
 	metrics "github.com/classdojo/governor/metrics"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
 /*
@@ -53,19 +56,21 @@ type Server struct {
 // Connection implements a yaad + beanstalkd protocol server
 type Connection struct {
 	*textproto.Conn
-	// srv         BeanstalkdSrv
+	srv         BeanstalkdSrv
 	defaultTube Tube
 	id          int
 }
 
 // NewStubServer returns a pointer to a new yaad server
-func NewStubServer() *Server {
-	return &Server{srv: NewSrvStub()}
-}
+// func NewStubServer() *Server {
+// 	return &Server{srv: NewSrvStub()}
+// }
 
 // NewYaadServer returns a pointer to a new yaad server
 func NewYaadServer() *Server {
-	return &Server{srv: NewSrvYaad()}
+	return &Server{
+		srv: NewSrvYaad(),
+	}
 }
 
 // Listen to connections
@@ -102,6 +107,12 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		return err
 	}
 
+	tube := &TubeYaad{
+		name:   "default",
+		paused: false,
+		hub:    goyaad.NewHub(time.Second * 5),
+	}
+	connectionID := 0
 	for {
 		// Wait for a connection.
 		conn, err := s.l.Accept()
@@ -109,15 +120,15 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 			logrus.Fatal(err)
 		}
 		go stats.connections.Incr(1)
+		connectionID++
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
 		// multiple connections may be served concurrently.
-		dt, _ := s.srv.getTube("default")
-		logrus.Debugf("num tubes: %d", len(s.srv.listTubes()))
 		go serve(&Connection{
-			Conn: textproto.NewConn(conn),
-			// srv:         s.srv,
-			defaultTube: dt})
+			Conn:        textproto.NewConn(conn),
+			srv:         s.srv,
+			defaultTube: tube,
+			id:          connectionID})
 	}
 }
 
@@ -129,7 +140,7 @@ func serve(conn *Connection) {
 			if err != nil {
 				logrus.WithError(err).Panic("Error closing proto connection")
 			}
-			// conn.srv = nil
+			conn.srv = nil
 			conn = nil
 			return
 		}
@@ -140,28 +151,34 @@ func serve(conn *Connection) {
 		logrus.Debugf("Serving cmd: %s", cmd)
 		switch cmd {
 		case listTubes:
-			conn.listTubes()
+			listTubesCmd(conn)
 		case listTubeUsed:
-			conn.listTubeUsed()
+			listTubeUsedCmd(conn)
 		case pauseTube:
-			conn.pauseTube(parts[1:])
+			logrus.Info("REleasing memory to os ;-)")
+			runtime.GC()
+			// debug.FreeOSMemory()
+			pauseTubeCmd(conn, parts[1:])
 		case put:
 			go stats.putJob.Incr(1)
-			body, err := conn.ReadLine()
+			body, err := conn.ReadLineBytes()
 			if err != nil {
 				logrus.WithError(err).Fatal("error reading data")
 			}
-			conn.put(parts[1:], []byte(body))
+			data := make([]byte, len(body))
+			copy(data, body)
+			body = nil
+			putCmd(conn, parts[1:], data[:])
 		case reserve:
 			go stats.reserveJob.Incr(1)
-			conn.reserve("0")
+			reserveCmd(conn, "0")
 		case reserveWithTimeout:
 			go stats.reserveJob.Incr(1)
-			conn.reserve(parts[1])
+			reserveCmd(conn, parts[1])
 		case deleteJob:
 			go stats.deleteJob.Incr(1)
 			logrus.Debugf("I am deleting job: %s cid: %d", parts[1:], conn.id)
-			conn.deleteJob(parts[1:])
+			deleteJobCmd(conn, parts[1:])
 		default:
 			// Echo cmd by default
 			conn.Writer.PrintfLine("%s", line)

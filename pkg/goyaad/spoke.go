@@ -87,7 +87,7 @@ func (s *Spoke) AddJob(j *Job) error {
 			"spokeStart":   s.start.UnixNano(),
 			"spokeEnd":     s.end.UnixNano(),
 		}).Debug("Accepting job")
-	s.jobMap.Store(j.id, j)
+	s.jobMap.Store(j.id, true)
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
 }

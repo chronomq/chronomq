@@ -61,7 +61,10 @@ func (t *TubeYaad) put(delay int, pri int32, body []byte, ttr int) (string, erro
 	j := goyaad.NewJobAutoID(time.Now().Add(time.Second*time.Duration(delay)), body)
 	j.SetOpts(pri, time.Duration(ttr)*time.Second)
 
-	t.hub.AddJob(j)
+	err := t.hub.AddJob(j)
+	if err != nil {
+		return "", err
+	}
 	t.jobIDCtr++
 	return j.ID(), nil
 }
