@@ -82,7 +82,7 @@ func runLoadTest() {
 	enqWG := &sync.WaitGroup{}
 	deqWG := &sync.WaitGroup{}
 
-	stopDeq := make(chan struct{})
+	stopDeq := make(chan struct{}, connections)
 	deqJobs := make(chan struct{})
 	data := randStringBytes(sizeBytes)
 
@@ -94,6 +94,7 @@ func runLoadTest() {
 	if dequeueMode {
 		dequeueCount := 0
 		go func() {
+			logrus.Info("Dequeue sink chan starting...")
 			for range deqJobs {
 				dequeueCount++
 				statsConn.Incr("yaad.dequeue", nil, 1)
@@ -114,26 +115,32 @@ func runLoadTest() {
 	}
 
 	for c := 0; c < connections; c++ {
-		logrus.Infof("Creating connection: %d", c)
-		conn, err := beanstalk.Dial("tcp", addr)
-		if err != nil {
-			logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
-		}
-
 		if enqueueMode {
+			logrus.Infof("Creating enqueue connection: %d", c)
+			conn, err := beanstalk.Dial("tcp", addr)
+			if err != nil {
+				logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+			}
 			logrus.Infof("Enqueuing using connection: %d", c)
 			enqWG.Add(1)
 			go enqueue(enqWG, c, conn, enqJobs)
 		}
 
 		if dequeueMode {
+			logrus.Infof("Creating dequeue connection: %d", c)
+			conn, err := beanstalk.Dial("tcp", addr)
+			if err != nil {
+				logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+			}
 			deqWG.Add(1)
 			logrus.Infof("Dequeuing using connection: %d", c)
 			go dequeue(deqWG, c, conn, deqJobs, stopDeq, data)
 		}
 	}
 
+	logrus.Info("waiting for enqueue to end")
 	enqWG.Wait()
+	logrus.Info("waiting for dequeue to end")
 	deqWG.Wait()
 }
 
@@ -146,6 +153,7 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 		var prevTriggerAt int64
 		for {
 			id, body, err := conn.Reserve(time.Second * 1)
+
 			if err != nil {
 				cerr, ok := err.(beanstalk.ConnError)
 				if !ok {
@@ -154,13 +162,14 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 				if ok && cerr.Err == beanstalk.ErrTimeout {
 					// no jobs ready yet - this returns err timout
 					// break this batch iteration, wait for next tick
-					logrus.Infof("Reserve timedout...")
+					logrus.Debug("Reserve timedout...")
 					continue
 				} else {
 					logrus.WithError(err).Fatalf("Failed to dequeue for worker: %d", c)
 				}
 			}
-			logrus.Infof("Reserved: %d", id)
+
+			logrus.Debugf("Reserved: %d", id)
 			err = conn.Delete(id)
 			if err != nil {
 				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
@@ -168,6 +177,7 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 
 			if enableTolerance {
 				parts := bytes.Split(body, []byte(` `))
+				body = parts[1] // leave just the body for equality check
 				triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", c)

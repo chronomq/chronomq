@@ -70,11 +70,12 @@ func (t *TubeYaad) put(delay int, pri int32, body []byte, ttr int) (string, erro
 }
 
 func (t *TubeYaad) reserve(timeoutSec string) *Job {
-	start := time.Now()
 	ts, err := strconv.Atoi(timeoutSec)
 	if err != nil {
+		logrus.Errorf("Error parsing timeout: %s", err)
 		return nil
 	}
+
 	logrus.Debug("yaad srv reserve")
 	// try once
 	if j := t.hub.Next(); j != nil {
@@ -84,12 +85,14 @@ func (t *TubeYaad) reserve(timeoutSec string) *Job {
 			size: len(j.Body()),
 		}
 	}
-
 	if ts == 0 {
 		return nil
 	}
+
+	waitTill := time.Now().Add(time.Duration(ts) * time.Second)
 	// wait for timeout and keep trying
-	for start.Add(time.Duration(ts) * time.Second).After(time.Now()) {
+	logrus.Debug("waiting for reserve: ", timeoutSec)
+	for waitTill.After(time.Now()) {
 		if j := t.hub.Next(); j != nil {
 			return &Job{
 				body: j.Body(),
@@ -99,7 +102,7 @@ func (t *TubeYaad) reserve(timeoutSec string) *Job {
 		}
 		time.Sleep(time.Millisecond * 200)
 	}
-	logrus.Debug("yaad srv reserve done")
+	logrus.Debug("yaad srv reserve done - no job found")
 	return nil
 }
 

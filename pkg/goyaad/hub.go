@@ -250,7 +250,6 @@ func (h *Hub) AddJob(j *Job) error {
 			defer currLocker.Unlock()
 
 			if h.currentSpoke.ContainsJob(j) {
-				logrus.Infof("IGNORING - Current spoke contains job: %s", j.id)
 				err := h.currentSpoke.AddJob(j)
 				if err != nil {
 					logrus.WithError(err).Error("Current spoke rejected job. This should never happen")

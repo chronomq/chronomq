@@ -76,7 +76,10 @@ func reserveCmd(conn *Connection, timeoutSec string) {
 		conn.PrintfLine("RESERVED %s %d", j.id, j.size)
 		conn.W.Write(j.body)
 		conn.PrintfLine("")
+		return
 	}
+	// Timeout reserve - try later
+	conn.PrintfLine("TIMED_OUT")
 }
 
 func deleteJobCmd(conn *Connection, args []string) {
