@@ -294,33 +294,19 @@ func (h *Hub) AddJob(j *Job) error {
 func (h *Hub) Status() {
 	logrus.Info("-------------------------------------------------------------")
 	logrus.Infof("Hub has %d spokes", len(h.spokeMap))
-	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
 	h.lock.Lock()
+	logrus.Infof("Hub has %d total jobs", h.PendingJobsCount())
 	logrus.Infof("Hub has %d reserved jobs", len(h.reservedJobs))
-	// for _, j := range h.reservedJobs {
-	// 	logrus.Infof("Hub has reserved job: %s", j.id)
-	// }
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
-	for _, s := range h.spokeMap {
-		logrus.Infof("Spoke %s has %d jobs", s.id, s.PendingJobsLen())
-		logrus.Debugf("Spoke %s start: %s end %s", s.id, s.start.String(), s.end.String())
-	}
-
 	logrus.Infof("current Spoke is nil %v", h.currentSpoke == nil)
-
-	c := *h.spokes
-	foo := c[:cap(*h.spokes)]
-	for i, s := range foo {
-		logrus.Infof("Spoke from cap: %d is %v", i, s)
-	}
 	h.lock.Unlock()
 	logrus.Info("-------------------------------------------------------------")
 }
 
 // StatusPrinter starts a status printer that prints hub stats over some time interval
 func (h *Hub) StatusPrinter() {
-	t := time.NewTicker(time.Second * 10)
+	t := time.NewTicker(time.Minute * 2)
 	for range t.C {
 		h.Status()
 	}
