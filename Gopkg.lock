@@ -10,14 +10,6 @@
   version = "2.0.0"
 
 [[projects]]
-  digest = "1:c02ca1ea5578b82e80c8801ad3e5e0b8bfc8245c0e0bdaf38c752685678f4585"
-  name = "github.com/classdojo/governor"
-  packages = ["metrics"]
-  pruneopts = "UT"
-  revision = "ce274e02beb8b72b136689ad6a7f3a677a7f7bab"
-  version = "v1.0.38"
-
-[[projects]]
   digest = "1:a1038ef593beb4771c8f0f9c26e8b00410acd800af5c6864651d9bf160ea1813"
   name = "github.com/hpcloud/tail"
   packages = [
@@ -222,7 +214,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/DataDog/datadog-go/statsd",
-    "github.com/classdojo/governor/metrics",
     "github.com/kr/beanstalk",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",

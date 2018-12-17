@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	metrics "github.com/classdojo/governor/metrics"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
@@ -26,6 +25,12 @@ const (
 	text dataType = iota
 	body
 )
+
+// Metrics
+var putJobCtr = "beanproto.putjob"
+var deleteJobCtr = "beanproto.deletejob"
+var reserveJobCtr = "beanproto.reservejob"
+var connectionsCtr = "beanproto.connections"
 
 const yamlFMT = "---\n%s"
 
@@ -60,13 +65,11 @@ type Connection struct {
 	id          int
 }
 
-// NewStubServer returns a pointer to a new yaad server
-// func NewStubServer() *Server {
-// 	return &Server{srv: NewSrvStub()}
-// }
-
 // NewYaadServer returns a pointer to a new yaad server
-func NewYaadServer() *Server {
+func NewYaadServer(stub bool) *Server {
+	if stub {
+		return &Server{srv: NewSrvStub()}
+	}
 	return &Server{
 		srv: NewSrvYaad(),
 	}
@@ -94,12 +97,6 @@ func (s *Server) Close() error {
 
 // ListenAndServe starts listening for new connections (blocking)
 func (s *Server) ListenAndServe(protocol, address string) error {
-	metrics.SetupMetrics(true, "goyaad.beanproto")
-	stats = &protoMetrics{}
-	stats.putJob = metrics.NewCounter("putjob")
-	stats.deleteJob = metrics.NewCounter("deletejob")
-	stats.reserveJob = metrics.NewCounter("reservejob")
-	stats.connections = metrics.NewCounter("connections")
 
 	if err := s.Listen(protocol, address); err != nil {
 		return err
@@ -117,7 +114,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		if err != nil {
 			logrus.Fatal(err)
 		}
-		go stats.connections.Incr(1)
+		go goyaad.IncrMetric(connectionsCtr)
 		connectionID++
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
@@ -131,6 +128,8 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 }
 
 func serve(conn *Connection) {
+	defer goyaad.DecrMetric(connectionsCtr)
+
 	for {
 		line, err := conn.ReadLine()
 		if err != nil || line == "quit" {
@@ -155,7 +154,7 @@ func serve(conn *Connection) {
 		case pauseTube:
 			pauseTubeCmd(conn, parts[1:])
 		case put:
-			go stats.putJob.Incr(1)
+			go goyaad.IncrMetric(putJobCtr)
 			body, err := conn.ReadLineBytes()
 			if err != nil {
 				logrus.WithError(err).Fatal("error reading data")
@@ -165,13 +164,13 @@ func serve(conn *Connection) {
 			body = nil
 			putCmd(conn, parts[1:], data[:])
 		case reserve:
-			go stats.reserveJob.Incr(1)
+			go goyaad.MetricsClient.Incr(reserveJobCtr, nil, 1)
 			reserveCmd(conn, "0")
 		case reserveWithTimeout:
-			go stats.reserveJob.Incr(1)
+			go goyaad.IncrMetric(reserveJobCtr)
 			reserveCmd(conn, parts[1])
 		case deleteJob:
-			go stats.deleteJob.Incr(1)
+			go goyaad.IncrMetric(deleteJobCtr)
 			deleteJobCmd(conn, parts[1:])
 		default:
 			// Echo cmd by default
@@ -179,12 +178,3 @@ func serve(conn *Connection) {
 		}
 	}
 }
-
-type protoMetrics struct {
-	connections metrics.Counter
-	putJob      metrics.Counter
-	deleteJob   metrics.Counter
-	reserveJob  metrics.Counter
-}
-
-var stats *protoMetrics

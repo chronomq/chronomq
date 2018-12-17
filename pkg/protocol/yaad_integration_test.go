@@ -20,7 +20,7 @@ var _ = Describe("Test protocol:", func() {
 	BeforeSuite(func(done Done) {
 		defer close(done)
 
-		srv = protocol.NewYaadServer()
+		srv = protocol.NewYaadServer(false)
 		go func() {
 			ExpectNoErr(srv.ListenAndServe(proto, addr))
 		}()

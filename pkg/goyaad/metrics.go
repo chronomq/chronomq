@@ -30,3 +30,13 @@ func ReportTime(name string, start time.Time) {
 		logrus.Error(err)
 	}
 }
+
+// IncrMetric increments the given metric name
+func IncrMetric(name string) error {
+	return MetricsClient.Incr(name, nil, 1)
+}
+
+// DecrMetric decrements the given metric name
+func DecrMetric(name string) error {
+	return MetricsClient.Decr(name, nil, 1)
+}

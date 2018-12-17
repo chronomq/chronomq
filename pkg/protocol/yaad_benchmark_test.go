@@ -10,7 +10,7 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
-var srv = protocol.NewYaadServer()
+var srv = protocol.NewYaadServer(false)
 var addr = ":9000"
 var proto = "tcp"
 var bconn *beanstalk.Conn
