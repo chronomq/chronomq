@@ -221,6 +221,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/DataDog/datadog-go/statsd",
     "github.com/classdojo/governor/metrics",
     "github.com/kr/beanstalk",
     "github.com/onsi/ginkgo",
