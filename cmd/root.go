@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
@@ -36,6 +37,7 @@ func runServer() {
 		logrus.Fatal("Invalid log-level provided: ", logLevel)
 	}
 	logrus.SetLevel(lvl)
+	goyaad.InitMetrics(statsAddr)
 
 	s := protocol.NewYaadServer()
 	log.Fatal(s.ListenAndServe("tcp", addr))
