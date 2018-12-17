@@ -75,11 +75,11 @@ func (j *Job) IsReady() bool {
 }
 
 // AsBound returns spokeBound for a hypothetical spoke that should hold this job
-func (j *Job) AsBound(spokeSpan time.Duration) spokeBound {
+func (j *Job) AsBound(spokeSpan time.Duration) SpokeBound {
 	start := j.triggerAt.Truncate(spokeSpan)
 	end := start.Add(spokeSpan)
 
-	return spokeBound{start: start, end: end}
+	return SpokeBound{start: start, end: end}
 }
 
 // AsPriorityItem returns this job as a prioritizable item

@@ -16,7 +16,7 @@ const (
 // Hub is a time ordered collection of spokes
 type Hub struct {
 	spokeSpan time.Duration
-	spokeMap  map[spokeBound]*Spoke // quick lookup map
+	spokeMap  map[SpokeBound]*Spoke // quick lookup map
 	spokes    *PriorityQueue
 
 	pastSpoke    *Spoke // Permanently pinned to the past
@@ -33,7 +33,7 @@ type Hub struct {
 func NewHub(spokeSpan time.Duration) *Hub {
 	h := &Hub{
 		spokeSpan:        spokeSpan,
-		spokeMap:         make(map[spokeBound]*Spoke),
+		spokeMap:         make(map[SpokeBound]*Spoke),
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
 		currentSpoke:     nil,
@@ -112,7 +112,7 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 
 // addSpoke adds spoke s to this hub
 func (h *Hub) addSpoke(s *Spoke) {
-	h.spokeMap[s.spokeBound] = s
+	h.spokeMap[s.SpokeBound] = s
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
 
@@ -143,7 +143,7 @@ func (h *Hub) Next() *Job {
 			logrus.Info("pruning the current spoke")
 			// This routine could be unfortunate - it found a currentspoke that was expired
 			// so it has the pay the price finding the next candidate
-			delete(h.spokeMap, h.currentSpoke.spokeBound)
+			delete(h.spokeMap, h.currentSpoke.SpokeBound)
 			h.currentSpoke = nil
 		}
 	}
