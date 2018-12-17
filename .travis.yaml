@@ -1,0 +1,12 @@
+language: go
+
+go:
+  - 1.10.x
+  - 1.11.x
+
+before_install:
+  - go get -v golang.org/x/lint/golint
+
+script:
+  - golint pkg/... cmd/...
+  - go test -cpu=1,2 -v -tags integration ./...
