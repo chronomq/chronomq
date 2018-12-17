@@ -14,7 +14,7 @@ import (
 // Spoke is a time bound chain of jobs
 type Spoke struct {
 	id uuid.UUID
-	spokeBound
+	SpokeBound
 	jobMap   *sync.Map     // Provides quicker lookup of jobs owned by this spoke
 	jobQueue PriorityQueue // Orders the jobs by trigger priority
 
@@ -41,7 +41,7 @@ func NewSpoke(start, end time.Time) *Spoke {
 	return &Spoke{id: uuid.NewV4(),
 		jobMap:     &sync.Map{},
 		jobQueue:   jq,
-		spokeBound: spokeBound{start, end},
+		SpokeBound: SpokeBound{start, end},
 		lock:       &sync.Mutex{}}
 }
 

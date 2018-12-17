@@ -2,8 +2,6 @@ package goyaad
 
 import (
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // An Item is something we manage in a priority queue.
@@ -27,8 +25,10 @@ func (i *Item) Priority() time.Time {
 // A PriorityQueue implements heap.Interface and holds Items.
 type PriorityQueue []*Item
 
+// Len returns the current length of the underlying array of the PriorityQueue
 func (pq PriorityQueue) Len() int { return len(pq) }
 
+// Cap returns the current capacity of the underlying array of the Priority Queue
 func (pq PriorityQueue) Cap() int { return cap(pq) }
 
 // Less defines item ordering. Priority is defined by trigger time in the future
@@ -60,31 +60,10 @@ func (pq *PriorityQueue) Pop() interface{} {
 	old = append(old[:n], old[n+1:]...)
 	old[:n+1][n] = nil
 
-	// old[n-1] = nil
 	item.index = -1 // for safety
 
-	// *pq = make([]*Item, n-1)
-	// copy(*pq, old[0:n-1])
-
-	// copy(old[n-1:], old[n+1:])
-	// old[len(old)-1] = nil // or the zero value of T
-	// *pq = old[:len(old)-1]
-
-	// *pq = old[0 : n-1]
-	// old[n-1] = nil
 	*pq = old
 	return item
-}
-
-func (pq *PriorityQueue) Shrink() *PriorityQueue {
-	old := *pq
-	smaller := make(PriorityQueue, len(old))
-	logrus.Infof("Shrinking: old ptr: %p smaller ptr: %p", pq, smaller)
-	logrus.Infof("Shrinking: old cap: %d: new cap: %d", cap(old), cap(smaller))
-
-	copy(smaller, old)
-	logrus.Infof("Shrinking: new ptr: %p cap: %d", pq, cap(*pq))
-	return &smaller
 }
 
 // AtIdx gets item at given index
