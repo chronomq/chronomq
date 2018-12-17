@@ -304,28 +304,28 @@ func (h *Hub) Status() {
 
 	spokesCount := len(h.spokeMap)
 	logrus.Infof("Hub has %d spokes", spokesCount)
-	GuageMetricInt("hub.spoke.count", spokesCount)
+	GaugeMetricInt("hub.spoke.count", spokesCount)
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
 	pendingJobCount := h.PendingJobsCount()
 	logrus.Infof("Hub has %d total jobs", pendingJobCount)
-	GuageMetricInt("hub.job.count", pendingJobCount)
+	GaugeMetricInt("hub.job.count", pendingJobCount)
 
 	reservedJobCount := len(h.reservedJobs)
 	logrus.Infof("Hub has %d reserved jobs", reservedJobCount)
-	GuageMetricInt("hub.job.reserved.count", reservedJobCount)
+	GaugeMetricInt("hub.job.reserved.count", reservedJobCount)
 
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
-	GuageMetric("hub.job.removed.count", float64(h.removedJobsCount))
+	GaugeMetric("hub.job.removed.count", float64(h.removedJobsCount))
 
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
-	GuageMetricInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
+	GaugeMetricInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
 	if h.currentSpoke != nil {
 		logrus.Infof("Current spoke has %d jobs", h.currentSpoke.PendingJobsLen())
-		GuageMetricInt("hub.job.pastspoke.count", h.currentSpoke.PendingJobsLen())
+		GaugeMetricInt("hub.job.pastspoke.count", h.currentSpoke.PendingJobsLen())
 	}
 
 	logrus.Infof("Assigned current spoke: %v", h.currentSpoke == nil)

@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// logrus.SetLevel(logrus.DebugLevel)
-	// More Aggresive GC
+	// More Aggressive GC
 	if os.Getenv("GOGC") == "" {
 		log.Println("Applying default GC tuning")
 		debug.SetGCPercent(5)
