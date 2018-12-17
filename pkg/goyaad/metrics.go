@@ -40,3 +40,13 @@ func IncrMetric(name string) error {
 func DecrMetric(name string) error {
 	return MetricsClient.Decr(name, nil, 1)
 }
+
+// GuageMetric sends a guage metric
+func GuageMetric(name string, val float64) error {
+	return MetricsClient.Gauge(name, val, nil, 1)
+}
+
+// GuageMetricInt sends a guage metric
+func GuageMetricInt(name string, val int) error {
+	return MetricsClient.Gauge(name, float64(val), nil, 1)
+}
