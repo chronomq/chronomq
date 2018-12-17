@@ -94,7 +94,7 @@ func (s *Server) Close() error {
 
 // ListenAndServe starts listening for new connections (blocking)
 func (s *Server) ListenAndServe(protocol, address string) error {
-	metrics.SetupMetrics(true, "yaad")
+	metrics.SetupMetrics(true, "goyaad.beanproto")
 	stats = &protoMetrics{}
 	stats.putJob = metrics.NewCounter("putjob")
 	stats.deleteJob = metrics.NewCounter("deletejob")
