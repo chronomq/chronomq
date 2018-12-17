@@ -6,11 +6,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 
 	"testing"
 )
 
 func TestYaad(t *testing.T) {
+	goyaad.InitMetrics("unix://dev/null")
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(GinkgoWriter)
 	log.SetOutput(GinkgoWriter)
