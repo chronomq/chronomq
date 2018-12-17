@@ -3,7 +3,6 @@ package protocol
 import (
 	"net"
 	"net/textproto"
-	"runtime"
 	"strings"
 	"time"
 
@@ -155,9 +154,6 @@ func serve(conn *Connection) {
 		case listTubeUsed:
 			listTubeUsedCmd(conn)
 		case pauseTube:
-			logrus.Info("REleasing memory to os ;-)")
-			runtime.GC()
-			// debug.FreeOSMemory()
 			pauseTubeCmd(conn, parts[1:])
 		case put:
 			go stats.putJob.Incr(1)
@@ -177,7 +173,6 @@ func serve(conn *Connection) {
 			reserveCmd(conn, parts[1])
 		case deleteJob:
 			go stats.deleteJob.Incr(1)
-			logrus.Debugf("I am deleting job: %s cid: %d", parts[1:], conn.id)
 			deleteJobCmd(conn, parts[1:])
 		default:
 			// Echo cmd by default
