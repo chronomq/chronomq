@@ -10,6 +10,18 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
+var logLevel = "INFO"
+var addr = ":11300"
+var statsAddr = ":8125"
+
+func init() {
+	rootCmd.Flags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
+
+	// Global persistent flags
+	rootCmd.PersistentFlags().StringVarP(&addr, "addr", "a", ":11300", "Set listen addr (host:port)")
+	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", ":8125", "Stats addr (host:port)")
+}
+
 var rootCmd = &cobra.Command{
 	Short: "goyaad",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -18,12 +30,15 @@ var rootCmd = &cobra.Command{
 }
 
 func runServer() {
-	logrus.Info("I AM GROOT!")
-	// logrus.SetLevel(logrus.DebugLevel)
+	logrus.Info("Starting Goyaad")
+	lvl, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		logrus.Fatal("Invalid log-level provided: ", logLevel)
+	}
+	logrus.SetLevel(lvl)
 
 	s := protocol.NewYaadServer()
-
-	log.Fatal(s.ListenAndServe("tcp", ":11300"))
+	log.Fatal(s.ListenAndServe("tcp", addr))
 }
 
 // Execute root cmd by default

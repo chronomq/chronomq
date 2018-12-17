@@ -21,12 +21,12 @@ var jobs = 1000
 var connections = 1000
 var maxDelaySec = 0
 var minDelaySec = 0
-var statsAddr = ":8125"
+
 var enqueueMode = false
 var dequeueMode = false
 var msTolerance = 1000
 var enableTolerance = false
-var addr = ":11300"
+
 var sizeBytes = 100
 
 var statsConn *statsd.Client
@@ -41,10 +41,9 @@ func init() {
 	loadTestCmd.Flags().IntVarP(&connections, "con", "c", 5, "Number of total connections")
 	loadTestCmd.Flags().IntVarP(&maxDelaySec, "delayMax", "M", 60, "Max delay in seconds (Delay is random over delayMin, delayMax)")
 	loadTestCmd.Flags().IntVarP(&minDelaySec, "delayMin", "N", 0, "Min delay in seconds (Delay is random over delayMin, delayMax)")
-	loadTestCmd.Flags().StringVarP(&statsAddr, "statsAddr", "s", ":8125", "Stats addr (host:port)")
+
 	loadTestCmd.Flags().BoolVarP(&enqueueMode, "enqueue", "e", false, "Enqueue jobs")
 	loadTestCmd.Flags().BoolVarP(&dequeueMode, "dequeueMode", "d", false, "Dequeue jobs")
-	loadTestCmd.Flags().StringVarP(&addr, "addr", "a", ":11300", "Server address (host:port)")
 
 	rootCmd.AddCommand(loadTestCmd)
 }

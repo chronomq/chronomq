@@ -78,11 +78,10 @@ func (s *Server) Listen(protocol, address string) error {
 		return errors.Errorf("Cannot listen to non-tcp connections. Given protocol: %s", protocol)
 	}
 	l, err := net.Listen(protocol, address)
-	logrus.Info("Server bound to socket")
-
 	if err != nil {
 		return errors.Wrap(err, "Cannot start protocol server")
 	}
+	logrus.Info("Server bound to socket at: ", l.Addr().String())
 
 	s.l = l
 	return nil
