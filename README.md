@@ -1,13 +1,15 @@
-###A simple beanstalkd-like job queue implementation in go
+# A simple beanstalkd-like job queue implementation in go
 
-##### Goals
+[![Go Report Card](https://goreportcard.com/badge/github.com/urjitbhatia/goyaad)](https://goreportcard.com/report/github.com/urjitbhatia/goyaad)
+[![Build Status](https://travis-ci.com/urjitbhatia/goyaad.svg?branch=master)](https://travis-ci.com/urjitbhatia/goyaad)
 
-- Start with a in-memory data structure
-- Support beanstalkd wire protocol?
-- Make all Job operations zero-copy
+## Goals
+
+- Partial support beanstalkd wire protocol
+  - Only supports a single default tube and put, reserve, cancel operations
 - Allow a disk mapped mode (fully mapped, lazily mapped, full in-mem)
 
-##### Architecture
+## Architecture
 
 The most fitting architectural analogy for this is to imagine a bicycle wheel.
 This wheel spins only in the forward direction (arrow-of-time). At any instant, a `Spoke`
@@ -19,8 +21,6 @@ An `active Spoke` is a `Spoke` whose:
 - `Start Time` is `<= SystemTime::now`  `&&`
 - `SystemTime::now <=` the `Start Time + Active Duration`
 
-No two spokes can have overlapping intervals of time responsibility. [TODO: Add unit test]
-
 Each `Spoke` points to a list of `Jobs` that should trigger sometime during the spoke's
 time bounds - asking a `Spoke` for ready jobs is called `Spoke walking`.
 
@@ -29,4 +29,11 @@ whose `trigger time` is in the past. The `Hub` walks this spoke before walking a
 the start of each rotation. This way, we maintain a total order on `trigger_at` times for all
 Jobs that we accept responsibility for.
 
-- `ulimit -Sv 500000` 500mb mem limit for load testing mem leaks locally
+## Notes
+
+- Use `ulimit -Sv 500000` 500mb mem limit for load testing mem leaks locally
+
+## Running
+
+- `goyaad -addr localhost:11300 -s localhost:8125` starts the goyaad server listening at 11300 on localhost and sends statsd metrics to 8125.
+- Run `goyaad -help` for more information
