@@ -14,5 +14,5 @@ func TestYaad(t *testing.T) {
 	logrus.SetOutput(GinkgoWriter)
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Yaad Protocol Suite")
+	RunSpecs(t, "GoYaad Protocol Suite")
 }
