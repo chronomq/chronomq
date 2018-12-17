@@ -3,16 +3,15 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/DataDog/datadog-go/statsd"
 	"github.com/kr/beanstalk"
 	"github.com/sirupsen/logrus"
+	"github.com/urjitbhatia/goyaad/pkg/metrics"
 
 	"github.com/spf13/cobra"
 )
@@ -28,8 +27,6 @@ var msTolerance = 1000
 var enableTolerance = false
 
 var sizeBytes = 100
-
-var statsConn *statsd.Client
 
 func init() {
 
@@ -62,15 +59,7 @@ var loadTestCmd = &cobra.Command{
 }
 
 func runLoadTest() {
-	var err error
-	statsConn, err = statsd.New(statsAddr) // Connect to the UDP port 8125 by default.
-	if err != nil {
-		// If nothing is listening on the target port, an error is returned and
-		// the returned client does nothing but is still usable. So we can
-		// just log the error and go on.
-		log.Print(err)
-	}
-	defer statsConn.Close()
+	metrics.InitMetrics(statsAddr)
 
 	logrus.WithFields(logrus.Fields{
 		"MaxJobs":        jobs,
@@ -100,7 +89,7 @@ func runLoadTest() {
 			logrus.Info("Dequeue sink chan starting...")
 			for range deqJobs {
 				dequeueCount++
-				statsConn.Incr("yaad.dequeue", nil, 1)
+				metrics.Incr("loadtest.dequeue")
 
 				if dequeueCount == jobs {
 					logrus.Infof("Dequeued all jobs: %d", dequeueCount)
@@ -214,7 +203,7 @@ func enqueue(wg *sync.WaitGroup, c int, conn *beanstalk.Conn, jobs chan *testJob
 	defer wg.Done()
 	for j := range jobs {
 		_, err := conn.Put(j.data, 0, time.Second*time.Duration(j.delaySec), time.Second*10)
-		statsConn.Incr("yaad.enqueue", nil, 1)
+		metrics.Incr("loadtest.enqueue")
 
 		if err != nil {
 			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", c)

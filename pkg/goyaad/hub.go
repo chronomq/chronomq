@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/urjitbhatia/goyaad/pkg/metrics"
 )
 
 const (
@@ -65,7 +66,7 @@ func (h *Hub) PendingJobsCount() int {
 
 // CancelJob cancels a job if found. Calls are noop for unknown jobs
 func (h *Hub) CancelJob(jobID string) error {
-	IncrMetric("hub.cancel.req")
+	metrics.Incr("hub.cancel.req")
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
@@ -86,7 +87,7 @@ func (h *Hub) CancelJob(jobID string) error {
 	logrus.Debug("cancel found owner spoke: ", jobID)
 	s.CancelJob(jobID)
 	h.removedJobsCount++
-	IncrMetric("hub.cancel.ok")
+	metrics.Incr("hub.cancel.ok")
 	return nil
 }
 
@@ -118,7 +119,7 @@ func (h *Hub) addSpoke(s *Spoke) {
 
 // Next returns the next job that is ready now or returns nil.
 func (h *Hub) Next() *Job {
-	defer ReportTime("hub.next.search.duration", time.Now())
+	defer metrics.Time("hub.next.search.duration", time.Now())
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -227,8 +228,8 @@ func (h *Hub) Prune() int {
 
 // AddJob to this hub. Hub should never reject a job - this method will panic if that happens
 func (h *Hub) AddJob(j *Job) error {
-	defer ReportTime("hub.job.add.duration", time.Now())
-	MetricsClient.Gauge("hub.job.size", float64(len(j.body)), nil, 1)
+	defer metrics.Time("hub.job.add.duration", time.Now())
+	metrics.GaugeInt("hub.job.size", len(j.body))
 
 	switch j.AsTemporalState() {
 	case Past:
@@ -243,7 +244,7 @@ func (h *Hub) AddJob(j *Job) error {
 			logrus.WithError(err).Error("Past spoke rejected job. This should never happen")
 			return err
 		}
-		IncrMetric("hub.addjob.past")
+		metrics.Incr("hub.addjob.past")
 	case Future:
 		logrus.Debugf("Adding job: %s to future spoke", j.id)
 		// Lock hub so that current spoke isn't replaced
@@ -294,7 +295,7 @@ func (h *Hub) AddJob(j *Job) error {
 		// h is still locked here so it's ok
 		h.addSpoke(s)
 	}
-	IncrMetric("hub.addjob")
+	metrics.Incr("hub.addjob")
 	return nil
 }
 
@@ -304,33 +305,31 @@ func (h *Hub) Status() {
 
 	spokesCount := len(h.spokeMap)
 	logrus.Infof("Hub has %d spokes", spokesCount)
-	GaugeMetricInt("hub.spoke.count", spokesCount)
+	metrics.GaugeInt("hub.spoke.count", spokesCount)
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
 	pendingJobCount := h.PendingJobsCount()
 	logrus.Infof("Hub has %d total jobs", pendingJobCount)
-	GaugeMetricInt("hub.job.count", pendingJobCount)
+	metrics.GaugeInt("hub.job.count", pendingJobCount)
 
 	reservedJobCount := len(h.reservedJobs)
 	logrus.Infof("Hub has %d reserved jobs", reservedJobCount)
-	GaugeMetricInt("hub.job.reserved.count", reservedJobCount)
+	metrics.GaugeInt("hub.job.reserved.count", reservedJobCount)
 
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
-	GaugeMetric("hub.job.removed.count", float64(h.removedJobsCount))
+	metrics.Gauge("hub.job.removed.count", float64(h.removedJobsCount))
 
 	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
-	GaugeMetricInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
+	metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
 	if h.currentSpoke != nil {
 		logrus.Infof("Current spoke has %d jobs", h.currentSpoke.PendingJobsLen())
-		GaugeMetricInt("hub.job.pastspoke.count", h.currentSpoke.PendingJobsLen())
+		metrics.GaugeInt("hub.job.pastspoke.count", h.currentSpoke.PendingJobsLen())
 	}
 
 	logrus.Infof("Assigned current spoke: %v", h.currentSpoke == nil)
-	MetricsClient.Flush()
-
 	logrus.Info("-------------------------------------------------------------")
 }
 

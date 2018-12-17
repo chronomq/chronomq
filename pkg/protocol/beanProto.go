@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/metrics"
 )
 
 /*
@@ -114,7 +115,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		if err != nil {
 			logrus.Fatal(err)
 		}
-		go goyaad.IncrMetric(connectionsCtr)
+		go metrics.Incr(connectionsCtr)
 		connectionID++
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
@@ -128,7 +129,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 }
 
 func serve(conn *Connection) {
-	defer goyaad.DecrMetric(connectionsCtr)
+	defer metrics.Decr(connectionsCtr)
 
 	for {
 		line, err := conn.ReadLine()
@@ -154,7 +155,7 @@ func serve(conn *Connection) {
 		case pauseTube:
 			pauseTubeCmd(conn, parts[1:])
 		case put:
-			go goyaad.IncrMetric(putJobCtr)
+			go metrics.Incr(putJobCtr)
 			body, err := conn.ReadLineBytes()
 			if err != nil {
 				logrus.WithError(err).Fatal("error reading data")
@@ -163,13 +164,13 @@ func serve(conn *Connection) {
 			copy(data, body)
 			putCmd(conn, parts[1:], data[:])
 		case reserve:
-			go goyaad.MetricsClient.Incr(reserveJobCtr, nil, 1)
+			go metrics.Incr(reserveJobCtr)
 			reserveCmd(conn, "0")
 		case reserveWithTimeout:
-			go goyaad.IncrMetric(reserveJobCtr)
+			go metrics.Incr(reserveJobCtr)
 			reserveCmd(conn, parts[1])
 		case deleteJob:
-			go goyaad.IncrMetric(deleteJobCtr)
+			go metrics.Incr(deleteJobCtr)
 			deleteJobCmd(conn, parts[1:])
 		default:
 			// Echo cmd by default
