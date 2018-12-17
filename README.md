@@ -2,6 +2,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/urjitbhatia/goyaad)](https://goreportcard.com/report/github.com/urjitbhatia/goyaad)
 [![Build Status](https://travis-ci.com/urjitbhatia/goyaad.svg?branch=master)](https://travis-ci.com/urjitbhatia/goyaad)
+[![GoDoc](https://godoc.org/github.com/urjitbhatia/goyaad/pkg?status.svg)](https://godoc.org/github.com/urjitbhatia/goyaad/pkg)
 
 ## Goals
 
