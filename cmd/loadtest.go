@@ -54,6 +54,10 @@ var loadTestCmd = &cobra.Command{
 	Short: "Run a yaad loadtest",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running Yaad load test")
+
+		if !enqueueMode && !dequeueMode {
+			logrus.Fatal("One of enqueue mode or dequeue mode required. See --help.")
+		}
 		runLoadTest()
 	},
 }
