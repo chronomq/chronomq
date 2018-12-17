@@ -39,7 +39,7 @@ func runServer() {
 	logrus.SetLevel(lvl)
 	goyaad.InitMetrics(statsAddr)
 
-	s := protocol.NewYaadServer()
+	s := protocol.NewYaadServer(false)
 	log.Fatal(s.ListenAndServe("tcp", addr))
 }
 
