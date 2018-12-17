@@ -161,7 +161,6 @@ func serve(conn *Connection) {
 			}
 			data := make([]byte, len(body))
 			copy(data, body)
-			body = nil
 			putCmd(conn, parts[1:], data[:])
 		case reserve:
 			go goyaad.MetricsClient.Incr(reserveJobCtr, nil, 1)
