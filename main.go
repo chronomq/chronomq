@@ -10,6 +10,13 @@ import (
 	"github.com/urjitbhatia/goyaad/cmd"
 )
 
+// Set by gorelease during binary
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	// logrus.SetLevel(logrus.DebugLevel)
 	// More Aggressive GC
