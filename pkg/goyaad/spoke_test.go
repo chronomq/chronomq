@@ -19,19 +19,16 @@ var _ = Describe("Test spokes", func() {
 
 			// Starts in an hour, ends in 2 hours
 			s := NewSpoke(t.Add(time.Hour*1), t.Add(time.Hour*2))
-			Expect(s.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
 			Expect(s.IsReady()).To(BeFalse())
 			Expect(s.IsExpired()).To(BeFalse())
 
 			// Starts now, ends in 10 hours
 			s = NewSpokeFromNow(time.Hour * 10)
-			Expect(s.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
 			Expect(s.IsReady()).To(BeTrue())
 			Expect(s.IsExpired()).To(BeFalse())
 
 			// Ends in the past for the next tick
 			s = NewSpokeFromNow(0)
-			Expect(s.ID()).To(BeAssignableToTypeOf(uuid.NewV4()))
 			Expect(s.IsReady()).To(BeTrue())
 			Expect(s.IsExpired()).To(BeTrue())
 		})
