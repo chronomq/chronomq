@@ -33,16 +33,16 @@ var _ = Describe("Test hub", func() {
 	It("walks job from a hub in proper order - with timeout", func(done Done) {
 		defer close(done)
 
-		// hub with spokes spanning  3000 microseconds (Faster for testing)
-		h := NewHub(time.Microsecond * 3000)
+		// hub with spokes spanning  3000 nanosec (Faster for testing)
+		h := NewHub(time.Nanosecond * 3000)
 
-		// Add a jobs with a random trigger time in the future - max 9999 Microseconds
-		jobs := [2]*Job{}
+		// Add a jobs with a random trigger time in the future - max 9999 nanosec
+		jobs := [1000]*Job{}
 		for i := 0; i < len(jobs); i++ {
 			// Some jobs could already be in the past
-			triggerAt := time.Now().Add(time.Microsecond * time.Duration(rand.Intn(9999)))
+			triggerAt := time.Now().Add(time.Nanosecond * time.Duration(rand.Intn(9999)))
 			if rand.Float32() <= 0.2 {
-				triggerAt = time.Now().Add(time.Microsecond * time.Duration(-1*rand.Intn(9999)))
+				triggerAt = time.Now().Add(time.Nanosecond * time.Duration(-1*rand.Intn(9999)))
 			}
 
 			logrus.Debugf("Adding test job to trigger at: %s", triggerAt.String())
@@ -66,11 +66,6 @@ var _ = Describe("Test hub", func() {
 		walked := []*Job{}
 		for h.PendingJobsCount() > 0 {
 			walked = append(walked, h.Next())
-			time.Sleep(100 * time.Millisecond)
-			logrus.Debugf("Now nano: %d", time.Now().UnixNano())
-			logrus.Debugf("Now: %s", time.Now().String())
-
-			h.Status()
 		}
 
 		// Expect correct order
@@ -82,9 +77,8 @@ var _ = Describe("Test hub", func() {
 			prev = j
 		}
 
-		Expect(h.Prune() > 0).To(BeTrue())
 		Expect(h.PendingJobsCount()).To(Equal(0))
 
-	}, 0.500)
+	}, 1.500)
 
 })
