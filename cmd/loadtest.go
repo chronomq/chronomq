@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -23,14 +22,14 @@ var minDelaySec = 0
 
 var enqueueMode = false
 var dequeueMode = false
-var msTolerance = 1000
+var nsTolerance int64 = 1000
 var enableTolerance = false
 
 var sizeBytes = 100
 
 func init() {
 
-	loadTestCmd.Flags().IntVarP(&msTolerance, "msTolerance", "t", 1000, "Dequeued jobs time order tolerance in ms. Consumed jobs can't be monotonic due to clock jumps")
+	loadTestCmd.Flags().Int64VarP(&nsTolerance, "nsTolerance", "t", 1000, "Dequeued jobs time order tolerance in ns. Consumed jobs can't be monotonic due to clock jumps and beanstalk protocol limitations")
 	loadTestCmd.Flags().BoolVarP(&enableTolerance, "enableTolerance", "T", false, "Calculate time tolerance")
 
 	loadTestCmd.Flags().IntVarP(&sizeBytes, "size", "z", 1000, "Job size in bytes")
@@ -139,9 +138,6 @@ func runLoadTest() {
 
 func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
 
-	// 10 Ms tolerance because clocks are not monotonous
-	toleranceNS := float64(time.Millisecond.Nanoseconds() * 1000)
-
 	go func() {
 		var prevTriggerAt int64
 		for {
@@ -173,15 +169,26 @@ func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan st
 				body = parts[1] // leave just the body for equality check
 			}
 
+			// check order with tolerance because clocks are not monotonous
+			// and beanstalkd protocol asks for delay rather than a direct trigger time.
 			if enableTolerance {
 				triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", c)
 				}
-				delta := math.Abs(float64(triggerAt - prevTriggerAt))
 
-				if delta > toleranceNS && prevTriggerAt > 0 {
-					logrus.Fatalf("Dequeue got jobs out of order for worker: %d triggerAt: %d, prevTriggerAt: %d", c, triggerAt, prevTriggerAt)
+				triggerAtTime := time.Unix(0, triggerAt)
+				prevTriggerAtTime := time.Unix(0, prevTriggerAt)
+				logrus.Debugf("Prev trigger at: %s Trigger at: %s", prevTriggerAtTime, triggerAtTime)
+
+				if triggerAtTime.Before(prevTriggerAtTime) {
+					diff := prevTriggerAt - triggerAt
+					if diff >= nsTolerance {
+						logrus.Errorf("Dequeue got jobs out of order for worker: %d\n\ttriggerAt:\t%s,\n\tprevTriggerAt:\t%s\n\tdelta:\t%d,\n\ttrigger.sub(prev):\t%f ms",
+							c, triggerAtTime, prevTriggerAtTime, prevTriggerAtTime.Sub(triggerAtTime), float64(diff)/1e6)
+						logrus.Fatalf("\ttriggerAtNS:\t%d,\n\tprevTriggerAtNS:\t%d\n\ttrigger.sub(prev):\t%d ns",
+							triggerAt, prevTriggerAt, diff)
+					}
 				}
 				prevTriggerAt = triggerAt
 			}
@@ -219,6 +226,7 @@ func generateJobs(data []byte) chan *testJob {
 		for i := 0; i < jobs; i++ {
 			delaySec := rand.Intn(maxDelaySec-minDelaySec) + minDelaySec
 			triggerAt := time.Now().Add(time.Second * time.Duration(delaySec))
+
 			// Save the trigger at delay with the body so that we can verify order later on dequeue
 			// By converting it to a time, it gives us global natural ordering...
 			var j *testJob
@@ -234,7 +242,6 @@ func generateJobs(data []byte) chan *testJob {
 					delaySec: delaySec,
 				}
 			}
-
 			out <- j
 		}
 		close(out)
