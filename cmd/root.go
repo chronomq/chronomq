@@ -16,7 +16,7 @@ var addr = ":11300"
 var statsAddr = ":8125"
 
 func init() {
-	rootCmd.Flags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
 
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVarP(&addr, "addr", "a", ":11300", "Set listen addr (host:port)")
@@ -26,17 +26,13 @@ func init() {
 var rootCmd = &cobra.Command{
 	Short: "goyaad",
 	Run: func(cmd *cobra.Command, args []string) {
+		setLogLevel()
 		runServer()
 	},
 }
 
 func runServer() {
 	logrus.Info("Starting Goyaad")
-	lvl, err := logrus.ParseLevel(logLevel)
-	if err != nil {
-		logrus.Fatal("Invalid log-level provided: ", logLevel)
-	}
-	logrus.SetLevel(lvl)
 	metrics.InitMetrics(statsAddr)
 
 	s := protocol.NewYaadServer(false)
@@ -49,4 +45,12 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func setLogLevel() {
+	lvl, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		logrus.Fatal("Invalid log-level provided: ", logLevel)
+	}
+	logrus.SetLevel(lvl)
 }

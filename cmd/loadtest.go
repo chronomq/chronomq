@@ -49,6 +49,7 @@ var loadTestCmd = &cobra.Command{
 	Use:   "loadtest",
 	Short: "Run a yaad loadtest",
 	Run: func(cmd *cobra.Command, args []string) {
+		setLogLevel()
 		fmt.Println("Running Yaad load test")
 
 		if !enqueueMode && !dequeueMode {
