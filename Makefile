@@ -17,4 +17,4 @@ build-dev-dockerfile:
 	docker build . -f docker/dev/Dockerfile
 
 build:
-	goreleaser --skip-publish --skip-sign --skip-validate --rm-dist
+	goreleaser --snapshot --rm-dist
