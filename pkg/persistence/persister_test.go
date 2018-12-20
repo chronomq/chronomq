@@ -15,16 +15,24 @@ import (
 var testBody = []byte("Hello world")
 
 var _ = Describe("Test persistence", func() {
-	Context("With a leveldb persister", func() {
+	Context("leveldb persister", func() {
 		p := persistence.NewLevelDBPersister(os.TempDir())
+		errChan := p.Errors()
 
-		It("for goyaad job entry", func() {
+		It("persists a goyaad job and then recovers it", func(done Done) {
+			defer close(done)
+
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
 			data, err := j.GobEncode()
 			Expect(err).To(BeNil())
-
-			err = p.Persist(&persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "test"})
+			err = p.Persist(&persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"})
 			Expect(err).To(BeNil())
-		})
+
+			Expect(errChan).ShouldNot(Receive())
+
+			p.Finalize()
+
+			// test recovery here
+		}, 2)
 	})
 })
