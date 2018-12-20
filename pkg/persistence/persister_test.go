@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"bytes"
 	"os"
 	"time"
 
@@ -19,7 +20,10 @@ var _ = Describe("Test persistence", func() {
 
 		It("for goyaad job entry", func() {
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
-			err := p.Persist(&persistence.Entry{Data: j, Namespace: "test"})
+			data, err := j.GobEncode()
+			Expect(err).To(BeNil())
+
+			err = p.Persist(&persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "test"})
 			Expect(err).To(BeNil())
 		})
 	})
