@@ -25,14 +25,32 @@ var _ = Describe("Test persistence", func() {
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
 			data, err := j.GobEncode()
 			Expect(err).To(BeNil())
-			err = p.Persist(&persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"})
+			inputEntry := &persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"}
+			err = p.Persist(inputEntry)
 			Expect(err).To(BeNil())
 
 			Expect(errChan).ShouldNot(Receive())
 
 			p.Finalize()
 
-			// test recovery here
-		}, 2)
+			// recovers a job
+			entries, err := p.Recover("simpletest")
+			Expect(err).To(BeNil())
+			var item interface{}
+			Eventually(entries).Should(Receive(&item))
+			var entry *persistence.Entry
+			Expect(entry).To(BeAssignableToTypeOf(entry))
+			entry = item.(*persistence.Entry)
+
+			Expect(entry).To(Equal(inputEntry))
+			Expect(entry.Data.Bytes()).To(Equal(data))
+
+			jj := new(goyaad.Job)
+			err = jj.GobDecode(entry.Data.Bytes())
+			Expect(err).To(BeNil())
+			Expect(jj.Body()).To(Equal(j.Body()))
+			Expect(jj.ID()).To(Equal(j.ID()))
+			Expect(jj.TriggerAt().UnixNano()).To(Equal(j.TriggerAt().UnixNano()))
+		}, 5)
 	})
 })

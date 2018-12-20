@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 
@@ -66,7 +67,36 @@ func (lp *LevelDBPersister) Errors() chan error {
 
 // Recover reads back persisted data and emits entries
 func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
-	return make(chan *Entry), errors.New("not implemented")
+	logger := logrus.WithFields(logrus.Fields{"Namespace": namespace})
+	logger.Infof("LevelDBPersister:Recover starting recovery")
+
+	ec := make(chan *Entry)
+	db, err := leveldb.OpenFile(path.Join(lp.dataDir, namespace), nil)
+	if err != nil {
+		err = errors.Wrap(err, "Failed to open peristence file for Namespace: "+namespace)
+		logger.Infof("LevelDBPersister:Recover %s", err)
+		return nil, err
+	}
+
+	logger.Infof("LevelDBPersister:Recover streaming items for recovery")
+	go func() {
+		defer db.Close()
+
+		iter := db.NewIterator(nil, nil)
+		defer iter.Release()
+
+		for iter.Next() {
+			value := iter.Value()
+			e := &Entry{
+				Data:      bytes.NewBuffer(value),
+				Namespace: namespace,
+			}
+			ec <- e
+		}
+		logger.Infof("LevelDBPersister:Recover finished recovery stream")
+	}()
+
+	return ec, nil
 }
 
 func (lp *LevelDBPersister) writer() {
