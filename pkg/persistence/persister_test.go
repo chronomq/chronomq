@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -14,7 +15,7 @@ var testBody = []byte("Hello world")
 
 var _ = Describe("Test persistence", func() {
 	Context("With a leveldb persister", func() {
-		p := persistence.NewLevelDBPersister()
+		p := persistence.NewLevelDBPersister(os.TempDir())
 
 		It("for goyaad job entry", func() {
 			j := goyaad.NewJobAutoID(time.Now(), testBody)

@@ -47,4 +47,16 @@ var _ = Describe("Test jobs", func() {
 			}
 		})
 	})
+
+	Context("Job serialization", func() {
+		It("serde as gob", func() {
+			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
+			encoded, err := j.GobEncode()
+			Expect(err).To(BeNil())
+
+			jj := &Job{}
+			err = jj.GobDecode(encoded)
+			Expect(err).To(BeNil())
+		})
+	})
 })
