@@ -7,6 +7,7 @@ type Namespace = string
 
 // Entry is a simple wrapper that needs to be persisted
 type Entry struct {
+	Key string
 	// Data is any arbitrary data that gets persisted
 	Data *bytes.Buffer
 	// Namespace groups things that will be persisted together

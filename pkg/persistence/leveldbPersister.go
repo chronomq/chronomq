@@ -100,8 +100,6 @@ func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 }
 
 func (lp *LevelDBPersister) writer() {
-	var counterKey uint64
-
 	logrus.Info("LevelDBPersister:writer Starting leveldb persister writer process")
 
 	for lp.stream != nil {
@@ -127,7 +125,7 @@ func (lp *LevelDBPersister) writer() {
 				lp.namespaceDBMap[e.Namespace] = db
 			}
 
-			err := db.Put([]byte(fmt.Sprintf("%d", counterKey)), e.Data.Bytes(), nil)
+			err := db.Put([]byte(e.Key), e.Data.Bytes(), nil)
 			if err != nil {
 				err = errors.Wrap(err, "LevelDBPersister:writer failed to persist entry")
 				logrus.Error(err)

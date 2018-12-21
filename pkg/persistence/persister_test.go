@@ -42,8 +42,8 @@ var _ = Describe("Test persistence", func() {
 			Expect(entry).To(BeAssignableToTypeOf(entry))
 			entry = item.(*persistence.Entry)
 
-			Expect(entry).To(Equal(inputEntry))
-			Expect(entry.Data.Bytes()).To(Equal(data))
+			Expect(entry.Namespace).To(Equal(inputEntry.Namespace))
+			Expect(entry.Data.Bytes()).To(BeEquivalentTo(data))
 
 			jj := new(goyaad.Job)
 			err = jj.GobDecode(entry.Data.Bytes())
