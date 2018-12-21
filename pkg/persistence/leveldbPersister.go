@@ -2,6 +2,8 @@ package persistence
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/pkg/errors"
@@ -33,6 +35,29 @@ func NewLevelDBPersister(dataDir string) Persister {
 	go lp.writer()
 
 	return lp
+}
+
+// ResetDataDir tells persister to *delete* everything in the datadir
+func (lp *LevelDBPersister) ResetDataDir() error {
+	// Currently, only reset namespaces
+	p := lp.getPathForNamespace("")
+	logrus.Warnf("LevelDBPersister:ResetDataDir resetting base path: %s ", p)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		dir, err := ioutil.ReadDir(p)
+		if err != nil {
+			return err
+		}
+		for _, d := range dir {
+			loc := path.Join(p, d.Name())
+			logrus.WithField("Path", loc).Warnf("LevelDBPersister:ResetDataDir Resetting file %s", d.Name())
+			err = os.RemoveAll(loc)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Finalize tells persister that it can finalize and close writes
@@ -69,7 +94,7 @@ func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 	logger := logrus.WithFields(logrus.Fields{"Namespace": namespace})
 
 	ec := make(chan *Entry)
-	filePath := path.Join(lp.dataDir, namespace)
+	filePath := lp.getPathForNamespace(namespace)
 	logger.WithField("File", filePath).Infof("LevelDBPersister:Recover starting recovery")
 	db, err := leveldb.OpenFile(filePath, nil)
 	if err != nil {
@@ -81,6 +106,7 @@ func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 	logger.Infof("LevelDBPersister:Recover streaming items for recovery")
 	go func() {
 		defer db.Close()
+		defer close(ec)
 
 		iter := db.NewIterator(nil, nil)
 		defer iter.Release()
@@ -113,7 +139,7 @@ func (lp *LevelDBPersister) writer() {
 			db, ok := lp.namespaceDBMap[e.Namespace]
 			if !ok {
 				var err error
-				filePath := path.Join(lp.dataDir, e.Namespace)
+				filePath := lp.getPathForNamespace(e.Namespace)
 				logrus.WithField("File", filePath).Infof("LevelDBPersister:writer starting persistence")
 				db, err = leveldb.OpenFile(filePath, nil)
 				if err != nil {
@@ -158,4 +184,8 @@ func (lp *LevelDBPersister) writer() {
 		}
 	}
 	logrus.Info("LevelDBPersister:writer ended writer")
+}
+
+func (lp *LevelDBPersister) getPathForNamespace(n Namespace) string {
+	return path.Join(lp.dataDir, "namespaces", n)
 }

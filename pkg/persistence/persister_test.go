@@ -2,7 +2,9 @@ package persistence_test
 
 import (
 	"bytes"
+	"io/ioutil"
 	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -15,9 +17,37 @@ import (
 var testBody = []byte("Hello world")
 
 var _ = Describe("Test persistence", func() {
+
 	Context("leveldb persister", func() {
-		p := persistence.NewLevelDBPersister(os.TempDir())
-		errChan := p.Errors()
+		persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
+		var p persistence.Persister
+		var errChan chan error
+
+		BeforeEach(func() {
+			p = persistence.NewLevelDBPersister(persistenceTestDir)
+			errChan = p.Errors()
+			Expect(p.ResetDataDir()).To(BeNil())
+		})
+
+		It("properly resets data dir", func() {
+			j := goyaad.NewJobAutoID(time.Now(), testBody)
+			data, err := j.GobEncode()
+			Expect(err).To(BeNil())
+			inputEntry := &persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"}
+			err = p.Persist(inputEntry)
+			Expect(err).To(BeNil())
+
+			Expect(errChan).ShouldNot(Receive())
+
+			p.Finalize()
+
+			// reset
+			Expect(p.ResetDataDir()).To(BeNil())
+
+			dir, err := ioutil.ReadDir(path.Join(persistenceTestDir, "namespaces"))
+			Expect(err).To(BeNil())
+			Expect(len(dir)).To(Equal(0))
+		})
 
 		It("persists a goyaad job and then recovers it", func(done Done) {
 			defer close(done)
@@ -30,17 +60,20 @@ var _ = Describe("Test persistence", func() {
 			Expect(err).To(BeNil())
 
 			Expect(errChan).ShouldNot(Receive())
-
 			p.Finalize()
 
 			// recovers a job
-			entries, err := p.Recover("simpletest")
+			entriesChan, err := p.Recover("simpletest")
 			Expect(err).To(BeNil())
-			var item interface{}
-			Eventually(entries).Should(Receive(&item))
-			var entry *persistence.Entry
-			Expect(entry).To(BeAssignableToTypeOf(entry))
-			entry = item.(*persistence.Entry)
+
+			// Wait for entries chan to close
+			entries := []*persistence.Entry{}
+			for e := range entriesChan {
+				entries = append(entries, e)
+			}
+
+			Expect(len(entries)).To(Equal(1))
+			entry := entries[0]
 
 			Expect(entry.Namespace).To(Equal(inputEntry.Namespace))
 			Expect(entry.Data.Bytes()).To(BeEquivalentTo(data))

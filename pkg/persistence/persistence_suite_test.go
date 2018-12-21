@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"log"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -10,8 +11,9 @@ import (
 )
 
 func TestPersistence(t *testing.T) {
-	logrus.SetOutput(GinkgoWriter)
 	defer GinkgoRecover()
+	logrus.SetOutput(GinkgoWriter)
+	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Persistence Suite")
 }
