@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"bytes"
-	"fmt"
 	"path"
 
 	"github.com/pkg/errors"
@@ -68,10 +67,11 @@ func (lp *LevelDBPersister) Errors() chan error {
 // Recover reads back persisted data and emits entries
 func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 	logger := logrus.WithFields(logrus.Fields{"Namespace": namespace})
-	logger.Infof("LevelDBPersister:Recover starting recovery")
 
 	ec := make(chan *Entry)
-	db, err := leveldb.OpenFile(path.Join(lp.dataDir, namespace), nil)
+	filePath := path.Join(lp.dataDir, namespace)
+	logger.WithField("File", filePath).Infof("LevelDBPersister:Recover starting recovery")
+	db, err := leveldb.OpenFile(filePath, nil)
 	if err != nil {
 		err = errors.Wrap(err, "Failed to open peristence file for Namespace: "+namespace)
 		logger.Infof("LevelDBPersister:Recover %s", err)
@@ -115,7 +115,9 @@ func (lp *LevelDBPersister) writer() {
 			db, ok := lp.namespaceDBMap[e.Namespace]
 			if !ok {
 				var err error
-				db, err = leveldb.OpenFile(path.Join(lp.dataDir, e.Namespace), nil)
+				filePath := path.Join(lp.dataDir, e.Namespace)
+				logrus.WithField("File", filePath).Infof("LevelDBPersister:writer starting persistence")
+				db, err = leveldb.OpenFile(filePath, nil)
 				if err != nil {
 					err = errors.Wrap(err, "LevelDBPersister:writer Failed to open peristence file for Namespace: "+e.Namespace)
 					logrus.Error(err)
