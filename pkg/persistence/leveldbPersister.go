@@ -64,8 +64,22 @@ func (lp *LevelDBPersister) ResetDataDir() error {
 // It is an error to send new items to persist once Finalize has been called
 func (lp *LevelDBPersister) Finalize() {
 	logrus.Info("LevelDBPersister:Finalize finalizing persister")
-	lp.finalize <- struct{}{}
+	// Stop accepting items
+	close(lp.stream)
+	// Wait for any pending items to drain
 	<-lp.writerClosed
+
+	// close db
+	for ns, db := range lp.namespaceDBMap {
+		logrus.WithField("Namespace", ns).Info("LevelDBPersister:Finalize closing writer db")
+		err := db.Close()
+		if err != nil {
+			logrus.Info("LevelDBPersister:Finalize error finalizing persister")
+		}
+		logrus.WithField("Namespace", ns).Info("LevelDBPersister:Finalize closed writer db")
+	}
+	logrus.Info("LevelDBPersister:Finalize closed all db namespaces")
+
 }
 
 // Persist stores an entry to disk
@@ -93,7 +107,8 @@ func (lp *LevelDBPersister) Errors() chan error {
 func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 	logger := logrus.WithFields(logrus.Fields{"Namespace": namespace})
 
-	ec := make(chan *Entry)
+	entriesChan := make(chan *Entry)
+
 	filePath := lp.getPathForNamespace(namespace)
 	logger.WithField("File", filePath).Infof("LevelDBPersister:Recover starting recovery")
 	db, err := leveldb.OpenFile(filePath, nil)
@@ -106,7 +121,7 @@ func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 	logger.Infof("LevelDBPersister:Recover streaming items for recovery")
 	go func() {
 		defer db.Close()
-		defer close(ec)
+		defer close(entriesChan)
 
 		iter := db.NewIterator(nil, nil)
 		defer iter.Release()
@@ -117,73 +132,48 @@ func (lp *LevelDBPersister) Recover(namespace Namespace) (chan *Entry, error) {
 				Data:      bytes.NewBuffer(value),
 				Namespace: namespace,
 			}
-			ec <- e
+			entriesChan <- e
 		}
 		logger.Infof("LevelDBPersister:Recover finished recovery stream")
 	}()
 
-	return ec, nil
+	return entriesChan, nil
 }
 
 func (lp *LevelDBPersister) writer() {
 	logrus.Info("LevelDBPersister:writer Starting leveldb persister writer process")
+	entryStats := make(map[Namespace]int)
 
-	for lp.stream != nil {
-		select {
-		case e, ok := <-lp.stream:
-			if !ok {
-				lp.stream = nil
-				break
-			}
+	defer close(lp.writerClosed)
 
-			db, ok := lp.namespaceDBMap[e.Namespace]
-			if !ok {
-				var err error
-				filePath := lp.getPathForNamespace(e.Namespace)
-				logrus.WithField("File", filePath).Infof("LevelDBPersister:writer starting persistence")
-				db, err = leveldb.OpenFile(filePath, nil)
-				if err != nil {
-					err = errors.Wrap(err, "LevelDBPersister:writer Failed to open peristence file for Namespace: "+e.Namespace)
-					logrus.Error(err)
-					lp.errChan <- err
-					continue
-				}
-				lp.namespaceDBMap[e.Namespace] = db
-			}
-
-			err := db.Put([]byte(e.Key), e.Data.Bytes(), nil)
+	for e := range lp.stream {
+		db, ok := lp.namespaceDBMap[e.Namespace]
+		if !ok {
+			var err error
+			filePath := lp.getPathForNamespace(e.Namespace)
+			logrus.WithField("File", filePath).Infof("LevelDBPersister:writer starting persistence")
+			db, err = leveldb.OpenFile(filePath, nil)
 			if err != nil {
-				err = errors.Wrap(err, "LevelDBPersister:writer failed to persist entry")
+				err = errors.Wrap(err, "LevelDBPersister:writer Failed to open peristence file for Namespace: "+e.Namespace)
 				logrus.Error(err)
 				lp.errChan <- err
 				continue
 			}
-
-		case _, ok := <-lp.finalize:
-			if !ok {
-				break
-			}
-			logrus.Info("LevelDBPersister:writer finalizing persister")
-			for ns, db := range lp.namespaceDBMap {
-				logrus.WithField("Namespace", ns).Info("LevelDBPersister:writer closing writer db")
-				err := db.Close()
-				if err != nil {
-					logrus.Info("LevelDBPersister:writer error finalizing persister")
-				}
-				logrus.WithField("Namespace", ns).Info("LevelDBPersister:writer closed writer db")
-			}
-			logrus.Info("LevelDBPersister:writer closed all db namespaces")
-			// Cant receive finalize again
-			close(lp.finalize)
-			// Cant receive on persist stream now
-			close(lp.stream)
-
-			// Tell caller of finalize that we are done cleaning up
-			lp.writerClosed <- struct{}{}
-			close(lp.writerClosed)
+			lp.namespaceDBMap[e.Namespace] = db
+			entryStats[e.Namespace] = 0
 		}
+
+		err := db.Put([]byte(e.Key), e.Data.Bytes(), nil)
+		if err != nil {
+			err = errors.Wrap(err, "LevelDBPersister:writer failed to persist entry")
+			logrus.Error(err)
+			lp.errChan <- err
+			continue
+		}
+		entryStats[e.Namespace] = entryStats[e.Namespace] + 1
 	}
 	logrus.Info("LevelDBPersister:writer ended writer")
+	logrus.WithField("Stats", entryStats).Infof("LevelDBPersister:writer ended writer %+v", entryStats)
 }
 
 func (lp *LevelDBPersister) getPathForNamespace(n Namespace) string {
