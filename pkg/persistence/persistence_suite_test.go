@@ -12,8 +12,10 @@ import (
 
 func TestPersistence(t *testing.T) {
 	defer GinkgoRecover()
+
 	logrus.SetOutput(GinkgoWriter)
 	log.SetOutput(GinkgoWriter)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Persistence Suite")
 }

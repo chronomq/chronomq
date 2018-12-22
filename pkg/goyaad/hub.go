@@ -177,8 +177,6 @@ func (h *Hub) Next() *Job {
 			// Pop it from the queue - this is now a current spoke
 			heap.Pop(h.spokes)
 			logrus.Infof("Hub spoke pop cap: %d", h.spokes.Cap())
-			// h.spokes = h.spokes.Shrink()
-			// logrus.Infof("Shrink: Hub spoke cap: %d", h.spokes.Cap())
 		}
 	}
 
@@ -289,7 +287,7 @@ func (h *Hub) AddJob(j *Job) error {
 		}
 
 		// Time to create a new spoke for this job
-		logrus.Infof("Adding job: %s to new spoke", j.id)
+		logrus.Debugf("Adding job: %s to a new spoke", j.id)
 		s := NewSpoke(jobBound.start, jobBound.end)
 		err := s.AddJob(j)
 		if err != nil {
