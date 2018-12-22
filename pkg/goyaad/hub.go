@@ -1,13 +1,15 @@
 package goyaad
 
 import (
+	"bytes"
 	"container/heap"
-	"errors"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 const (
@@ -27,11 +29,13 @@ type Hub struct {
 
 	removedJobsCount uint64
 	lock             *sync.Mutex
+
+	persister persistence.Persister
 }
 
 // NewHub creates a new hub where adjacent spokes lie at the given
 // spokeSpan duration boundary.
-func NewHub(spokeSpan time.Duration) *Hub {
+func NewHub(spokeSpan time.Duration, persister persistence.Persister) *Hub {
 	h := &Hub{
 		spokeSpan:        spokeSpan,
 		spokeMap:         make(map[SpokeBound]*Spoke),
@@ -41,6 +45,7 @@ func NewHub(spokeSpan time.Duration) *Hub {
 		reservedJobs:     make(map[string]*Job),
 		removedJobsCount: 0,
 		lock:             &sync.Mutex{},
+		persister:        persister,
 	}
 	heap.Init(h.spokes)
 
@@ -339,4 +344,63 @@ func (h *Hub) StatusPrinter() {
 	for range t.C {
 		h.Status()
 	}
+}
+
+// Persist locks the hub and starts persisting data to disk
+func (h *Hub) Persist() chan error {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	ec := make(chan error)
+
+	persistSpoke := func(s *Spoke) int {
+		j := 0
+		for j = 0; j < s.jobQueue.Len(); j++ {
+			job := s.jobQueue.AtIdx(j).value.(*Job)
+			buf, err := job.GobEncode()
+			if err != nil {
+				ec <- err
+				continue
+			}
+			err = h.persister.Persist(&persistence.Entry{
+				Key:       job.ID(),
+				Data:      bytes.NewBuffer(buf),
+				Namespace: "job"},
+			)
+			if err != nil {
+				logrus.Error(errors.Wrap(err, "Persister failed to save job"))
+				ec <- err
+				continue
+			}
+		}
+
+		return j
+	}
+
+	go func() {
+		defer close(ec)
+
+		logrus.Warn("Starting disk offload")
+		logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+		var i int
+		for i = 0; i < h.spokes.Len(); i++ {
+			s := h.spokes.AtIdx(i).value.(*Spoke)
+			j := persistSpoke(s)
+			logrus.Infof("Persisted %d jobs from spoke %d", j, i)
+		}
+
+		// Save past spoke
+		p := persistSpoke(h.pastSpoke)
+		logrus.Infof("Persisted %d jobs from past spoke", p)
+
+		// Save current spoke
+		if h.currentSpoke != nil {
+			c := persistSpoke(h.currentSpoke)
+			logrus.Infof("Persisted %d jobs from current spoke", c)
+		}
+
+		h.persister.Finalize()
+	}()
+
+	return ec
 }

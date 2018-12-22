@@ -37,7 +37,7 @@ var _ = Describe("Test protocol:", func() {
 		conn, err := beanstalk.Dial(proto, addr)
 		ExpectNoErr(err)
 		bconn = conn
-	}, 0.1)
+	}, 0.5)
 
 	It("echos command", func(done Done) {
 		defer close(done)

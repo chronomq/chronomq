@@ -3,6 +3,7 @@ package protocol
 import (
 	"net"
 	"net/textproto"
+	"os"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 /*
@@ -106,7 +108,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 	tube := &TubeYaad{
 		name:   "default",
 		paused: false,
-		hub:    goyaad.NewHub(time.Second * 5),
+		hub:    goyaad.NewHub(time.Second*5, persistence.NewLevelDBPersister(os.TempDir())),
 	}
 	connectionID := 0
 	for {
