@@ -86,7 +86,7 @@ func (s *Spoke) AddJob(j *Job) error {
 			"spokeID":      s.id,
 			"spokeStart":   s.start.UnixNano(),
 			"spokeEnd":     s.end.UnixNano(),
-		}).Debug("Accepting job")
+		}).Trace("Accepting job")
 	s.jobMap.Store(j.id, true)
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil

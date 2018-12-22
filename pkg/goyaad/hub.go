@@ -238,12 +238,12 @@ func (h *Hub) AddJob(j *Job) error {
 
 	switch j.AsTemporalState() {
 	case Past:
-		logrus.Debugf("Adding job: %s to past spoke", j.id)
+		logrus.Tracef("Adding job: %s to past spoke", j.id)
 		pastLocker := h.pastSpoke.GetLocker()
 		pastLocker.Lock()
 		defer pastLocker.Unlock()
 
-		logrus.WithField("JobID", j.ID).Debug("Adding job to past spoke")
+		logrus.WithField("JobID", j.ID).Trace("Adding job to past spoke")
 		err := h.pastSpoke.AddJob(j)
 		if err != nil {
 			logrus.WithError(err).Error("Past spoke rejected job. This should never happen")
@@ -251,7 +251,7 @@ func (h *Hub) AddJob(j *Job) error {
 		}
 		metrics.Incr("hub.addjob.past")
 	case Future:
-		logrus.Debugf("Adding job: %s to future spoke", j.id)
+		logrus.Tracef("Adding job: %s to future spoke", j.id)
 		// Lock hub so that current spoke isn't replaced
 		h.lock.Lock()
 		defer h.lock.Unlock()
