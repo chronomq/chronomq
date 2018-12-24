@@ -1,7 +1,6 @@
 package goyaad
 
 import (
-	"bytes"
 	"container/heap"
 	"sync"
 	"time"
@@ -355,24 +354,13 @@ func (h *Hub) Persist() chan error {
 	defer h.lock.Unlock()
 
 	ec := make(chan error)
-	persistJob := func(job *Job) error {
-		buf, err := job.GobEncode()
-		if err != nil {
-			return err
-		}
-		return h.persister.Persist(&persistence.Entry{
-			Key:       job.ID(),
-			Data:      bytes.NewBuffer(buf),
-			Namespace: "job"},
-		)
-	}
 
 	persistSpoke := func(s *Spoke) int {
 		j := 0
 		for j = 0; j < s.jobQueue.Len(); j++ {
 			job := s.jobQueue.AtIdx(j).value.(*Job)
 
-			err := persistJob(job)
+			err := job.Persist(h.persister)
 			if err != nil {
 				logrus.Error(errors.Wrap(err, "Persister failed to save job"))
 				ec <- err
@@ -413,7 +401,7 @@ func (h *Hub) Persist() chan error {
 
 		// Save the reserved jobs
 		for _, j := range h.reservedJobs {
-			if err := persistJob(j); err != nil {
+			if err := j.Persist(h.persister); err != nil {
 				logrus.Error(errors.Wrap(err, "Persister failed to save reserved job"))
 				ec <- err
 				continue

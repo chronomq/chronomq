@@ -2,6 +2,8 @@ package goyaad_test
 
 import (
 	"container/heap"
+	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -9,6 +11,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 var _ = Describe("Test jobs", func() {
@@ -57,6 +60,18 @@ var _ = Describe("Test jobs", func() {
 			jj := &Job{}
 			err = jj.GobDecode(encoded)
 			Expect(err).To(BeNil())
+		})
+
+		It("use a persister to save a job", func() {
+			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
+			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
+			p := persistence.NewLevelDBPersister(persistenceTestDir)
+			errChan := p.Errors()
+			Expect(p.ResetDataDir()).To(BeNil())
+
+			err := j.Persist(p)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(errChan).ShouldNot(Receive())
 		})
 	})
 })
