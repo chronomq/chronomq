@@ -117,6 +117,11 @@ var _ = Describe("Test hub", func() {
 			Expect(h.PendingJobsCount()).To(Equal(i + 1))
 		}
 
+		// Reserve some jobs
+		Expect(h.Next()).ToNot(BeNil())
+		Expect(h.Next()).ToNot(BeNil())
+		Expect(h.Next()).ToNot(BeNil())
+
 		// Persist
 		persistErrs := h.Persist()
 
@@ -148,7 +153,7 @@ var _ = Describe("Test hub", func() {
 		Eventually(pe).ShouldNot(Receive())
 		errs := persister.Errors()
 		Eventually(errs).ShouldNot(Receive())
-		Expect(counter).To(Equal(h.PendingJobsCount()))
+		Expect(counter).To(Equal(h.PendingJobsCount() + h.ReservedJobsCount()))
 	}, 15)
 
 })

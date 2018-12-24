@@ -69,6 +69,11 @@ func (h *Hub) PendingJobsCount() int {
 	return count
 }
 
+// ReservedJobsCount return the number of jobs currently reserved
+func (h *Hub) ReservedJobsCount() int {
+	return len(h.reservedJobs)
+}
+
 // CancelJob cancels a job if found. Calls are noop for unknown jobs
 func (h *Hub) CancelJob(jobID string) error {
 	metrics.Incr("hub.cancel.req")
@@ -350,21 +355,24 @@ func (h *Hub) Persist() chan error {
 	defer h.lock.Unlock()
 
 	ec := make(chan error)
+	persistJob := func(job *Job) error {
+		buf, err := job.GobEncode()
+		if err != nil {
+			return err
+		}
+		return h.persister.Persist(&persistence.Entry{
+			Key:       job.ID(),
+			Data:      bytes.NewBuffer(buf),
+			Namespace: "job"},
+		)
+	}
 
 	persistSpoke := func(s *Spoke) int {
 		j := 0
 		for j = 0; j < s.jobQueue.Len(); j++ {
 			job := s.jobQueue.AtIdx(j).value.(*Job)
-			buf, err := job.GobEncode()
-			if err != nil {
-				ec <- err
-				continue
-			}
-			err = h.persister.Persist(&persistence.Entry{
-				Key:       job.ID(),
-				Data:      bytes.NewBuffer(buf),
-				Namespace: "job"},
-			)
+
+			err := persistJob(job)
 			if err != nil {
 				logrus.Error(errors.Wrap(err, "Persister failed to save job"))
 				ec <- err
@@ -381,10 +389,16 @@ func (h *Hub) Persist() chan error {
 		logrus.Warn("Starting disk offload")
 		logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
 		var i int
+
+		wg := &sync.WaitGroup{}
+		wg.Add(h.spokes.Len())
 		for i = 0; i < h.spokes.Len(); i++ {
 			s := h.spokes.AtIdx(i).value.(*Spoke)
-			j := persistSpoke(s)
-			logrus.Infof("Persisted %d jobs from spoke %d", j, i)
+			func() {
+				defer wg.Done()
+				j := persistSpoke(s)
+				logrus.Infof("Persisted %d jobs from spoke %d", j, i)
+			}()
 		}
 
 		// Save past spoke
@@ -397,6 +411,16 @@ func (h *Hub) Persist() chan error {
 			logrus.Infof("Persisted %d jobs from current spoke", c)
 		}
 
+		// Save the reserved jobs
+		for _, j := range h.reservedJobs {
+			if err := persistJob(j); err != nil {
+				logrus.Error(errors.Wrap(err, "Persister failed to save reserved job"))
+				ec <- err
+				continue
+			}
+		}
+
+		wg.Wait()
 		h.persister.Finalize()
 	}()
 
