@@ -108,7 +108,6 @@ func (t *TubeYaad) reserve(timeoutSec string) *Job {
 	return nil
 }
 
-// Todo: handle cancelations for reserved jobs
 func (t *TubeYaad) deleteJob(id int) error {
 	strID := strconv.Itoa(id)
 	return t.hub.CancelJob(strID)

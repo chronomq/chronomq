@@ -14,20 +14,8 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
-/*
-Stub for beanstalkd protocol - simply echo the client requests to stdout
-*/
-
-// The protocol can only receive and process this type of data
-type dataType int
-
 // An error response that might be sent by the server
 type errResponse []byte
-
-const (
-	text dataType = iota
-	body
-)
 
 // Metrics
 var putJobCtr = "beanproto.putjob"
