@@ -159,14 +159,17 @@ func (s *Spoke) AsPriorityItem() *Item {
 
 // Persist all jobs in this spoke
 func (s *Spoke) Persist(p persistence.Persister) chan error {
-	ec := make(chan error)
+	errC := make(chan error)
 	go func() {
-		for i := 0; i < s.jobQueue.Len(); i++ {
+		defer close(errC)
+		var i = 0
+		for i = 0; i < s.jobQueue.Len(); i++ {
 			err := s.jobQueue.AtIdx(i).Value().(*Job).Persist(p)
 			if err != nil {
-				ec <- err
+				errC <- err
 			}
 		}
+		logrus.Infof("Persisted %d jobs from spoke %s", i, s.ID())
 	}()
-	return ec
+	return errC
 }

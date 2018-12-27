@@ -20,10 +20,8 @@ type Persister interface {
 	ResetDataDir() error
 
 	Persist(e *Entry) error
-	PersistStream(ec chan *Entry) error
+	PersistStream(ec chan *Entry) chan error
 	Finalize()
 
 	Recover(namespace Namespace) (chan *Entry, error)
-
-	Errors() chan error
 }

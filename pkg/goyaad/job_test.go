@@ -66,12 +66,10 @@ var _ = Describe("Test jobs", func() {
 			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
 			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
 			p := persistence.NewLevelDBPersister(persistenceTestDir)
-			errChan := p.Errors()
 			Expect(p.ResetDataDir()).To(BeNil())
 
 			err := j.Persist(p)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(errChan).ShouldNot(Receive())
 		})
 	})
 })

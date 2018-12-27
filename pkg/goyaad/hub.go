@@ -353,58 +353,46 @@ func (h *Hub) Persist() chan error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
+	logrus.Warn("Starting disk offload")
+	logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(h.spokes.Len())
+
 	ec := make(chan error)
-
-	persistSpoke := func(s *Spoke) int {
-		j := 0
-		for j = 0; j < s.jobQueue.Len(); j++ {
-			job := s.jobQueue.AtIdx(j).value.(*Job)
-
-			err := job.Persist(h.persister)
-			if err != nil {
-				logrus.Error(errors.Wrap(err, "Persister failed to save job"))
-				ec <- err
-				continue
-			}
-		}
-
-		return j
-	}
 
 	go func() {
 		defer close(ec)
 
-		logrus.Warn("Starting disk offload")
-		logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
-		var i int
-
-		wg := &sync.WaitGroup{}
-		wg.Add(h.spokes.Len())
-		for i = 0; i < h.spokes.Len(); i++ {
+		for i := 0; i < h.spokes.Len(); i++ {
 			s := h.spokes.AtIdx(i).value.(*Spoke)
 			func() {
 				defer wg.Done()
-				j := persistSpoke(s)
-				logrus.Infof("Persisted %d jobs from spoke %d", j, i)
+				errC := s.Persist(h.persister)
+				for e := range errC {
+					ec <- e
+				}
 			}()
 		}
 
 		// Save past spoke
-		p := persistSpoke(h.pastSpoke)
-		logrus.Infof("Persisted %d jobs from past spoke", p)
+		errC := h.pastSpoke.Persist(h.persister)
+		for e := range errC {
+			ec <- e
+		}
 
 		// Save current spoke
 		if h.currentSpoke != nil {
-			c := persistSpoke(h.currentSpoke)
-			logrus.Infof("Persisted %d jobs from current spoke", c)
+			errC := h.currentSpoke.Persist(h.persister)
+			for e := range errC {
+				ec <- e
+			}
 		}
 
 		// Save the reserved jobs
 		for _, j := range h.reservedJobs {
 			if err := j.Persist(h.persister); err != nil {
-				logrus.Error(errors.Wrap(err, "Persister failed to save reserved job"))
 				ec <- err
-				continue
 			}
 		}
 

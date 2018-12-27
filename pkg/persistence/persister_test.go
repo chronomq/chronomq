@@ -21,11 +21,9 @@ var _ = Describe("Test persistence", func() {
 	Context("leveldb persister", func() {
 		persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
 		var p persistence.Persister
-		var errChan chan error
 
 		BeforeEach(func() {
 			p = persistence.NewLevelDBPersister(persistenceTestDir)
-			errChan = p.Errors()
 			Expect(p.ResetDataDir()).To(BeNil())
 		})
 
@@ -36,8 +34,6 @@ var _ = Describe("Test persistence", func() {
 			inputEntry := &persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"}
 			err = p.Persist(inputEntry)
 			Expect(err).To(BeNil())
-
-			Expect(errChan).ShouldNot(Receive())
 
 			p.Finalize()
 
@@ -59,7 +55,6 @@ var _ = Describe("Test persistence", func() {
 			err = p.Persist(inputEntry)
 			Expect(err).To(BeNil())
 
-			Expect(errChan).ShouldNot(Receive())
 			p.Finalize()
 
 			// recovers a job

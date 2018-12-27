@@ -130,29 +130,13 @@ var _ = Describe("Test hub", func() {
 			Fail("Persist failed due to error: " + e.Error())
 		}
 
-		pe := persister.Errors()
-		Eventually(pe).ShouldNot(Receive())
-
 		entries, err := persister.Recover("job")
 		Expect(err).To(BeNil())
 		counter := 0
-		for entries != nil {
-			select {
-			case _, ok := <-entries:
-				if !ok {
-					entries = nil
-					break
-				}
-				counter++
-			case e := <-persister.Errors():
-				Fail("Persist recovery failed due to error: " + e.Error())
-			}
+		for range entries {
+			counter++
 		}
 
-		// Check no new errors popped up during recovery process
-		Eventually(pe).ShouldNot(Receive())
-		errs := persister.Errors()
-		Eventually(errs).ShouldNot(Receive())
 		Expect(counter).To(Equal(h.PendingJobsCount() + h.ReservedJobsCount()))
 	}, 15)
 
