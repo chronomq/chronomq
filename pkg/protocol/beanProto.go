@@ -3,15 +3,11 @@ package protocol
 import (
 	"net"
 	"net/textproto"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 // An error response that might be sent by the server
@@ -93,10 +89,9 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		return err
 	}
 
-	tube := &TubeYaad{
-		name:   "default",
-		paused: false,
-		hub:    goyaad.NewHub(time.Second*5, persistence.NewLevelDBPersister(os.TempDir())),
+	tube, err := s.srv.getTube("default")
+	if err != nil {
+		logrus.Fatal(err)
 	}
 	connectionID := 0
 	for {
