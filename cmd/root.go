@@ -41,6 +41,7 @@ func runServer() {
 
 // Execute root cmd by default
 func Execute() {
+	logrus.Infof("Runnig as pid: %d", os.Getpid())
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
