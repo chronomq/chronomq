@@ -18,12 +18,12 @@ var testBody = []byte("Hello world")
 
 var _ = Describe("Test persistence", func() {
 
-	Context("leveldb persister", func() {
+	Context("persister functions", func() {
 		persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
 		var p persistence.Persister
 
 		BeforeEach(func() {
-			p = persistence.NewLevelDBPersister(persistenceTestDir)
+			p = persistence.NewJournalPersister(persistenceTestDir)
 			Expect(p.ResetDataDir()).To(BeNil())
 		})
 

@@ -26,11 +26,12 @@ type TubeYaad struct {
 
 // NewSrvYaad returns a yaad BeanstalkdSrv
 func NewSrvYaad() BeanstalkdSrv {
+	wd, _ := os.Getwd()
 	y := SrvYaad{make(map[string]Tube)}
 	t := &TubeYaad{
 		name:   "default",
 		paused: false,
-		hub:    goyaad.NewHub(time.Second*5, persistence.NewLevelDBPersister(os.TempDir())),
+		hub:    goyaad.NewHub(time.Second*5, persistence.NewJournalPersister(wd)),
 	}
 	y.tubes[t.name] = t
 	return &y

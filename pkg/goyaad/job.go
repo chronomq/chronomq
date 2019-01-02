@@ -111,7 +111,7 @@ func (j *Job) GobEncode() (data []byte, err error) {
 		return nil, err
 	}
 	//trigger at
-	err = enc.Encode(j.triggerAt)
+	err = enc.Encode(j.triggerAt.UnixNano())
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +151,12 @@ func (j *Job) GobDecode(data []byte) error {
 		return err
 	}
 	//trigger at
-	err = dec.Decode(&j.triggerAt)
+	var triggerAtUnixNano int64
+	err = dec.Decode(&triggerAtUnixNano)
 	if err != nil {
 		return err
 	}
+	j.triggerAt = time.Unix(0, triggerAtUnixNano)
 	//ttr
 	err = dec.Decode(&j.ttr)
 	if err != nil {

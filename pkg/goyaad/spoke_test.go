@@ -168,7 +168,7 @@ var _ = Describe("Test spokes", func() {
 		It("persists a spoke", func() {
 			s := NewSpokeFromNow(time.Minute * 100)
 			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
-			p := persistence.NewLevelDBPersister(persistenceTestDir)
+			p := persistence.NewJournalPersister(persistenceTestDir)
 			Expect(p.ResetDataDir()).To(BeNil())
 
 			errC := s.Persist(p)

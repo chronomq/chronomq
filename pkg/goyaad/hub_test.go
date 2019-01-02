@@ -19,7 +19,7 @@ var persister persistence.Persister
 var _ = Describe("Test hub", func() {
 
 	BeforeEach(func() {
-		persister = persistence.NewLevelDBPersister(dataDir)
+		persister = persistence.NewJournalPersister(dataDir)
 		Expect(persister.ResetDataDir()).To(BeNil())
 	})
 
