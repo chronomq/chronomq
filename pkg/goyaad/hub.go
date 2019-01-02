@@ -426,3 +426,38 @@ func (h *Hub) Persist() chan error {
 
 	return ec
 }
+
+// Restore loads any jobs saved to disk at the given path
+func (h *Hub) Restore(namespace string) error {
+	entries, err := h.persister.Recover(namespace)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	errDecodeCount := 0
+	errAddCount := 0
+	for e := range entries {
+		logrus.Infof("recovering key: %s", e.Key)
+		j := new(Job)
+		err := j.GobDecode(e.Data.Bytes())
+		if err != nil {
+			errDecodeCount++
+			logrus.Error(err)
+			continue
+		}
+		if err = h.AddJob(j); err != nil {
+			errAddCount++
+			logrus.Error(err)
+			continue
+		}
+	}
+
+	if errAddCount == 0 && errDecodeCount == 0 {
+		return nil
+	}
+
+	var retErr = errors.New("Hub:Restore failed")
+	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors decoding persisted jobs", errDecodeCount)
+	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors adding persisted jobs", errAddCount)
+	return retErr
+}

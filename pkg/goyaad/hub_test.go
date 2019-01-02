@@ -140,4 +140,14 @@ var _ = Describe("Test hub", func() {
 		Expect(counter).To(Equal(h.PendingJobsCount() + h.ReservedJobsCount()))
 	}, 15)
 
+	It("bootstraps a new hub from a golden peristence record", func(done Done) {
+		defer close(done)
+		wd, _ := os.Getwd()
+		p := persistence.NewJournalPersister(path.Join(wd, "../../testdata/persist_golden"))
+		h := NewHub(time.Nanosecond*3000, p)
+		err := h.Restore("job")
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(h.PendingJobsCount()).To(Equal(1000))
+	})
 })
