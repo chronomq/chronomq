@@ -3,9 +3,7 @@ package goyaad
 import (
 	"container/heap"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -74,29 +72,22 @@ func NewHub(opts *HubOpts) *Hub {
 	}
 
 	go h.StatusPrinter()
-	go h.handleSignals()
 
 	return h
 }
 
-// handleSignals listens to OS signals. SIGUSR1
-// will trigger a graceful shutdown which will persist the data to disk for later recovery
-func (h *Hub) handleSignals() {
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGUSR1)
-	go func() {
-		s := <-sigc
-		if s != nil {
-			logrus.Infof("Hub:handleSignals caught signal: %s. Starting persistence for pid: %d", s.String(), os.Getpid())
-			errC := h.Persist()
-			errCount := 0
-			for range errC {
-				errCount++
-			}
-			logrus.Infof("Hub:handleSignals Finished persistence with %d errors", errCount)
-			return
+// Stop the hub gracefully and if persist is true, then persist all jobs to disk for later recovery
+func (h *Hub) Stop(persist bool) {
+	if persist {
+		logrus.Infof("Hub:Stop Starting persistence for pid: %d", os.Getpid())
+		errC := h.Persist()
+		errCount := 0
+		for range errC {
+			errCount++
 		}
-	}()
+		logrus.Infof("Hub:Stop Finished persistence with %d errors", errCount)
+	}
+	logrus.Infof("Hub:Stop stopped")
 }
 
 // PendingJobsCount return the number of jobs currently pending

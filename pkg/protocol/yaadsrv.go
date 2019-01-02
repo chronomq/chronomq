@@ -34,6 +34,12 @@ func NewSrvYaad(opts *goyaad.HubOpts) BeanstalkdSrv {
 	return &y
 }
 
+func (s *SrvYaad) stop(persist bool) {
+	for _, t := range s.tubes {
+		t.stop(persist)
+	}
+}
+
 func (s *SrvYaad) listTubes() []string {
 	keys := make([]string, len(s.tubes))
 	i := 0
@@ -50,6 +56,10 @@ func (s *SrvYaad) getTube(name string) (Tube, error) {
 		return nil, ErrTubeNotFound
 	}
 	return t, nil
+}
+
+func (t *TubeYaad) stop(persist bool) {
+	t.hub.Stop(persist)
 }
 
 func (t *TubeYaad) pauseTube(delay time.Duration) error {

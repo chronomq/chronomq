@@ -37,6 +37,7 @@ type Job struct {
 type BeanstalkdSrv interface {
 	listTubes() []string
 	getTube(name string) (Tube, error)
+	stop(persist bool)
 }
 
 // Tube is a beanstalkd tube
@@ -45,6 +46,7 @@ type Tube interface {
 	put(delay int, pri int32, body []byte, ttr int) (string, error)
 	reserve(timeoutSec string) *Job
 	deleteJob(id int) error
+	stop(persist bool)
 }
 
 // ErrTubeNotFound is thrown when doing an operation against an unknown tube
@@ -65,6 +67,10 @@ func NewSrvStub() BeanstalkdSrv {
 	return &stub
 }
 
+func (s *SrvStub) stop(persist bool) {
+	// noop
+}
+
 func (s *SrvStub) listTubes() []string {
 	keys := make([]string, len(s.tubes))
 	i := 0
@@ -81,6 +87,10 @@ func (s *SrvStub) getTube(name string) (Tube, error) {
 		return nil, ErrTubeNotFound
 	}
 	return t, nil
+}
+
+func (t *TubeStub) stop(persist bool) {
+	// noop
 }
 
 func (t *TubeStub) pauseTube(delay time.Duration) error {

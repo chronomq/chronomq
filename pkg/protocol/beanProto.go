@@ -3,7 +3,11 @@ package protocol
 import (
 	"net"
 	"net/textproto"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -41,8 +45,9 @@ var ErrUnknownCmd errResponse = []byte(`UNKNOWN_COMMAND\r\n`)
 
 // Server is a yaad server
 type Server struct {
-	l   net.Listener
-	srv BeanstalkdSrv
+	l    *net.TCPListener
+	srv  BeanstalkdSrv
+	stop chan struct{}
 }
 
 // Connection implements a yaad + beanstalkd protocol server
@@ -58,9 +63,20 @@ func NewYaadServer(stub bool, opts *goyaad.HubOpts) *Server {
 	if stub {
 		return &Server{srv: NewSrvStub()}
 	}
-	return &Server{
-		srv: NewSrvYaad(opts),
+	s := &Server{
+		srv:  NewSrvYaad(opts),
+		stop: make(chan struct{}),
 	}
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGUSR1)
+	go func() {
+		<-sigc
+		logrus.Info("Stopping bean protocol server")
+		close(s.stop)
+	}()
+
+	return s
 }
 
 // Listen to connections
@@ -68,7 +84,11 @@ func (s *Server) Listen(protocol, address string) error {
 	if protocol != "tcp" {
 		return errors.Errorf("Cannot listen to non-tcp connections. Given protocol: %s", protocol)
 	}
-	l, err := net.Listen(protocol, address)
+	addr, err := net.ResolveTCPAddr(protocol, address)
+	if err != nil {
+		return errors.Wrap(err, "Cannot start protocol server")
+	}
+	l, err := net.ListenTCP(protocol, addr)
 	if err != nil {
 		return errors.Wrap(err, "Cannot start protocol server")
 	}
@@ -96,9 +116,24 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 	}
 	connectionID := 0
 	for {
+
+		select {
+		case <-s.stop:
+			logrus.Warn("Shutting down connection listener - no new connections will be established")
+			// stop listening to new connections first, then close the underlying yaad server (trigger persistence)
+			err := s.Close()
+			s.srv.stop(true)
+			return err
+		default:
+		}
+
 		// Wait for a connection.
+		s.l.SetDeadline(time.Now().Add(time.Millisecond * 50))
 		conn, err := s.l.Accept()
 		if err != nil {
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
 			logrus.Fatal(err)
 		}
 		go metrics.Incr(connectionsCtr)
@@ -106,7 +141,7 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		// Handle the connection in a new goroutine.
 		// The loop then returns to accepting, so that
 		// multiple connections may be served concurrently.
-		go serve(&Connection{
+		go s.serve(&Connection{
 			Conn:        textproto.NewConn(conn),
 			srv:         s.srv,
 			defaultTube: tube,
@@ -114,10 +149,19 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 	}
 }
 
-func serve(conn *Connection) {
+func (s *Server) serve(conn *Connection) {
 	defer metrics.Decr(connectionsCtr)
 
 	for {
+
+		select {
+		case <-s.stop:
+			logrus.Warn("Shutting down client connection")
+			conn.Close()
+			return
+		default:
+		}
+
 		line, err := conn.ReadLine()
 		if err != nil || line == "quit" {
 			err := conn.Close()

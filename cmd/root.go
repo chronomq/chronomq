@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -48,14 +47,14 @@ func runServer() {
 		SpokeSpan:      time.Second * 5,
 		Persister:      persistence.NewJournalPersister(dataDir)}
 	s := protocol.NewYaadServer(false, opts)
-	log.Fatal(s.ListenAndServe("tcp", addr))
+	log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
 }
 
 // Execute root cmd by default
 func Execute() {
 	logrus.Infof("Runnig as pid: %d", os.Getpid())
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		logrus.Error(err)
 		os.Exit(1)
 	}
 }
