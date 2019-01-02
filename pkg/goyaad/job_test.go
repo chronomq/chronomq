@@ -72,7 +72,7 @@ var _ = Describe("Test jobs", func() {
 			p := persistence.NewJournalPersister(persistenceTestDir)
 			Expect(p.ResetDataDir()).To(BeNil())
 
-			err := j.Persist(p)
+			err := p.Persist(j)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

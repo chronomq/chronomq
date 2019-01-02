@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"encoding/gob"
 	"io"
 	"io/ioutil"
 	"os"
@@ -13,7 +14,7 @@ import (
 
 // JournalPersister saves data in an embedded Journal store
 type JournalPersister struct {
-	stream  chan []byte // Internal stream so that all writes are ordered
+	stream  chan gob.GobEncoder // Internal stream so that all writes are ordered
 	dataDir string
 	writer  *journal.Writer
 
@@ -23,7 +24,7 @@ type JournalPersister struct {
 // NewJournalPersister initializes a Journal backed persister
 func NewJournalPersister(dataDir string) Persister {
 	lp := &JournalPersister{
-		stream:   make(chan []byte, 10),
+		stream:   make(chan gob.GobEncoder, 10),
 		dataDir:  dataDir,
 		writer:   nil, // lazy init writer
 		finalize: make(chan struct{}, 1),
@@ -67,20 +68,22 @@ func (lp *JournalPersister) Finalize() {
 }
 
 // Persist stores an entry to disk
-func (lp *JournalPersister) Persist(buf []byte) error {
+func (lp *JournalPersister) Persist(enc gob.GobEncoder) error {
 	logrus.Debug("JournalPersister:Persist persisting an entry")
-	return lp.write(buf)
+	return lp.write(enc)
 }
 
 // PersistStream listens to the input channel and persists entries to disk
-func (lp *JournalPersister) PersistStream(bufC chan []byte) chan error {
+func (lp *JournalPersister) PersistStream(encC chan gob.GobEncoder) chan error {
 	errC := make(chan error)
 	go func() {
 		defer close(errC)
-		for buf := range bufC {
+		for e := range encC {
 			logrus.Debug("JournalPersister:PersistStream persisting an entry")
-			if err := lp.write(buf); err != nil {
+
+			if err := lp.write(e); err != nil {
 				errC <- err
+				continue
 			}
 		}
 	}()
@@ -133,7 +136,7 @@ func (lp *JournalPersister) Recover() (chan []byte, error) {
 	return bufC, nil
 }
 
-func (lp *JournalPersister) write(buf []byte) error {
+func (lp *JournalPersister) write(enc gob.GobEncoder) error {
 
 	// lazy init writer
 	if lp.writer == nil {
@@ -153,6 +156,11 @@ func (lp *JournalPersister) write(buf []byte) error {
 	if err != nil {
 		err = errors.Wrap(err, "JournalPersister:writer failed to get next journal writer")
 		logrus.Error(err)
+		return err
+	}
+
+	buf, err := enc.GobEncode()
+	if err != nil {
 		return err
 	}
 	_, err = w.Write(buf)

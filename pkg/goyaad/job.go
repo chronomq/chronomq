@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 // Job is the basic unit of work in yaad
@@ -168,13 +167,4 @@ func (j *Job) GobDecode(data []byte) error {
 		return nil
 	}
 	return err
-}
-
-// Persist this job into the provided persister
-func (j *Job) Persist(persister persistence.Persister) error {
-	buf, err := j.GobEncode()
-	if err != nil {
-		return err
-	}
-	return persister.Persist(buf)
 }

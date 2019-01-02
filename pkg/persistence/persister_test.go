@@ -28,9 +28,7 @@ var _ = Describe("Test persistence", func() {
 
 		It("properly resets data dir", func() {
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
-			data, err := j.GobEncode()
-			Expect(err).To(BeNil())
-			err = p.Persist(data)
+			err := p.Persist(j)
 			Expect(err).To(BeNil())
 
 			p.Finalize()
@@ -47,9 +45,7 @@ var _ = Describe("Test persistence", func() {
 			defer close(done)
 
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
-			data, err := j.GobEncode()
-			Expect(err).To(BeNil())
-			err = p.Persist(data)
+			err := p.Persist(j)
 			Expect(err).To(BeNil())
 
 			p.Finalize()

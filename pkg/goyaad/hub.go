@@ -432,7 +432,7 @@ func (h *Hub) Persist() chan error {
 
 		// Save the reserved jobs
 		for _, j := range h.reservedJobs {
-			if err := j.Persist(h.persister); err != nil {
+			if err := h.persister.Persist(j); err != nil {
 				ec <- err
 			}
 		}

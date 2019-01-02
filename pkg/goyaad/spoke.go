@@ -164,9 +164,10 @@ func (s *Spoke) Persist(p persistence.Persister) chan error {
 		defer close(errC)
 		var i = 0
 		for i = 0; i < s.jobQueue.Len(); i++ {
-			err := s.jobQueue.AtIdx(i).Value().(*Job).Persist(p)
+			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*Job))
 			if err != nil {
 				errC <- err
+				continue
 			}
 		}
 		logrus.Infof("Persisted %d jobs from spoke %s", i, s.ID())
