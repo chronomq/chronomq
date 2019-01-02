@@ -1,13 +1,11 @@
 package protocol
 
 import (
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 // SrvYaad implements a yaad beanstalkd instance
@@ -25,13 +23,12 @@ type TubeYaad struct {
 }
 
 // NewSrvYaad returns a yaad BeanstalkdSrv
-func NewSrvYaad() BeanstalkdSrv {
-	wd, _ := os.Getwd()
+func NewSrvYaad(opts *goyaad.HubOpts) BeanstalkdSrv {
 	y := SrvYaad{make(map[string]Tube)}
 	t := &TubeYaad{
 		name:   "default",
 		paused: false,
-		hub:    goyaad.NewHub(time.Second*5, persistence.NewJournalPersister(wd)),
+		hub:    goyaad.NewHub(opts),
 	}
 	y.tubes[t.name] = t
 	return &y

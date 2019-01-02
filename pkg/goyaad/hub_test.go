@@ -25,13 +25,16 @@ var _ = Describe("Test hub", func() {
 
 	It("can create a hub", func() {
 		// A hub with 10ms spokes
-		h := NewHub(time.Millisecond*10, persister)
+		h := NewHub(&HubOpts{SpokeSpan: time.Millisecond * 10, Persister: persister, AttemptRestore: false})
 		Expect(h.PendingJobsCount()).To(Equal(0))
 	})
 
 	It("accepts jobs with random times and random spoke durations into a hub", func() {
 		for i := 0; i < 50; i++ {
-			h := NewHub(time.Second*time.Duration(rand.Intn(2999)+1), persister)
+			h := NewHub(&HubOpts{
+				SpokeSpan:      time.Second * time.Duration(rand.Intn(2999)+1),
+				Persister:      persister,
+				AttemptRestore: false})
 
 			j := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
 			h.AddJob(j)
@@ -44,7 +47,11 @@ var _ = Describe("Test hub", func() {
 		defer close(done)
 
 		// hub with spokes spanning  3000 nanosec (Faster for testing)
-		h := NewHub(time.Nanosecond*3000, persister)
+		opts := &HubOpts{
+			SpokeSpan:      time.Nanosecond * 3000,
+			Persister:      persister,
+			AttemptRestore: false}
+		h := NewHub(opts)
 
 		// Add a jobs with a random trigger time in the future - max 9999 nanosec
 		jobs := [1000]*Job{}
@@ -93,7 +100,11 @@ var _ = Describe("Test hub", func() {
 	It("Persists and recovers from disk", func(done Done) {
 		defer close(done)
 
-		h := NewHub(time.Nanosecond*3000, persister)
+		opts := &HubOpts{
+			SpokeSpan:      time.Nanosecond * 3000,
+			Persister:      persister,
+			AttemptRestore: false}
+		h := NewHub(opts)
 
 		// Add a jobs with a random trigger time in the future - max 9999 nanosec
 		jobs := [1000]*Job{}
@@ -143,8 +154,12 @@ var _ = Describe("Test hub", func() {
 	It("bootstraps a new hub from a golden peristence record", func(done Done) {
 		defer close(done)
 		wd, _ := os.Getwd()
-		p := persistence.NewJournalPersister(path.Join(wd, "../../testdata/persist_golden"))
-		h := NewHub(time.Nanosecond*3000, p)
+		persister := persistence.NewJournalPersister(path.Join(wd, "../../testdata/persist_golden"))
+		opts := &HubOpts{
+			SpokeSpan:      time.Nanosecond * 3000,
+			Persister:      persister,
+			AttemptRestore: false}
+		h := NewHub(opts)
 		err := h.Restore("job")
 		Expect(err).NotTo(HaveOccurred())
 

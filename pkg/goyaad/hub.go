@@ -18,6 +18,13 @@ const (
 	hundredYears = time.Hour * 24 * 365 * 100
 )
 
+// HubOpts define customizations for Hub initialization
+type HubOpts struct {
+	Persister      persistence.Persister // persister to store/restore from disk
+	AttemptRestore bool                  // If true, hub will try to restore from disk on start
+	SpokeSpan      time.Duration         // How wide should the spokes be
+}
+
 // Hub is a time ordered collection of spokes
 type Hub struct {
 	spokeSpan time.Duration
@@ -37,9 +44,9 @@ type Hub struct {
 
 // NewHub creates a new hub where adjacent spokes lie at the given
 // spokeSpan duration boundary.
-func NewHub(spokeSpan time.Duration, persister persistence.Persister) *Hub {
+func NewHub(opts *HubOpts) *Hub {
 	h := &Hub{
-		spokeSpan:        spokeSpan,
+		spokeSpan:        opts.SpokeSpan,
 		spokeMap:         make(map[SpokeBound]*Spoke),
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
@@ -47,7 +54,7 @@ func NewHub(spokeSpan time.Duration, persister persistence.Persister) *Hub {
 		reservedJobs:     make(map[string]*Job),
 		removedJobsCount: 0,
 		lock:             &sync.Mutex{},
-		persister:        persister,
+		persister:        opts.Persister,
 	}
 	heap.Init(h.spokes)
 
@@ -55,6 +62,16 @@ func NewHub(spokeSpan time.Duration, persister persistence.Persister) *Hub {
 		"start": h.pastSpoke.start.String(),
 		"end":   h.pastSpoke.end.String(),
 	}).Debug("Created hub with past spoke")
+
+	if opts.AttemptRestore {
+		logrus.Info("Hub: Entering restore mode")
+		err := h.Restore("job")
+		if err != nil {
+			logrus.Error("Hub: Restore error", err)
+		}
+
+		logrus.Info("Hub: Initial restore finished. Resuming")
+	}
 
 	go h.StatusPrinter()
 	go h.handleSignals()
@@ -436,8 +453,8 @@ func (h *Hub) Restore(namespace string) error {
 
 	errDecodeCount := 0
 	errAddCount := 0
+	recoverCount := 0
 	for e := range entries {
-		logrus.Infof("recovering key: %s", e.Key)
 		j := new(Job)
 		err := j.GobDecode(e.Data.Bytes())
 		if err != nil {
@@ -450,7 +467,9 @@ func (h *Hub) Restore(namespace string) error {
 			logrus.Error(err)
 			continue
 		}
+		recoverCount++
 	}
+	logrus.Infof("Hub:Restore recovered %d entries", recoverCount)
 
 	if errAddCount == 0 && errDecodeCount == 0 {
 		return nil

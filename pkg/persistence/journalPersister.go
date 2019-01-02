@@ -41,7 +41,7 @@ func NewJournalPersister(dataDir string) Persister {
 func (lp *JournalPersister) ResetDataDir() error {
 	// Currently, only reset namespaces
 	p := lp.getPathForNamespace("")
-	logrus.Warnf("JournalPersister:ResetDataDir resetting base path: %s ", p)
+	logrus.Warnf("JournalPersister:ResetDataDir resetting base path: %s", p)
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
 		dir, err := ioutil.ReadDir(p)
 		if err != nil {
@@ -188,8 +188,9 @@ func (lp *JournalPersister) write(e *Entry) error {
 	return nil
 }
 
+// getPathForNamespace returns the canonical path where data for the given namespace will be persisted
 func (lp *JournalPersister) getPathForNamespace(n Namespace) string {
-	p := path.Join(lp.dataDir, "namespaces")
+	p := path.Join(lp.dataDir, "journal")
 	os.MkdirAll(p, os.ModeDir|0774)
 	return path.Join(p, n)
 }

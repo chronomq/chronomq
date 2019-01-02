@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 )
 
@@ -53,12 +54,12 @@ type Connection struct {
 }
 
 // NewYaadServer returns a pointer to a new yaad server
-func NewYaadServer(stub bool) *Server {
+func NewYaadServer(stub bool, opts *goyaad.HubOpts) *Server {
 	if stub {
 		return &Server{srv: NewSrvStub()}
 	}
 	return &Server{
-		srv: NewSrvYaad(),
+		srv: NewSrvYaad(opts),
 	}
 }
 

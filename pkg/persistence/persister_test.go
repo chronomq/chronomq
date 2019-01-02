@@ -40,7 +40,7 @@ var _ = Describe("Test persistence", func() {
 			// reset
 			Expect(p.ResetDataDir()).To(BeNil())
 
-			dir, err := ioutil.ReadDir(path.Join(persistenceTestDir, "namespaces"))
+			dir, err := ioutil.ReadDir(path.Join(persistenceTestDir, "journal"))
 			Expect(err).To(BeNil())
 			Expect(len(dir)).To(Equal(0))
 		})
