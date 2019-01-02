@@ -7,10 +7,16 @@ import (
 	"time"
 
 	"github.com/kr/beanstalk"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
-var srv = protocol.NewYaadServer(false)
+var opts = goyaad.HubOpts{
+	AttemptRestore: false,
+	Persister:      persistence.NewJournalPersister(""),
+	SpokeSpan:      time.Second * 5}
+var srv = protocol.NewYaadServer(false, &opts)
 var addr = ":9000"
 var proto = "tcp"
 var bconn *beanstalk.Conn

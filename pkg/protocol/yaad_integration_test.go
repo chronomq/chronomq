@@ -8,6 +8,8 @@ import (
 	"github.com/kr/beanstalk"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
@@ -20,7 +22,11 @@ var _ = Describe("Test protocol:", func() {
 	BeforeSuite(func(done Done) {
 		defer close(done)
 
-		srv = protocol.NewYaadServer(false)
+		var opts = goyaad.HubOpts{
+			AttemptRestore: false,
+			Persister:      persistence.NewJournalPersister(""),
+			SpokeSpan:      time.Second * 5}
+		srv = protocol.NewYaadServer(false, &opts)
 		go func() {
 			ExpectNoErr(srv.ListenAndServe(proto, addr))
 		}()

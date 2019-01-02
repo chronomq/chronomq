@@ -65,7 +65,7 @@ func NewHub(opts *HubOpts) *Hub {
 
 	if opts.AttemptRestore {
 		logrus.Info("Hub: Entering restore mode")
-		err := h.Restore("job")
+		err := h.Restore()
 		if err != nil {
 			logrus.Error("Hub: Restore error", err)
 		}
@@ -445,8 +445,8 @@ func (h *Hub) Persist() chan error {
 }
 
 // Restore loads any jobs saved to disk at the given path
-func (h *Hub) Restore(namespace string) error {
-	entries, err := h.persister.Recover(namespace)
+func (h *Hub) Restore() error {
+	jobs, err := h.persister.Recover()
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -454,9 +454,9 @@ func (h *Hub) Restore(namespace string) error {
 	errDecodeCount := 0
 	errAddCount := 0
 	recoverCount := 0
-	for e := range entries {
+	for e := range jobs {
 		j := new(Job)
-		err := j.GobDecode(e.Data.Bytes())
+		err := j.GobDecode(e)
 		if err != nil {
 			errDecodeCount++
 			logrus.Error(err)

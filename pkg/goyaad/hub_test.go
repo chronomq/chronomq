@@ -141,7 +141,7 @@ var _ = Describe("Test hub", func() {
 			Fail("Persist failed due to error: " + e.Error())
 		}
 
-		entries, err := persister.Recover("job")
+		entries, err := persister.Recover()
 		Expect(err).To(BeNil())
 		counter := 0
 		for range entries {
@@ -160,7 +160,7 @@ var _ = Describe("Test hub", func() {
 			Persister:      persister,
 			AttemptRestore: false}
 		h := NewHub(opts)
-		err := h.Restore("job")
+		err := h.Restore()
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(h.PendingJobsCount()).To(Equal(1000))

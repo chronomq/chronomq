@@ -176,9 +176,5 @@ func (j *Job) Persist(persister persistence.Persister) error {
 	if err != nil {
 		return err
 	}
-	return persister.Persist(&persistence.Entry{
-		Key:       j.ID(),
-		Data:      bytes.NewBuffer(buf),
-		Namespace: "job"},
-	)
+	return persister.Persist(buf)
 }

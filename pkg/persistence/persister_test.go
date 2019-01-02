@@ -1,7 +1,6 @@
 package persistence_test
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path"
@@ -31,8 +30,7 @@ var _ = Describe("Test persistence", func() {
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
 			data, err := j.GobEncode()
 			Expect(err).To(BeNil())
-			inputEntry := &persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"}
-			err = p.Persist(inputEntry)
+			err = p.Persist(data)
 			Expect(err).To(BeNil())
 
 			p.Finalize()
@@ -51,34 +49,29 @@ var _ = Describe("Test persistence", func() {
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
 			data, err := j.GobEncode()
 			Expect(err).To(BeNil())
-			inputEntry := &persistence.Entry{Data: bytes.NewBuffer(data), Namespace: "simpletest"}
-			err = p.Persist(inputEntry)
+			err = p.Persist(data)
 			Expect(err).To(BeNil())
 
 			p.Finalize()
 
 			// recovers a job
-			entriesChan, err := p.Recover("simpletest")
+			jobsChan, err := p.Recover()
 			Expect(err).To(BeNil())
 
 			// Wait for entries chan to close
-			entries := []*persistence.Entry{}
-			for e := range entriesChan {
-				entries = append(entries, e)
+			jobs := []goyaad.Job{}
+			for buf := range jobsChan {
+				j := goyaad.Job{}
+				err = j.GobDecode(buf)
+				Expect(err).To(BeNil())
+				jobs = append(jobs, j)
 			}
 
-			Expect(len(entries)).To(Equal(1))
-			entry := entries[0]
-
-			Expect(entry.Namespace).To(Equal(inputEntry.Namespace))
-			Expect(entry.Data.Bytes()).To(BeEquivalentTo(data))
-
-			jj := new(goyaad.Job)
-			err = jj.GobDecode(entry.Data.Bytes())
-			Expect(err).To(BeNil())
-			Expect(jj.Body()).To(Equal(j.Body()))
-			Expect(jj.ID()).To(Equal(j.ID()))
-			Expect(jj.TriggerAt().UnixNano()).To(Equal(j.TriggerAt().UnixNano()))
+			Expect(len(jobs)).To(Equal(1))
+			job := jobs[0]
+			Expect(job.Body()).To(Equal(j.Body()))
+			Expect(job.ID()).To(Equal(j.ID()))
+			Expect(job.TriggerAt().UnixNano()).To(Equal(j.TriggerAt().UnixNano()))
 		}, 5)
 	})
 })
