@@ -448,7 +448,7 @@ func (h *Hub) Persist() chan error {
 func (h *Hub) Restore() error {
 	jobs, err := h.persister.Recover()
 	if err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 
 	errDecodeCount := 0
