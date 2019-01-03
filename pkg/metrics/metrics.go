@@ -24,11 +24,8 @@ func InitMetrics(statsAddr string) {
 
 // Time sends timing metrics when called.
 // Ideally used with defer as Time("metricname", time.Now())
-func Time(name string, start time.Time) {
-	err := Client.Timing(name, time.Now().Sub(start), nil, 1)
-	if err != nil {
-		logrus.Error(err)
-	}
+func Time(name string, start time.Time) error {
+	return Client.Timing(name, time.Now().Sub(start), nil, 1)
 }
 
 // Incr increments the given metric name

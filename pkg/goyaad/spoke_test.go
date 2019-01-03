@@ -3,6 +3,8 @@ package goyaad_test
 import (
 	"container/heap"
 	"math/rand"
+	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -10,6 +12,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 var _ = Describe("Test spokes", func() {
@@ -159,6 +162,17 @@ var _ = Describe("Test spokes", func() {
 				item := s.(*Item)
 				Expect(item.Value().(*Spoke).ID()).To(Equal(spoke.ID()))
 			}
+		})
+	})
+	Context("Spoke persistence", func() {
+		It("persists a spoke", func() {
+			s := NewSpokeFromNow(time.Minute * 100)
+			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
+			p := persistence.NewJournalPersister(persistenceTestDir)
+			Expect(p.ResetDataDir()).To(BeNil())
+
+			errC := s.Persist(p)
+			Eventually(errC).ShouldNot(Receive())
 		})
 	})
 })

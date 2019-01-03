@@ -23,15 +23,21 @@ type TubeYaad struct {
 }
 
 // NewSrvYaad returns a yaad BeanstalkdSrv
-func NewSrvYaad() BeanstalkdSrv {
+func NewSrvYaad(opts *goyaad.HubOpts) BeanstalkdSrv {
 	y := SrvYaad{make(map[string]Tube)}
 	t := &TubeYaad{
 		name:   "default",
 		paused: false,
-		hub:    goyaad.NewHub(time.Second * 5),
+		hub:    goyaad.NewHub(opts),
 	}
 	y.tubes[t.name] = t
 	return &y
+}
+
+func (s *SrvYaad) stop(persist bool) {
+	for _, t := range s.tubes {
+		t.stop(persist)
+	}
 }
 
 func (s *SrvYaad) listTubes() []string {
@@ -50,6 +56,10 @@ func (s *SrvYaad) getTube(name string) (Tube, error) {
 		return nil, ErrTubeNotFound
 	}
 	return t, nil
+}
+
+func (t *TubeYaad) stop(persist bool) {
+	t.hub.Stop(persist)
 }
 
 func (t *TubeYaad) pauseTube(delay time.Duration) error {
@@ -106,7 +116,6 @@ func (t *TubeYaad) reserve(timeoutSec string) *Job {
 	return nil
 }
 
-// Todo: handle cancelations for reserved jobs
 func (t *TubeYaad) deleteJob(id int) error {
 	strID := strconv.Itoa(id)
 	return t.hub.CancelJob(strID)

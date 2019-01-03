@@ -2,17 +2,26 @@ package goyaad
 
 import (
 	"container/heap"
-	"errors"
+	"os"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 const (
 	hundredYears = time.Hour * 24 * 365 * 100
 )
+
+// HubOpts define customizations for Hub initialization
+type HubOpts struct {
+	Persister      persistence.Persister // persister to store/restore from disk
+	AttemptRestore bool                  // If true, hub will try to restore from disk on start
+	SpokeSpan      time.Duration         // How wide should the spokes be
+}
 
 // Hub is a time ordered collection of spokes
 type Hub struct {
@@ -27,13 +36,15 @@ type Hub struct {
 
 	removedJobsCount uint64
 	lock             *sync.Mutex
+
+	persister persistence.Persister
 }
 
 // NewHub creates a new hub where adjacent spokes lie at the given
 // spokeSpan duration boundary.
-func NewHub(spokeSpan time.Duration) *Hub {
+func NewHub(opts *HubOpts) *Hub {
 	h := &Hub{
-		spokeSpan:        spokeSpan,
+		spokeSpan:        opts.SpokeSpan,
 		spokeMap:         make(map[SpokeBound]*Spoke),
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
@@ -41,6 +52,7 @@ func NewHub(spokeSpan time.Duration) *Hub {
 		reservedJobs:     make(map[string]*Job),
 		removedJobsCount: 0,
 		lock:             &sync.Mutex{},
+		persister:        opts.Persister,
 	}
 	heap.Init(h.spokes)
 
@@ -49,9 +61,33 @@ func NewHub(spokeSpan time.Duration) *Hub {
 		"end":   h.pastSpoke.end.String(),
 	}).Debug("Created hub with past spoke")
 
+	if opts.AttemptRestore {
+		logrus.Info("Hub: Entering restore mode")
+		err := h.Restore()
+		if err != nil {
+			logrus.Error("Hub: Restore error", err)
+		}
+
+		logrus.Info("Hub: Initial restore finished. Resuming")
+	}
+
 	go h.StatusPrinter()
 
 	return h
+}
+
+// Stop the hub gracefully and if persist is true, then persist all jobs to disk for later recovery
+func (h *Hub) Stop(persist bool) {
+	if persist {
+		logrus.Infof("Hub:Stop Starting persistence for pid: %d", os.Getpid())
+		errC := h.Persist()
+		errCount := 0
+		for range errC {
+			errCount++
+		}
+		logrus.Infof("Hub:Stop Finished persistence with %d errors", errCount)
+	}
+	logrus.Infof("Hub:Stop stopped")
 }
 
 // PendingJobsCount return the number of jobs currently pending
@@ -62,6 +98,11 @@ func (h *Hub) PendingJobsCount() int {
 	}
 
 	return count
+}
+
+// ReservedJobsCount return the number of jobs currently reserved
+func (h *Hub) ReservedJobsCount() int {
+	return len(h.reservedJobs)
 }
 
 // CancelJob cancels a job if found. Calls are noop for unknown jobs
@@ -172,8 +213,6 @@ func (h *Hub) Next() *Job {
 			// Pop it from the queue - this is now a current spoke
 			heap.Pop(h.spokes)
 			logrus.Infof("Hub spoke pop cap: %d", h.spokes.Cap())
-			// h.spokes = h.spokes.Shrink()
-			// logrus.Infof("Shrink: Hub spoke cap: %d", h.spokes.Cap())
 		}
 	}
 
@@ -233,12 +272,12 @@ func (h *Hub) AddJob(j *Job) error {
 
 	switch j.AsTemporalState() {
 	case Past:
-		logrus.Debugf("Adding job: %s to past spoke", j.id)
+		logrus.Tracef("Adding job: %s to past spoke", j.id)
 		pastLocker := h.pastSpoke.GetLocker()
 		pastLocker.Lock()
 		defer pastLocker.Unlock()
 
-		logrus.WithField("JobID", j.ID).Debug("Adding job to past spoke")
+		logrus.WithField("JobID", j.ID).Trace("Adding job to past spoke")
 		err := h.pastSpoke.AddJob(j)
 		if err != nil {
 			logrus.WithError(err).Error("Past spoke rejected job. This should never happen")
@@ -246,7 +285,7 @@ func (h *Hub) AddJob(j *Job) error {
 		}
 		metrics.Incr("hub.addjob.past")
 	case Future:
-		logrus.Debugf("Adding job: %s to future spoke", j.id)
+		logrus.Tracef("Adding job: %s to future spoke", j.id)
 		// Lock hub so that current spoke isn't replaced
 		h.lock.Lock()
 		defer h.lock.Unlock()
@@ -284,7 +323,7 @@ func (h *Hub) AddJob(j *Job) error {
 		}
 
 		// Time to create a new spoke for this job
-		logrus.Infof("Adding job: %s to new spoke", j.id)
+		logrus.Debugf("Adding job: %s to a new spoke", j.id)
 		s := NewSpoke(jobBound.start, jobBound.end)
 		err := s.AddJob(j)
 		if err != nil {
@@ -339,4 +378,96 @@ func (h *Hub) StatusPrinter() {
 	for range t.C {
 		h.Status()
 	}
+}
+
+// Persist locks the hub and starts persisting data to disk
+func (h *Hub) Persist() chan error {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	logrus.Warn("Starting disk offload")
+	logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(h.spokes.Len())
+
+	ec := make(chan error)
+
+	go func() {
+		defer close(ec)
+
+		for i := 0; i < h.spokes.Len(); i++ {
+			s := h.spokes.AtIdx(i).value.(*Spoke)
+			func() {
+				defer wg.Done()
+				errC := s.Persist(h.persister)
+				for e := range errC {
+					ec <- e
+				}
+			}()
+		}
+
+		// Save past spoke
+		errC := h.pastSpoke.Persist(h.persister)
+		for e := range errC {
+			ec <- e
+		}
+
+		// Save current spoke
+		if h.currentSpoke != nil {
+			errC := h.currentSpoke.Persist(h.persister)
+			for e := range errC {
+				ec <- e
+			}
+		}
+
+		// Save the reserved jobs
+		for _, j := range h.reservedJobs {
+			if err := h.persister.Persist(j); err != nil {
+				ec <- err
+			}
+		}
+
+		wg.Wait()
+		h.persister.Finalize()
+	}()
+
+	return ec
+}
+
+// Restore loads any jobs saved to disk at the given path
+func (h *Hub) Restore() error {
+	jobs, err := h.persister.Recover()
+	if err != nil {
+		return err
+	}
+
+	errDecodeCount := 0
+	errAddCount := 0
+	recoverCount := 0
+	for e := range jobs {
+		j := new(Job)
+		err := j.GobDecode(e)
+		if err != nil {
+			errDecodeCount++
+			logrus.Error(err)
+			continue
+		}
+		if err = h.AddJob(j); err != nil {
+			errAddCount++
+			logrus.Error(err)
+			continue
+		}
+		recoverCount++
+	}
+	logrus.Infof("Hub:Restore recovered %d entries", recoverCount)
+
+	if errAddCount == 0 && errDecodeCount == 0 {
+		return nil
+	}
+
+	var retErr = errors.New("Hub:Restore failed")
+	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors decoding persisted jobs", errDecodeCount)
+	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors adding persisted jobs", errAddCount)
+	return retErr
 }

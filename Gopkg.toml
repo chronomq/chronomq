@@ -11,3 +11,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/kr/beanstalk"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/syndtr/goleveldb"

@@ -38,3 +38,4 @@ Jobs that we accept responsibility for.
 
 - `goyaad -addr localhost:11300 -s localhost:8125` starts the goyaad server listening at 11300 on localhost and sends statsd metrics to 8125.
 - Run `goyaad -help` for more information
+- `SIGUSR1` will trigger a graceful shutdown by persisting current jobs to disk. To bootstrap with the jobs from disk, run with the `-r or --restore` flag (With the appropriate data dir set `-d or --dataDir`)

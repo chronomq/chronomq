@@ -9,6 +9,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 // Spoke is a time bound chain of jobs
@@ -86,7 +87,7 @@ func (s *Spoke) AddJob(j *Job) error {
 			"spokeID":      s.id,
 			"spokeStart":   s.start.UnixNano(),
 			"spokeEnd":     s.end.UnixNano(),
-		}).Debug("Accepting job")
+		}).Trace("Accepting job")
 	s.jobMap.Store(j.id, true)
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
@@ -154,4 +155,22 @@ func (s *Spoke) ID() uuid.UUID {
 // AsPriorityItem returns a spoke as a prioritizable Item
 func (s *Spoke) AsPriorityItem() *Item {
 	return &Item{index: 0, priority: s.start, value: s}
+}
+
+// Persist all jobs in this spoke
+func (s *Spoke) Persist(p persistence.Persister) chan error {
+	errC := make(chan error)
+	go func() {
+		defer close(errC)
+		var i = 0
+		for i = 0; i < s.jobQueue.Len(); i++ {
+			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*Job))
+			if err != nil {
+				errC <- err
+				continue
+			}
+		}
+		logrus.Infof("Persisted %d jobs from spoke %s", i, s.ID())
+	}()
+	return errC
 }

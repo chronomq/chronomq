@@ -2,6 +2,8 @@ package goyaad_test
 
 import (
 	"container/heap"
+	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -9,6 +11,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 var _ = Describe("Test jobs", func() {
@@ -45,6 +48,32 @@ var _ = Describe("Test jobs", func() {
 				j := heap.Pop(jobs).(*Item).Value().(*Job)
 				Expect(j.ID()).To(Equal(job.ID()))
 			}
+		})
+	})
+
+	Context("Job serialization", func() {
+		It("serde as gob", func() {
+			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
+			encoded, err := j.GobEncode()
+			Expect(err).To(BeNil())
+
+			jj := &Job{}
+			err = jj.GobDecode(encoded)
+			Expect(err).To(BeNil())
+
+			Expect(j.ID()).To(Equal(jj.ID()))
+			Expect(j.Body()).To(Equal(jj.Body()))
+			Expect(j.TriggerAt().Unix()).To(Equal(jj.TriggerAt().Unix()))
+		})
+
+		It("use a persister to save a job", func() {
+			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
+			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
+			p := persistence.NewJournalPersister(persistenceTestDir)
+			Expect(p.ResetDataDir()).To(BeNil())
+
+			err := p.Persist(j)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })
