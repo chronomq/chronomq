@@ -14,7 +14,7 @@ var Client *statsd.Client
 func InitMetrics(statsAddr string) {
 	if Client == nil {
 		var err error
-		Client, err = statsd.New(statsAddr)
+		Client, err = statsd.NewBuffered(statsAddr, 500)
 		if err != nil {
 			logrus.Fatal(err)
 		}
