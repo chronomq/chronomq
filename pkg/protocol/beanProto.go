@@ -190,9 +190,7 @@ func (s *Server) serve(conn *Connection) {
 			if err != nil {
 				logrus.WithError(err).Fatal("error reading data")
 			}
-			data := make([]byte, len(body))
-			copy(data, body)
-			putCmd(conn, parts[1:], data[:])
+			putCmd(conn, parts[1:], body)
 		case reserve:
 			go metrics.Incr(reserveJobCtr)
 			reserveCmd(conn, "0")
