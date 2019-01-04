@@ -61,16 +61,17 @@ func NewHub(opts *HubOpts) *Hub {
 		"attemptRestore": opts.AttemptRestore,
 	}).Info("Created hub")
 
-	if opts.AttemptRestore {
-		logrus.Info("Hub: Entering restore mode")
-		err := h.Restore()
-		if err != nil {
-			logrus.Error("Hub: Restore error", err)
+	go func() {
+		if opts.AttemptRestore {
+			logrus.Info("Hub: Entering restore mode")
+			err := h.Restore()
+			if err != nil {
+				logrus.Error("Hub: Restore error", err)
+			}
+
+			logrus.Info("Hub: Initial restore finished. Resuming")
 		}
-
-		logrus.Info("Hub: Initial restore finished. Resuming")
-	}
-
+	}()
 	go h.StatusPrinter()
 
 	return h
