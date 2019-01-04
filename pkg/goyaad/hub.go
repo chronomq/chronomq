@@ -57,9 +57,9 @@ func NewHub(opts *HubOpts) *Hub {
 	heap.Init(h.spokes)
 
 	logrus.WithFields(logrus.Fields{
-		"start": h.pastSpoke.start.String(),
-		"end":   h.pastSpoke.end.String(),
-	}).Debug("Created hub with past spoke")
+		"spokeSpan":      opts.SpokeSpan,
+		"attemptRestore": opts.AttemptRestore,
+	}).Info("Created hub")
 
 	if opts.AttemptRestore {
 		logrus.Info("Hub: Entering restore mode")
