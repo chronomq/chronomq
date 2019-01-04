@@ -122,12 +122,10 @@ func (s *Spoke) CancelJob(id string) error {
 	defer s.lock.Unlock()
 
 	if _, ok := s.jobMap.Load(id); ok {
-		logrus.Info("canceling from spoke job map")
 		s.jobMap.Delete(id)
 		// Also delete from pq
 		for i, j := range s.jobQueue {
 			if j.value.(*Job).id == id {
-				logrus.Info("canceling from spoke job q")
 				heap.Remove(&s.jobQueue, i)
 				return nil
 			}
