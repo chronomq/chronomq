@@ -164,10 +164,16 @@ func (h *Hub) Next() *Job {
 	defer metrics.Time("hub.next.search.duration", time.Now())
 
 	h.lock.Lock()
+
+	// since we have the lock, send some metrics
+	go metrics.GaugeInt("hub.job.count", h.PendingJobsCount())
+	go metrics.GaugeInt("hub.spoke.count", len(h.spokeMap))
+	go metrics.GaugeInt("hub.job.reserved.count", len(h.reservedJobs))
 	defer h.lock.Unlock()
 
 	pastLocker := h.pastSpoke.GetLocker()
 	pastLocker.Lock()
+	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 	defer pastLocker.Unlock()
 
 	// Find a job in past spoke
@@ -226,6 +232,7 @@ func (h *Hub) Next() *Job {
 
 	currentLocker := h.currentSpoke.GetLocker()
 	currentLocker.Lock()
+	go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 	defer currentLocker.Unlock()
 
 	j = h.currentSpoke.Next()
@@ -366,7 +373,7 @@ func (h *Hub) Status() {
 
 	if h.currentSpoke != nil {
 		logrus.Infof("Current spoke has %d jobs", h.currentSpoke.PendingJobsLen())
-		go metrics.GaugeInt("hub.job.pastspoke.count", h.currentSpoke.PendingJobsLen())
+		go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 	}
 
 	logrus.Infof("Assigned current spoke: %v", h.currentSpoke == nil)
