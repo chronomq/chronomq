@@ -19,13 +19,17 @@ var statsAddr = ":8125"
 var dataDir string
 var restore bool
 var spokeSpan string
+var rpc bool
 
 func init() {
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
-	rootCmd.PersistentFlags().StringVarP(&addr, "addr", "a", ":11300", "Set listen addr (host:port)")
-	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", ":8125", "Stats addr (host:port)")
+	rootCmd.PersistentFlags().StringVarP(&addr, "addr", "a", addr, "Set listen addr (host:port)")
+
+	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", statsAddr, "Stats addr (host:port)")
 	rootCmd.PersistentFlags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")
+
+	rootCmd.PersistentFlags().BoolVarP(&rpc, "rpc", "R", false, "Expose an rpc server")
 
 	dataDir, _ = os.Getwd()
 	rootCmd.Flags().StringVarP(&dataDir, "dataDir", "d", dataDir, `Data dir location - persits state here when SIGUSR1 is received. 
@@ -52,8 +56,13 @@ func runServer() {
 		AttemptRestore: restore,
 		SpokeSpan:      ss,
 		Persister:      persistence.NewJournalPersister(dataDir)}
-	s := protocol.NewYaadServer(false, opts)
-	log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
+
+	if rpc {
+		protocol.ServeRPC(opts, addr)
+	} else {
+		s := protocol.NewYaadServer(false, opts)
+		log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
+	}
 }
 
 // Execute root cmd by default

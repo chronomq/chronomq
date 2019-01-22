@@ -11,6 +11,8 @@ import (
 
 var ignoredReply int8
 
+var ErrClientDisconnected = errors.New("Client is not connected to the server")
+
 type RPCClient struct {
 	client *rpc.Client
 }
@@ -29,26 +31,43 @@ func (c *RPCClient) Connect(addr string) error {
 }
 
 // PutWithID saves a job with Yaad against a given id.
-func (c *RPCClient) PutWithID(id string, delay time.Duration, body []byte) error {
+func (c *RPCClient) PutWithID(id string, body []byte, delay time.Duration) error {
+	if c.client == nil {
+		return ErrClientDisconnected
+	}
 	job := goyaad.NewJob(id, time.Now().Add(delay), body)
 	return c.client.Call("RPCServer.PutWithID", job, &ignoredReply)
 }
 
+// Put saves a job with Yaad and returns the auto-generated job id
+func (c *RPCClient) Put(body []byte, delay time.Duration) (string, error) {
+	if c.client == nil {
+		return "", ErrClientDisconnected
+	}
+	job := goyaad.NewJobAutoID(time.Now().Add(delay), body)
+	return job.ID(), c.client.Call("RPCServer.PutWithID", job, &ignoredReply)
+}
+
 // Cancel deletes a job identified by the given id. Calls to cancel are idempotent
 func (c *RPCClient) Cancel(id string) error {
+	if c.client == nil {
+		return ErrClientDisconnected
+	}
 	return c.client.Call("RPCServer.Cancel", id, &ignoredReply)
 }
 
 // Next wait at-most timeout duration to return a ready job body from Yaad
 // If no job is available within the timeout, ErrTimeout is returned and clients should try again later
-func (c *RPCClient) Next(timeout time.Duration) ([]byte, error) {
+func (c *RPCClient) Next(timeout time.Duration) (string, []byte, error) {
+	if c.client == nil {
+		return "", nil, ErrClientDisconnected
+	}
 	var job goyaad.Job
 	err := c.client.Call("RPCServer.Next", timeout, &job)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-
-	return job.Body(), nil
+	return job.ID(), job.Body(), nil
 }
 
 // Close the client connection
@@ -61,6 +80,9 @@ func (c *RPCClient) Close() error {
 
 // Ping the server and check connectivity
 func (c *RPCClient) Ping() error {
+	if c.client == nil {
+		return ErrClientDisconnected
+	}
 	var pong string
 	err := c.client.Call("RPCServer.Ping", 0, &pong)
 	if err != nil {

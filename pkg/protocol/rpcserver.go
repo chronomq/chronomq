@@ -71,7 +71,8 @@ func (r *RPCServer) Ping(ignore int8, pong *string) error {
 }
 
 // ServeRPC starts serving hub over rpc
-func ServeRPC(hub *goyaad.Hub, addr string) error {
+func ServeRPC(opts *goyaad.HubOpts, addr string) error {
+	hub := goyaad.NewHub(opts)
 	srv := newRPCServer(hub)
 	rpc.Register(srv)
 	rpc.HandleHTTP()

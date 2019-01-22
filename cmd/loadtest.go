@@ -11,6 +11,7 @@ import (
 	"github.com/kr/beanstalk"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/goyaad/pkg/protocol"
 
 	"github.com/spf13/cobra"
 )
@@ -107,26 +108,58 @@ func runLoadTest() {
 	}
 
 	for c := 0; c < connections; c++ {
-		if enqueueMode {
-			logrus.Infof("Creating enqueue connection: %d", c)
-			conn, err := beanstalk.Dial("tcp", addr)
-			if err != nil {
-				logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
-			}
-			logrus.Infof("Enqueuing using connection: %d", c)
-			enqWG.Add(1)
-			go enqueue(enqWG, c, conn, enqJobs)
-		}
+		if rpc {
+			if enqueueMode {
+				logrus.Infof("RPC Creating enqueue connection: %d", c)
+				client := &protocol.RPCClient{}
+				err := client.Connect(addr)
+				if err != nil {
+					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+				}
 
-		if dequeueMode {
-			logrus.Infof("Creating dequeue connection: %d", c)
-			conn, err := beanstalk.Dial("tcp", addr)
-			if err != nil {
-				logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+				client.Ping()
+
+				logrus.Infof("RPC Enqueuing using connection: %d", c)
+				enqWG.Add(1)
+				go enqueueRPC(enqWG, c, client, enqJobs)
 			}
-			deqWG.Add(1)
-			logrus.Infof("Dequeuing using connection: %d", c)
-			go dequeue(deqWG, c, conn, deqJobs, stopDeq, data)
+
+			if dequeueMode {
+				logrus.Infof("RPC Creating dequeue connection: %d", c)
+				client := &protocol.RPCClient{}
+				err := client.Connect(addr)
+				if err != nil {
+					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+				}
+				client.Ping()
+
+				deqWG.Add(1)
+				logrus.Infof("RPC Dequeuing using connection: %d", c)
+				go dequeueRPC(deqWG, c, client, deqJobs, stopDeq, data)
+			}
+		} else {
+			if enqueueMode {
+				logrus.Infof("Creating enqueue connection: %d", c)
+				conn, err := beanstalk.Dial("tcp", addr)
+				if err != nil {
+					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+				}
+
+				logrus.Infof("Enqueuing using connection: %d", c)
+				enqWG.Add(1)
+				go enqueueBeanstalkd(enqWG, c, conn, enqJobs)
+			}
+
+			if dequeueMode {
+				logrus.Infof("Creating dequeue connection: %d", c)
+				conn, err := beanstalk.Dial("tcp", addr)
+				if err != nil {
+					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+				}
+				deqWG.Add(1)
+				logrus.Infof("Dequeuing using connection: %d", c)
+				go dequeueBeanstalkd(deqWG, c, conn, deqJobs, stopDeq, data)
+			}
 		}
 	}
 
@@ -136,88 +169,147 @@ func runLoadTest() {
 	deqWG.Wait()
 }
 
-func dequeue(deqWG *sync.WaitGroup, c int, conn *beanstalk.Conn, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
+func dequeueBeanstalkd(deqWG *sync.WaitGroup, workerID int, conn *beanstalk.Conn, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
 
 	go func() {
 		var prevTriggerAt int64
 		for {
-			id, body, err := conn.Reserve(time.Second * 1)
-
-			if err != nil {
-				cerr, ok := err.(beanstalk.ConnError)
-				if !ok {
-					logrus.WithError(err).Fatalf("expected a beanstalkd ConnError - error type unknown")
-				}
-				if ok && cerr.Err == beanstalk.ErrTimeout {
-					// no jobs ready yet - this returns err timout
-					// break this batch iteration, wait for next tick
-					logrus.Debug("Reserve timedout...")
-					continue
-				} else {
-					logrus.WithError(err).Fatalf("Failed to dequeue for worker: %d", c)
-				}
+			body, err := readFromBeantalkd(conn, workerID)
+			cerr, ok := err.(beanstalk.ConnError)
+			if ok && cerr.Err == beanstalk.ErrTimeout {
+				continue
+			} else {
+				return
 			}
-
-			logrus.Debugf("Reserved: %d", id)
-			err = conn.Delete(id)
-			if err != nil {
-				logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", c)
-			}
-
-			parts := bytes.Split(body, []byte(` `))
-			if len(parts) == 2 {
-				body = parts[1] // leave just the body for equality check
-			}
-
-			// check order with tolerance because clocks are not monotonous
-			// and beanstalkd protocol asks for delay rather than a direct trigger time.
-			if enableTolerance {
-				triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
-				if err != nil {
-					logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", c)
-				}
-
-				triggerAtTime := time.Unix(0, triggerAt)
-				prevTriggerAtTime := time.Unix(0, prevTriggerAt)
-				logrus.Debugf("Prev trigger at: %s Trigger at: %s", prevTriggerAtTime, triggerAtTime)
-
-				if triggerAtTime.Before(prevTriggerAtTime) {
-					diff := prevTriggerAt - triggerAt
-					if diff >= nsTolerance {
-						logrus.Errorf("Dequeue got jobs out of order for worker: %d\n\ttriggerAt:\t%s,\n\tprevTriggerAt:\t%s\n\tdelta:\t%d,\n\ttrigger.sub(prev):\t%f ms",
-							c, triggerAtTime, prevTriggerAtTime, prevTriggerAtTime.Sub(triggerAtTime), float64(diff)/1e6)
-						logrus.Fatalf("\ttriggerAtNS:\t%d,\n\tprevTriggerAtNS:\t%d\n\ttrigger.sub(prev):\t%d ns",
-							triggerAt, prevTriggerAt, diff)
-					}
-				}
-				prevTriggerAt = triggerAt
-			}
-
-			if !bytes.Equal(body, data) {
-				logrus.Fatalf("Dequeue got wrong body for worker: %d Expected: %s Got: %s",
-					c, data, body)
-			}
-
+			validateJob(data, body, prevTriggerAt, workerID)
 			deqJobs <- struct{}{}
 		}
 	}()
 
 	<-stopDeq
 	deqWG.Done()
-	logrus.Infof("Stopping dequeue for connection: %d", c)
+	logrus.Infof("Stopping dequeue for connection: %d", workerID)
 }
 
-func enqueue(wg *sync.WaitGroup, c int, conn *beanstalk.Conn, jobs chan *testJob) {
+func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *protocol.RPCClient, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
+
+	go func() {
+		var prevTriggerAt int64
+		for {
+			body, err := readFromRPC(rpcClient, workerID)
+			if err != nil {
+				if err == protocol.ErrTimeout {
+					continue
+				}
+				// legit error
+				logrus.Fatal("Error reading from rpc client", err)
+			}
+			validateJob(data, body, prevTriggerAt, workerID)
+			deqJobs <- struct{}{}
+		}
+	}()
+
+	<-stopDeq
+	deqWG.Done()
+	logrus.Infof("Stopping dequeue for connection: %d", workerID)
+}
+
+func readFromRPC(rpcClient *protocol.RPCClient, workerID int) ([]byte, error) {
+	_, body, err := rpcClient.Next(time.Second * 1)
+	return body, err
+}
+
+func readFromBeantalkd(conn *beanstalk.Conn, workerID int) ([]byte, error) {
+	id, body, err := conn.Reserve(time.Second * 1)
+
+	if err != nil {
+		cerr, ok := err.(beanstalk.ConnError)
+		if !ok {
+			logrus.WithError(err).Fatalf("expected a beanstalkd ConnError - error type unknown")
+		}
+		if ok && cerr.Err == beanstalk.ErrTimeout {
+			// no jobs ready yet - this returns err timout
+			// break this batch iteration, wait for next tick
+			logrus.Debug("Reserve timedout...")
+			return nil, nil
+		}
+		logrus.WithError(err).Fatalf("Failed to dequeue for worker: %d", workerID)
+		return nil, cerr
+	}
+
+	logrus.Debugf("Reserved: %d", id)
+	err = conn.Delete(id)
+	if err != nil {
+		logrus.WithError(err).Fatalf("Failed to dequeue and delete for worker: %d", workerID)
+		return nil, err
+	}
+
+	return body, err
+}
+
+func validateJob(testData []byte, body []byte, prevTriggerAt int64, workerID int) {
+	parts := bytes.Split(body, []byte(` `))
+	if len(parts) == 2 {
+		body = parts[1] // leave just the body for equality check
+	}
+
+	// check order with tolerance because clocks are not monotonous
+	// and beanstalkd protocol asks for delay rather than a direct trigger time.
+	if enableTolerance {
+		triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
+		if err != nil {
+			logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", workerID)
+		}
+
+		triggerAtTime := time.Unix(0, triggerAt)
+		prevTriggerAtTime := time.Unix(0, prevTriggerAt)
+		logrus.Debugf("Prev trigger at: %s Trigger at: %s", prevTriggerAtTime, triggerAtTime)
+
+		if triggerAtTime.Before(prevTriggerAtTime) {
+			diff := prevTriggerAt - triggerAt
+			if diff >= nsTolerance {
+				logrus.Errorf("Dequeue got jobs out of order for worker: %d\n\ttriggerAt:\t%s,\n\tprevTriggerAt:\t%s\n\tdelta:\t%d,\n\ttrigger.sub(prev):\t%f ms",
+					workerID, triggerAtTime, prevTriggerAtTime, prevTriggerAtTime.Sub(triggerAtTime), float64(diff)/1e6)
+				logrus.Fatalf("\ttriggerAtNS:\t%d,\n\tprevTriggerAtNS:\t%d\n\ttrigger.sub(prev):\t%d ns",
+					triggerAt, prevTriggerAt, diff)
+			}
+		}
+		prevTriggerAt = triggerAt
+	}
+
+	if !bytes.Equal(body, testData) {
+		logrus.Fatalf("Dequeue got wrong body for worker: %d Expected: %s Got: %s",
+			workerID, testData, body)
+	}
+}
+
+func enqueueRPC(wg *sync.WaitGroup, workerID int, client *protocol.RPCClient, jobs chan *testJob) {
+	defer wg.Done()
+	var ctr = 0
+	for j := range jobs {
+		var err error
+		err = client.PutWithID(fmt.Sprintf("%d", ctr), j.data, time.Second*time.Duration(j.delaySec))
+		metrics.Incr("loadtest.enqueuerpc")
+
+		if err != nil {
+			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", workerID)
+		}
+	}
+	logrus.Infof("Connection: %c done enqueueing", workerID)
+}
+
+func enqueueBeanstalkd(wg *sync.WaitGroup, workerID int, conn *beanstalk.Conn, jobs chan *testJob) {
 	defer wg.Done()
 	for j := range jobs {
-		_, err := conn.Put(j.data, 0, time.Second*time.Duration(j.delaySec), time.Second*10)
+		var err error
+		_, err = conn.Put(j.data, 0, time.Second*time.Duration(j.delaySec), time.Second*10)
 		metrics.Incr("loadtest.enqueue")
 
 		if err != nil {
-			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", c)
+			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", workerID)
 		}
 	}
-	logrus.Infof("Connection: %c done enqueueing", c)
+	logrus.Infof("Connection: %c done enqueueing", workerID)
 }
 
 func generateJobs(data []byte) chan *testJob {
