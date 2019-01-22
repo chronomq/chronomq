@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -48,15 +49,16 @@ func (r *RPCServer) Next(timeout time.Duration, job *goyaad.Job) error {
 		return ErrTimeout
 	}
 
-	waitTill := time.Now().Add(time.Duration(timeout) * time.Second)
+	waitTill := time.Now().Add(timeout)
 	// wait for timeout and keep trying
-	logrus.Debug("waiting for reserve: ", timeout)
+	logrus.Debugf("waiting for reserve timeout: %v now: %v till: %v ", timeout, time.Now(), waitTill)
 	for waitTill.After(time.Now()) {
 		if j := r.hub.Next(); j != nil {
 			*job = *j
 			return nil
 		}
 		time.Sleep(time.Millisecond * 200)
+		logrus.Debug("waiting for reserve finished sleep for total timeout: ", timeout)
 	}
 
 	return ErrTimeout
@@ -67,6 +69,13 @@ func (r *RPCServer) Next(timeout time.Duration, job *goyaad.Job) error {
 func (r *RPCServer) Ping(ignore int8, pong *string) error {
 	logrus.Debug("Received ping from client")
 	*pong = "pong"
+	return nil
+}
+
+// NextID returns the next ID a client should use to create a job
+// This method is only for legacy compatibility and should not be used for new integrations
+func (r *RPCServer) NextID(ignore int8, id *string) error {
+	*id = fmt.Sprintf("%d", goyaad.NextID())
 	return nil
 }
 

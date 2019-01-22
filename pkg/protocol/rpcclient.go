@@ -44,7 +44,11 @@ func (c *RPCClient) Put(body []byte, delay time.Duration) (string, error) {
 	if c.client == nil {
 		return "", ErrClientDisconnected
 	}
-	job := goyaad.NewJobAutoID(time.Now().Add(delay), body)
+	id, err := c.nextID()
+	if err != nil {
+		return "", err
+	}
+	job := goyaad.NewJob(id, time.Now().Add(delay), body)
 	return job.ID(), c.client.Call("RPCServer.PutWithID", job, &ignoredReply)
 }
 
@@ -93,4 +97,13 @@ func (c *RPCClient) Ping() error {
 	}
 	logrus.Debug("Received pong from server")
 	return nil
+}
+
+func (c *RPCClient) nextID() (string, error) {
+	if c.client == nil {
+		return "", ErrClientDisconnected
+	}
+	var id string
+	err := c.client.Call("RPCServer.NextID", 0, &id)
+	return id, err
 }

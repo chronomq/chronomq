@@ -197,13 +197,18 @@ func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *protocol.RPCClie
 	go func() {
 		var prevTriggerAt int64
 		for {
-			body, err := readFromRPC(rpcClient, workerID)
+			id, body, err := rpcClient.Next(time.Second * 1)
 			if err != nil {
-				if err == protocol.ErrTimeout {
+				if err.Error() == protocol.ErrTimeout.Error() {
 					continue
 				}
 				// legit error
-				logrus.Fatal("Error reading from rpc client", err)
+				logrus.Fatal("Error reading from rpc client: ", err)
+			}
+			logrus.Debugf("Canceling id: %s", id)
+			err = rpcClient.Cancel(id)
+			if err != nil {
+				logrus.Fatal("Error canceling rpc job", err)
 			}
 			validateJob(data, body, prevTriggerAt, workerID)
 			deqJobs <- struct{}{}
@@ -213,11 +218,6 @@ func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *protocol.RPCClie
 	<-stopDeq
 	deqWG.Done()
 	logrus.Infof("Stopping dequeue for connection: %d", workerID)
-}
-
-func readFromRPC(rpcClient *protocol.RPCClient, workerID int) ([]byte, error) {
-	_, body, err := rpcClient.Next(time.Second * 1)
-	return body, err
 }
 
 func readFromBeantalkd(conn *beanstalk.Conn, workerID int) ([]byte, error) {
@@ -295,6 +295,7 @@ func enqueueRPC(wg *sync.WaitGroup, workerID int, client *protocol.RPCClient, jo
 		if err != nil {
 			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", workerID)
 		}
+		ctr++
 	}
 	logrus.Infof("Connection: %c done enqueueing", workerID)
 }
