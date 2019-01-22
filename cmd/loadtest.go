@@ -175,11 +175,13 @@ func dequeueBeanstalkd(deqWG *sync.WaitGroup, workerID int, conn *beanstalk.Conn
 		var prevTriggerAt int64
 		for {
 			body, err := readFromBeantalkd(conn, workerID)
-			cerr, ok := err.(beanstalk.ConnError)
-			if ok && cerr.Err == beanstalk.ErrTimeout {
-				continue
-			} else {
-				return
+			if err != nil {
+				cerr, ok := err.(beanstalk.ConnError)
+				if ok && cerr.Err == beanstalk.ErrTimeout {
+					continue
+				} else {
+					logrus.Fatal("Error reading from beanstalkd", err)
+				}
 			}
 			validateJob(data, body, prevTriggerAt, workerID)
 			deqJobs <- struct{}{}
@@ -192,7 +194,6 @@ func dequeueBeanstalkd(deqWG *sync.WaitGroup, workerID int, conn *beanstalk.Conn
 }
 
 func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *protocol.RPCClient, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
-
 	go func() {
 		var prevTriggerAt int64
 		for {
