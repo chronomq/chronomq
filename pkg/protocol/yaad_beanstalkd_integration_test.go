@@ -13,7 +13,7 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
-var _ = Describe("Test protocol:", func() {
+var _ = Describe("Test beanstalkd protocol:", func() {
 	var srv *protocol.Server
 	var addr = ":9000"
 	var proto = "tcp"
