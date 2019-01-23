@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
 var ignoredReply int8
@@ -35,7 +34,7 @@ func (c *RPCClient) PutWithID(id string, body []byte, delay time.Duration) error
 	if c.client == nil {
 		return ErrClientDisconnected
 	}
-	job := goyaad.NewJob(id, time.Now().Add(delay), body)
+	job := RPCJob{ID: id, Body: body, Delay: delay}
 	return c.client.Call("RPCServer.PutWithID", job, &ignoredReply)
 }
 
@@ -44,12 +43,10 @@ func (c *RPCClient) Put(body []byte, delay time.Duration) (string, error) {
 	if c.client == nil {
 		return "", ErrClientDisconnected
 	}
-	id, err := c.nextID()
-	if err != nil {
-		return "", err
-	}
-	job := goyaad.NewJob(id, time.Now().Add(delay), body)
-	return job.ID(), c.client.Call("RPCServer.PutWithID", job, &ignoredReply)
+	job := RPCJob{ID: "", Body: body, Delay: delay}
+	var id string
+	err := c.client.Call("RPCServer.PutWithID", job, &id)
+	return id, err
 }
 
 // Cancel deletes a job identified by the given id. Calls to cancel are idempotent
@@ -66,12 +63,12 @@ func (c *RPCClient) Next(timeout time.Duration) (string, []byte, error) {
 	if c.client == nil {
 		return "", nil, ErrClientDisconnected
 	}
-	var job goyaad.Job
+	var job RPCJob
 	err := c.client.Call("RPCServer.Next", timeout, &job)
 	if err != nil {
 		return "", nil, err
 	}
-	return job.ID(), job.Body(), nil
+	return job.ID, job.Body, nil
 }
 
 // Close the client connection
@@ -97,13 +94,4 @@ func (c *RPCClient) Ping() error {
 	}
 	logrus.Debug("Received pong from server")
 	return nil
-}
-
-func (c *RPCClient) nextID() (string, error) {
-	if c.client == nil {
-		return "", ErrClientDisconnected
-	}
-	var id string
-	err := c.client.Call("RPCServer.NextID", 0, &id)
-	return id, err
 }
