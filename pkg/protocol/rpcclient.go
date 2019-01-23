@@ -20,7 +20,7 @@ type RPCClient struct {
 // Connect to a Yaad RCP Server and return a connected client
 // Once connected, a client may be used by multiple goroutines simultaneously.
 func (c *RPCClient) Connect(addr string) error {
-	client, err := rpc.DialHTTP("tcp", addr)
+	client, err := rpc.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}

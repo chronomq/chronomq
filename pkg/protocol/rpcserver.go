@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"net/rpc"
 	"time"
 
@@ -84,10 +83,17 @@ func ServeRPC(opts *goyaad.HubOpts, addr string) error {
 	hub := goyaad.NewHub(opts)
 	srv := newRPCServer(hub)
 	rpc.Register(srv)
-	rpc.HandleHTTP()
+	// rpc.HandleHTTP()
 	l, e := net.Listen("tcp", addr)
 	if e != nil {
 		return e
 	}
-	return http.Serve(l, nil)
+	// return http.Serve(l, nil)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			return err
+		}
+		go rpc.ServeConn(conn)
+	}
 }
