@@ -124,13 +124,14 @@ func (h *Hub) CancelJob(jobID string) error {
 	s, err := h.FindOwnerSpoke(jobID)
 	if err != nil {
 		logrus.Debug("cancel found no owner spoke: ", jobID)
-		return err
+		// return nil - cancel if job not found is idempotent
+		return nil
 	}
 	logrus.Debug("cancel found owner spoke: ", jobID)
-	s.CancelJob(jobID)
+	err = s.CancelJob(jobID)
 	h.removedJobsCount++
 	go metrics.Incr("hub.cancel.ok")
-	return nil
+	return err
 }
 
 // FindOwnerSpoke returns the spoke that owns this job
