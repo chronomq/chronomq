@@ -286,16 +286,15 @@ func validateJob(testData []byte, body []byte, prevTriggerAt int64, workerID int
 
 func enqueueRPC(wg *sync.WaitGroup, workerID int, client *protocol.RPCClient, jobs chan *testJob) {
 	defer wg.Done()
-	var ctr = 0
 	for j := range jobs {
 		var err error
-		err = client.PutWithID(fmt.Sprintf("%d", ctr), j.data, time.Second*time.Duration(j.delaySec))
+		// To use PutWithID - have to ensure ids are globally unique among the multiple producer goroutines
+		_, err = client.Put(j.data, time.Second*time.Duration(j.delaySec))
 		metrics.Incr("loadtest.enqueuerpc")
 
 		if err != nil {
 			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", workerID)
 		}
-		ctr++
 	}
 	logrus.Infof("Connection: %c done enqueueing", workerID)
 }
