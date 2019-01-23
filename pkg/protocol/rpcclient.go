@@ -10,8 +10,10 @@ import (
 
 var ignoredReply int8
 
+// ErrClientDisconnected means a client was used while it was disconnected from the remote server
 var ErrClientDisconnected = errors.New("Client is not connected to the server")
 
+// RPCClient communicates with the Yaad RPC server
 type RPCClient struct {
 	client *rpc.Client
 }
