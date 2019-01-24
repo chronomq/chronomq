@@ -69,7 +69,8 @@ func runLoadTest() {
 		"MinDelaySec":    minDelaySec,
 		"EnqueueMode":    enqueueMode,
 		"DequeueMode":    dequeueMode,
-		"Addr":           addr,
+		"RPCAddr":        raddr,
+		"BeanstalkdAddr": baddr,
 	}).Info("Setting up load test parameters")
 
 	enqWG := &sync.WaitGroup{}
@@ -112,7 +113,7 @@ func runLoadTest() {
 			if enqueueMode {
 				logrus.Infof("RPC Creating enqueue connection: %d", c)
 				client := &protocol.RPCClient{}
-				err := client.Connect(addr)
+				err := client.Connect(raddr)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
 				}
@@ -127,7 +128,7 @@ func runLoadTest() {
 			if dequeueMode {
 				logrus.Infof("RPC Creating dequeue connection: %d", c)
 				client := &protocol.RPCClient{}
-				err := client.Connect(addr)
+				err := client.Connect(raddr)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
 				}
@@ -140,7 +141,7 @@ func runLoadTest() {
 		} else {
 			if enqueueMode {
 				logrus.Infof("Creating enqueue connection: %d", c)
-				conn, err := beanstalk.Dial("tcp", addr)
+				conn, err := beanstalk.Dial("tcp", baddr)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
 				}
@@ -152,7 +153,7 @@ func runLoadTest() {
 
 			if dequeueMode {
 				logrus.Infof("Creating dequeue connection: %d", c)
-				conn, err := beanstalk.Dial("tcp", addr)
+				conn, err := beanstalk.Dial("tcp", baddr)
 				if err != nil {
 					logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
 				}

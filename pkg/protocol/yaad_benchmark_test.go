@@ -17,8 +17,6 @@ var opts = goyaad.HubOpts{
 	Persister:      persistence.NewJournalPersister(""),
 	SpokeSpan:      time.Second * 5}
 
-var beanstalkdSRV = protocol.NewYaadServer(false, &opts)
-
 type jobPutter interface {
 	Put(body []byte, delay time.Duration) (string, error)
 }
@@ -47,13 +45,13 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 }
 
 func BenchmarkBeanstalkdJobPuts(b *testing.B) {
-
+	addr := ":8000"
 	go func() {
-		ExpectNoErr(beanstalkdSRV.ListenAndServe("tcp", ":8000"))
+		protocol.ServeBeanstalkd(goyaad.NewHub(&opts), addr)
 	}()
 
 	time.Sleep(5 * time.Millisecond) // wait for server to start
-	conn, _ := beanstalk.Dial("tcp", ":8000")
+	conn, _ := beanstalk.Dial("tcp", addr)
 	bputter := &beanstalkdPutter{conn}
 
 	for bs := 1000; bs <= 20000; bs += 5000 {
@@ -63,8 +61,7 @@ func BenchmarkBeanstalkdJobPuts(b *testing.B) {
 
 func BenchmarkRPCJobPuts(b *testing.B) {
 	go func() {
-		ExpectNoErr(protocol.ServeRPC(&opts, ":8001"))
-		b.Log("Serving")
+		protocol.ServeRPC(goyaad.NewHub(&opts), ":8001")
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start

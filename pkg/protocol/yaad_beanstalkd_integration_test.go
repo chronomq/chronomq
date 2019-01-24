@@ -14,7 +14,6 @@ import (
 )
 
 var _ = Describe("Test beanstalkd protocol:", func() {
-	var srv *protocol.Server
 	var addr = ":9000"
 	var proto = "tcp"
 	var bconn *beanstalk.Conn
@@ -26,9 +25,9 @@ var _ = Describe("Test beanstalkd protocol:", func() {
 			AttemptRestore: false,
 			Persister:      persistence.NewJournalPersister(""),
 			SpokeSpan:      time.Second * 5}
-		srv = protocol.NewYaadServer(false, &opts)
+		hub := goyaad.NewHub(&opts)
 		go func() {
-			ExpectNoErr(srv.ListenAndServe(proto, addr))
+			protocol.ServeBeanstalkd(hub, addr)
 		}()
 
 		// This ensures all contexts get a running server

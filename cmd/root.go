@@ -14,7 +14,8 @@ import (
 )
 
 var logLevel = "INFO"
-var addr = ":11300"
+var baddr = ":11300"
+var raddr = ":11301"
 var statsAddr = ":8125"
 var dataDir string
 var restore bool
@@ -24,7 +25,8 @@ var rpc bool
 func init() {
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
-	rootCmd.PersistentFlags().StringVarP(&addr, "addr", "a", addr, "Set listen addr (host:port)")
+	rootCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server listen addr (host:port)")
+	rootCmd.PersistentFlags().StringVar(&baddr, "baddr", baddr, "Set Beanstalkd server listen addr (host:port)")
 
 	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", statsAddr, "Stats addr (host:port)")
 	rootCmd.PersistentFlags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")
@@ -57,12 +59,11 @@ func runServer() {
 		SpokeSpan:      ss,
 		Persister:      persistence.NewJournalPersister(dataDir)}
 
+	hub := goyaad.NewHub(opts)
 	if rpc {
-		protocol.ServeRPC(opts, addr)
-	} else {
-		s := protocol.NewYaadServer(false, opts)
-		log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
+		go protocol.ServeRPC(hub, raddr)
 	}
+	protocol.ServeBeanstalkd(hub, baddr)
 }
 
 // Execute root cmd by default

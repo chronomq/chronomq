@@ -18,9 +18,8 @@ var _ = Describe("Test rpc protocol:", func() {
 		AttemptRestore: false,
 		Persister:      persistence.NewJournalPersister(""),
 		SpokeSpan:      time.Second * 5}
-
 	go func() {
-		ExpectNoErr(protocol.ServeRPC(&opts, addr))
+		protocol.ServeRPC(goyaad.NewHub(&opts), addr)
 	}()
 
 	BeforeEach(func(done Done) {
