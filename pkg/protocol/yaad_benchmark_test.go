@@ -16,18 +16,27 @@ var opts = goyaad.HubOpts{
 	AttemptRestore: false,
 	Persister:      persistence.NewJournalPersister(""),
 	SpokeSpan:      time.Second * 5}
-var srv = protocol.NewYaadServer(false, &opts)
-var addr = ":9000"
-var proto = "tcp"
-var bconn *beanstalk.Conn
 
-func benchPut(b *testing.B, bodySize int) {
+type jobPutter interface {
+	Put(body []byte, delay time.Duration) (string, error)
+}
+
+type beanstalkdPutter struct {
+	*beanstalk.Conn
+}
+
+func (b *beanstalkdPutter) Put(body []byte, delay time.Duration) (string, error) {
+	_, err := b.Conn.Put(body, 10, delay, 1)
+	return "", err
+}
+
+func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		body := randStringBytes(bodySize)
 		delay := time.Second * time.Duration(rand.Intn(50000))
 		b.StartTimer()
-		_, err := bconn.Put(body, 10, delay, 1)
+		_, err := putter.Put(body, delay)
 		b.StopTimer()
 		if err != nil {
 			b.Fatal("Error submitting job", err)
@@ -35,18 +44,36 @@ func benchPut(b *testing.B, bodySize int) {
 	}
 }
 
-func BenchmarkJobPuts(b *testing.B) {
-
+func BenchmarkBeanstalkdJobPuts(b *testing.B) {
+	addr := ":8000"
 	go func() {
-		ExpectNoErr(srv.ListenAndServe(proto, addr))
+		protocol.ServeBeanstalkd(goyaad.NewHub(&opts), addr)
 	}()
 
 	time.Sleep(5 * time.Millisecond) // wait for server to start
-	conn, _ := beanstalk.Dial(proto, addr)
-	bconn = conn
+	conn, _ := beanstalk.Dial("tcp", addr)
+	bputter := &beanstalkdPutter{conn}
 
-	for bs := 1000; bs <= 50000; bs += 5000 {
-		b.Run(fmt.Sprintf("PutJob_%d", bs), func(b *testing.B) { benchPut(b, bs) })
+	for bs := 1000; bs <= 20000; bs += 5000 {
+		b.Run(fmt.Sprintf("PutJob_%d", bs), func(b *testing.B) { benchPut(b, bs, bputter) })
+	}
+}
+
+func BenchmarkRPCJobPuts(b *testing.B) {
+	go func() {
+		protocol.ServeRPC(goyaad.NewHub(&opts), ":8001")
+	}()
+
+	time.Sleep(15 * time.Millisecond) // wait for server to start
+	client := &protocol.RPCClient{}
+	err := client.Connect(":8001")
+	if err != nil {
+		b.Error(err)
+	}
+	ExpectNoErr(client.Ping())
+
+	for bs := 1000; bs <= 20000; bs += 5000 {
+		b.Run(fmt.Sprintf("PutJob_%d", bs), func(b *testing.B) { benchPut(b, bs, client) })
 	}
 }
 

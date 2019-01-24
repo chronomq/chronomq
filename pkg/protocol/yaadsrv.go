@@ -23,12 +23,12 @@ type TubeYaad struct {
 }
 
 // NewSrvYaad returns a yaad BeanstalkdSrv
-func NewSrvYaad(opts *goyaad.HubOpts) BeanstalkdSrv {
+func NewSrvYaad(hub *goyaad.Hub) BeanstalkdSrv {
 	y := SrvYaad{make(map[string]Tube)}
 	t := &TubeYaad{
 		name:   "default",
 		paused: false,
-		hub:    goyaad.NewHub(opts),
+		hub:    hub,
 	}
 	y.tubes[t.name] = t
 	return &y

@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"log"
 	"net"
 	"net/textproto"
 	"os"
@@ -58,13 +59,10 @@ type Connection struct {
 	id          int
 }
 
-// NewYaadServer returns a pointer to a new yaad server
-func NewYaadServer(stub bool, opts *goyaad.HubOpts) *Server {
-	if stub {
-		return &Server{srv: NewSrvStub()}
-	}
+// ServeBeanstalkd returns a pointer to a new yaad server
+func ServeBeanstalkd(hub *goyaad.Hub, addr string) {
 	s := &Server{
-		srv:  NewSrvYaad(opts),
+		srv:  NewSrvYaad(hub),
 		stop: make(chan struct{}),
 	}
 
@@ -76,7 +74,7 @@ func NewYaadServer(stub bool, opts *goyaad.HubOpts) *Server {
 		close(s.stop)
 	}()
 
-	return s
+	log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
 }
 
 // Listen to connections

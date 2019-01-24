@@ -135,9 +135,7 @@ func (j *Job) GobEncode() (data []byte, err error) {
 
 // GobDecode encodes a job into a binary buffer
 func (j *Job) GobDecode(data []byte) error {
-	// We have a file for this Namespace
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
+	dec := gob.NewDecoder(bytes.NewReader(data))
 
 	// id
 	err := dec.Decode(&j.id)
