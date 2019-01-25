@@ -286,7 +286,7 @@ func (h *Hub) AddJob(j *Job) error {
 		pastLocker.Lock()
 		defer pastLocker.Unlock()
 
-		logrus.WithField("JobID", j.ID).Trace("Adding job to past spoke")
+		logrus.WithField("JobID", j.ID()).Trace("Adding job to past spoke")
 		err := h.pastSpoke.AddJob(j)
 		if err != nil {
 			logrus.WithError(err).Error("Past spoke rejected job. This should never happen")

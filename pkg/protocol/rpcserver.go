@@ -1,11 +1,12 @@
 package protocol
 
 import (
-	"errors"
+	"io"
 	"net"
 	"net/rpc"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
@@ -37,7 +38,7 @@ func (r *RPCServer) PutWithID(job RPCJob, id *string) error {
 		j = goyaad.NewJobAutoID(time.Now().Add(job.Delay), job.Body)
 		*id = j.ID()
 	} else {
-		j = goyaad.NewJobAutoID(time.Now().Add(job.Delay), job.Body)
+		j = goyaad.NewJob(job.ID, time.Now().Add(job.Delay), job.Body)
 	}
 	return r.hub.AddJob(j)
 }
@@ -88,20 +89,23 @@ func (r *RPCServer) Ping(ignore int8, pong *string) error {
 }
 
 // ServeRPC starts serving hub over rpc
-func ServeRPC(hub *goyaad.Hub, addr string) error {
+func ServeRPC(hub *goyaad.Hub, addr string) (io.Closer, error) {
 	srv := newRPCServer(hub)
-	rpc.Register(srv)
-	// rpc.HandleHTTP()
+	rpcSrv := rpc.NewServer()
+	rpcSrv.Register(srv)
 	l, e := net.Listen("tcp", addr)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	// return http.Serve(l, nil)
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			return err
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				logrus.Errorf("Cannot handle client connection %s", err)
+				return
+			}
+			go rpcSrv.ServeConn(conn)
 		}
-		go rpc.ServeConn(conn)
-	}
+	}()
+	return l, nil
 }

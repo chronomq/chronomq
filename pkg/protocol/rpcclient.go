@@ -36,8 +36,8 @@ func (c *RPCClient) PutWithID(id string, body []byte, delay time.Duration) error
 	if c.client == nil {
 		return ErrClientDisconnected
 	}
-	job := RPCJob{ID: id, Body: body, Delay: delay}
-	return c.client.Call("RPCServer.PutWithID", job, &ignoredReply)
+	job := &RPCJob{ID: id, Body: body, Delay: delay}
+	return c.client.Call("RPCServer.PutWithID", job, &id)
 }
 
 // Put saves a job with Yaad and returns the auto-generated job id
@@ -45,7 +45,7 @@ func (c *RPCClient) Put(body []byte, delay time.Duration) (string, error) {
 	if c.client == nil {
 		return "", ErrClientDisconnected
 	}
-	job := RPCJob{ID: "", Body: body, Delay: delay}
+	job := &RPCJob{ID: "", Body: body, Delay: delay}
 	var id string
 	err := c.client.Call("RPCServer.PutWithID", job, &id)
 	return id, err
