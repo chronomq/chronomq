@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"io"
 	"log"
 	"net"
 	"net/textproto"
@@ -60,7 +61,7 @@ type Connection struct {
 }
 
 // ServeBeanstalkd returns a pointer to a new yaad server
-func ServeBeanstalkd(hub *goyaad.Hub, addr string) {
+func ServeBeanstalkd(hub *goyaad.Hub, addr string) io.Closer {
 	s := &Server{
 		srv:  NewSrvYaad(hub),
 		stop: make(chan struct{}),
@@ -74,7 +75,8 @@ func ServeBeanstalkd(hub *goyaad.Hub, addr string) {
 		close(s.stop)
 	}()
 
-	log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
+	go log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
+	return s
 }
 
 // Listen to connections
