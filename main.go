@@ -17,6 +17,10 @@ var (
 	date    = "unknown"
 )
 
+func init() {
+	cmd.SetBuildInfo(version, date, commit)
+}
+
 func main() {
 	// logrus.SetLevel(logrus.DebugLevel)
 	// More Aggressive GC
