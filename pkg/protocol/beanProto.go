@@ -2,13 +2,9 @@ package protocol
 
 import (
 	"io"
-	"log"
 	"net"
 	"net/textproto"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -47,9 +43,10 @@ var ErrUnknownCmd errResponse = []byte(`UNKNOWN_COMMAND\r\n`)
 
 // Server is a yaad server
 type Server struct {
-	l    *net.TCPListener
-	srv  BeanstalkdSrv
-	stop chan struct{}
+	l     *net.TCPListener
+	srv   BeanstalkdSrv
+	stop  chan struct{}
+	ready chan struct{} // To prevent a data race - ListenAndServe is called in a go routine, it is possible to call Close too early before s.l is even set
 }
 
 // Connection implements a yaad + beanstalkd protocol server
@@ -63,19 +60,15 @@ type Connection struct {
 // ServeBeanstalkd returns a pointer to a new yaad server
 func ServeBeanstalkd(hub *goyaad.Hub, addr string) io.Closer {
 	s := &Server{
-		srv:  NewSrvYaad(hub),
-		stop: make(chan struct{}),
+		srv:   NewSrvYaad(hub),
+		stop:  make(chan struct{}),
+		ready: make(chan struct{}),
 	}
 
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGUSR1)
 	go func() {
-		<-sigc
-		logrus.Info("Stopping bean protocol server")
-		close(s.stop)
+		logrus.Warnf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
 	}()
-
-	go log.Fatalf("SHUTDOWN. Error: %v", s.ListenAndServe("tcp", addr))
+	<-s.ready
 	return s
 }
 
@@ -94,12 +87,14 @@ func (s *Server) Listen(protocol, address string) error {
 	}
 	logrus.Info("Server bound to socket at: ", l.Addr().String())
 
+	close(s.ready)
 	s.l = l
 	return nil
 }
 
 // Close the listener
 func (s *Server) Close() error {
+	s.stop <- struct{}{}
 	return s.l.Close()
 }
 
@@ -112,7 +107,8 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 
 	tube, err := s.srv.getTube("default")
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Error(err)
+		return err
 	}
 	connectionID := 0
 	for {
@@ -120,9 +116,6 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 		select {
 		case <-s.stop:
 			logrus.Warn("Shutting down connection listener - no new connections will be established")
-			// stop listening to new connections first, then close the underlying yaad server (trigger persistence)
-			err := s.Close()
-			s.srv.stop(true)
 			return err
 		default:
 		}
@@ -134,7 +127,8 @@ func (s *Server) ListenAndServe(protocol, address string) error {
 			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 				continue
 			}
-			logrus.Fatal(err)
+			logrus.Error(err)
+			return err
 		}
 		go metrics.Incr(connectionsCtr)
 		connectionID++
@@ -188,7 +182,7 @@ func (s *Server) serve(conn *Connection) {
 			go metrics.Incr(putJobCtr)
 			body, err := conn.ReadLineBytes()
 			if err != nil {
-				logrus.WithError(err).Fatal("error reading data")
+				logrus.WithError(err).Error("error reading data")
 			}
 			putCmd(conn, parts[1:], body)
 		case reserve:

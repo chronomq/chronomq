@@ -8,8 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var ignoredReply int8
-
 // ErrClientDisconnected means a client was used while it was disconnected from the remote server
 var ErrClientDisconnected = errors.New("Client is not connected to the server")
 
@@ -56,6 +54,7 @@ func (c *RPCClient) Cancel(id string) error {
 	if c.client == nil {
 		return ErrClientDisconnected
 	}
+	var ignoredReply int8
 	return c.client.Call("RPCServer.Cancel", id, &ignoredReply)
 }
 

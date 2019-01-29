@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"io"
 	"log"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -60,10 +64,37 @@ func runServer() {
 		Persister:      persistence.NewJournalPersister(dataDir)}
 
 	hub := goyaad.NewHub(opts)
+	var rpcSRV io.Closer
+	var beanSRV io.Closer
+	wg := sync.WaitGroup{}
 	if rpc {
-		go protocol.ServeRPC(hub, raddr)
+		go func() {
+			rpcSRV, _ = protocol.ServeRPC(hub, raddr)
+		}()
 	}
-	protocol.ServeBeanstalkd(hub, baddr)
+	go func() {
+		beanSRV = protocol.ServeBeanstalkd(hub, baddr)
+	}()
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGUSR1)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-sigc
+		logrus.Info("Stopping bean protocol server")
+		beanSRV.Close()
+		logrus.Info("Stopping bean protocol server - Done")
+		if rpc {
+			logrus.Info("Stopping rpc protocol server")
+			rpcSRV.Close()
+			logrus.Info("Stopping rpc protocol server - Done")
+		}
+		hub.Stop(true)
+	}()
+
+	wg.Wait()
 }
 
 // Execute root cmd by default

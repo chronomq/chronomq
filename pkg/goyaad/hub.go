@@ -357,7 +357,7 @@ func (h *Hub) Status() {
 
 // StatusPrinter starts a status printer that prints hub stats over some time interval
 func (h *Hub) StatusPrinter() {
-	t := time.NewTicker(time.Minute * 2)
+	t := time.NewTicker(time.Second * 10)
 	for range t.C {
 		h.Status()
 	}
@@ -366,7 +366,6 @@ func (h *Hub) StatusPrinter() {
 // Persist locks the hub and starts persisting data to disk
 func (h *Hub) Persist() chan error {
 	h.lock.Lock()
-	defer h.lock.Unlock()
 
 	logrus.Warn("Starting disk offload")
 	logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
@@ -377,6 +376,7 @@ func (h *Hub) Persist() chan error {
 	ec := make(chan error)
 
 	go func() {
+		defer h.lock.Unlock()
 		defer close(ec)
 
 		for i := 0; i < h.spokes.Len(); i++ {
