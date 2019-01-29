@@ -376,8 +376,8 @@ func (h *Hub) Persist() chan error {
 	ec := make(chan error)
 
 	go func() {
-		defer h.lock.Unlock()
 		defer close(ec)
+		defer h.lock.Unlock()
 
 		for i := 0; i < h.spokes.Len(); i++ {
 			s := h.spokes.AtIdx(i).value.(*Spoke)

@@ -157,9 +157,11 @@ func (s *Spoke) AsPriorityItem() *Item {
 
 // Persist all jobs in this spoke
 func (s *Spoke) Persist(p persistence.Persister) chan error {
+	s.Lock()
 	errC := make(chan error)
 	go func() {
 		defer close(errC)
+		defer s.Unlock()
 		var i = 0
 		for i = 0; i < s.jobQueue.Len(); i++ {
 			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*Job))
