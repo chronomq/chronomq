@@ -148,7 +148,7 @@ var _ = Describe("Test hub", func() {
 			counter++
 		}
 
-		Expect(counter).To(Equal(h.PendingJobsCount() + h.ReservedJobsCount()))
+		Expect(counter).To(Equal(h.PendingJobsCount()))
 	}, 15)
 
 	It("bootstraps a new hub from a golden peristence record", func(done Done) {

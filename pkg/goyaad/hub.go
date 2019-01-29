@@ -32,8 +32,6 @@ type Hub struct {
 	pastSpoke    *Spoke // Permanently pinned to the past
 	currentSpoke *Spoke // The current spoke
 
-	reservedJobs map[string]*Job // This could also be a spoke that order by TTL - optimize later
-
 	removedJobsCount uint64
 	lock             *sync.Mutex
 
@@ -49,7 +47,6 @@ func NewHub(opts *HubOpts) *Hub {
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
 		currentSpoke:     nil,
-		reservedJobs:     make(map[string]*Job),
 		removedJobsCount: 0,
 		lock:             &sync.Mutex{},
 		persister:        opts.Persister,
@@ -101,11 +98,6 @@ func (h *Hub) PendingJobsCount() int {
 	return count
 }
 
-// ReservedJobsCount return the number of jobs currently reserved
-func (h *Hub) ReservedJobsCount() int {
-	return len(h.reservedJobs)
-}
-
 // CancelJob cancels a job if found. Calls are noop for unknown jobs
 func (h *Hub) CancelJob(jobID string) error {
 	go metrics.Incr("hub.cancel.req")
@@ -113,13 +105,6 @@ func (h *Hub) CancelJob(jobID string) error {
 	defer h.lock.Unlock()
 
 	logrus.Debug("cancel: ", jobID)
-	// Search if this job is reserved
-	if _, ok := h.reservedJobs[jobID]; ok {
-		logrus.Debug("found in reserved: ", jobID)
-		delete(h.reservedJobs, jobID)
-		h.removedJobsCount++
-		return nil
-	}
 
 	s, err := h.FindOwnerSpoke(jobID)
 	if err != nil {
@@ -169,7 +154,6 @@ func (h *Hub) Next() *Job {
 	// since we have the lock, send some metrics
 	go metrics.GaugeInt("hub.job.count", h.PendingJobsCount())
 	go metrics.GaugeInt("hub.spoke.count", len(h.spokeMap))
-	go metrics.GaugeInt("hub.job.reserved.count", len(h.reservedJobs))
 	defer h.lock.Unlock()
 
 	pastLocker := h.pastSpoke.GetLocker()
@@ -180,7 +164,6 @@ func (h *Hub) Next() *Job {
 	// Find a job in past spoke
 	j := h.pastSpoke.Next()
 	if j != nil {
-		h.reserve(j)
 		logrus.Debug("Got job from past spoke")
 		return j
 	}
@@ -243,14 +226,9 @@ func (h *Hub) Next() *Job {
 		return nil
 	}
 
-	logrus.Debug("reserving job: ", j.id)
-	h.reserve(j)
+	logrus.Debug("returning job: ", j.id)
 
 	return j
-}
-
-func (h *Hub) reserve(j *Job) {
-	h.reservedJobs[j.id] = j
 }
 
 func (h *Hub) mergeQueues(pq *PriorityQueue) {
@@ -362,10 +340,6 @@ func (h *Hub) Status() {
 	logrus.Infof("Hub has %d total jobs", pendingJobCount)
 	go metrics.GaugeInt("hub.job.count", pendingJobCount)
 
-	reservedJobCount := len(h.reservedJobs)
-	logrus.Infof("Hub has %d reserved jobs", reservedJobCount)
-	go metrics.GaugeInt("hub.job.reserved.count", reservedJobCount)
-
 	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
 	go metrics.Gauge("hub.job.removed.count", float64(h.removedJobsCount))
 
@@ -427,13 +401,6 @@ func (h *Hub) Persist() chan error {
 			errC := h.currentSpoke.Persist(h.persister)
 			for e := range errC {
 				ec <- e
-			}
-		}
-
-		// Save the reserved jobs
-		for _, j := range h.reservedJobs {
-			if err := h.persister.Persist(j); err != nil {
-				ec <- err
 			}
 		}
 
