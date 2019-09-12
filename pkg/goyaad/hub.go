@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
@@ -26,7 +27,7 @@ type HubOpts struct {
 // Hub is a time ordered collection of spokes
 type Hub struct {
 	spokeSpan time.Duration
-	spokeMap  map[SpokeBound]*Spoke // quick lookup map
+	spokeMap  *sync.Map // quick lookup map
 	spokes    *PriorityQueue
 
 	pastSpoke    *Spoke // Permanently pinned to the past
@@ -43,7 +44,7 @@ type Hub struct {
 func NewHub(opts *HubOpts) *Hub {
 	h := &Hub{
 		spokeSpan:        opts.SpokeSpan,
-		spokeMap:         make(map[SpokeBound]*Spoke),
+		spokeMap:         &sync.Map{},
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
 		currentSpoke:     nil,
@@ -91,10 +92,10 @@ func (h *Hub) Stop(persist bool) {
 // PendingJobsCount return the number of jobs currently pending
 func (h *Hub) PendingJobsCount() int {
 	count := h.pastSpoke.PendingJobsLen()
-	for _, v := range h.spokeMap {
-		count += v.PendingJobsLen()
-	}
-
+	h.spokeMap.Range(func(k, v interface{}) bool {
+		count += v.(*Spoke).PendingJobsLen()
+		return true
+	})
 	return count
 }
 
@@ -131,17 +132,25 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 		return h.currentSpoke, nil
 	}
 
-	for _, v := range h.spokeMap {
-		if v.OwnsJob(jobID) {
-			return v, nil
+	// Find the owner in the spoke map
+	var owner *Spoke
+	h.spokeMap.Range(func(k, v interface{}) bool {
+		s := v.(*Spoke)
+		if s.OwnsJob(jobID) {
+			owner = s
+			return false
 		}
+		return true
+	})
+	if owner != nil {
+		return owner, nil
 	}
 	return nil, errors.New("Cannot find job owner spoke")
 }
 
 // addSpoke adds spoke s to this hub
 func (h *Hub) addSpoke(s *Spoke) {
-	h.spokeMap[s.SpokeBound] = s
+	h.spokeMap.Store(s.SpokeBound, s)
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
 
@@ -153,7 +162,7 @@ func (h *Hub) Next() *Job {
 
 	// since we have the lock, send some metrics
 	go metrics.GaugeInt("hub.job.count", h.PendingJobsCount())
-	go metrics.GaugeInt("hub.spoke.count", len(h.spokeMap))
+	go metrics.GaugeInt("hub.spoke.count", h.spokes.Len())
 	defer h.lock.Unlock()
 
 	pastLocker := h.pastSpoke.GetLocker()
@@ -176,7 +185,7 @@ func (h *Hub) Next() *Job {
 			logrus.Info("pruning the current spoke")
 			// This routine could be unfortunate - it found a currentspoke that was expired
 			// so it has the pay the price finding the next candidate
-			delete(h.spokeMap, h.currentSpoke.SpokeBound)
+			h.spokeMap.Delete(h.currentSpoke.SpokeBound)
 			h.currentSpoke = nil
 		}
 	}
@@ -242,12 +251,19 @@ func (h *Hub) mergeQueues(pq *PriorityQueue) {
 // returns the number of spokes pruned
 func (h *Hub) Prune() int {
 	pruned := 0
-	for k, v := range h.spokeMap {
-		if v.IsExpired() && v.PendingJobsLen() == 0 {
-			delete(h.spokeMap, k)
+	h.spokeMap.Range(func(k, v interface{}) bool {
+
+		return true
+	})
+
+	h.spokeMap.Range(func(k, v interface{}) bool {
+		s := v.(*Spoke)
+		if s.IsExpired() && s.PendingJobsLen() == 0 {
+			h.spokeMap.Delete(k)
 		}
 		pruned++
-	}
+		return true
+	})
 
 	return pruned
 }
@@ -296,11 +312,12 @@ func (h *Hub) AddJob(j *Job) error {
 		// Search for a spoke that can take ownership of this job
 		// Reads are still going to be ordered anyways
 		jobBound := j.AsBound(h.spokeSpan)
-		candidate, ok := h.spokeMap[jobBound]
+		candidate, ok := h.spokeMap.Load(jobBound)
 		if ok {
+			candidateSpoke := candidate.(*Spoke)
 			// Found a candidate that can take this job
 			logrus.Debugf("Adding job: %s to candidate spoke", j.id)
-			err := candidate.AddJob(j)
+			err := candidateSpoke.AddJob(j)
 			if err != nil {
 				logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
 				return err
@@ -329,7 +346,7 @@ func (h *Hub) AddJob(j *Job) error {
 func (h *Hub) Status() {
 	logrus.Info("-------------------------------------------------------------")
 
-	spokesCount := len(h.spokeMap)
+	spokesCount := h.spokes.Len()
 	logrus.Infof("Hub has %d spokes", spokesCount)
 	go metrics.GaugeInt("hub.spoke.count", spokesCount)
 
