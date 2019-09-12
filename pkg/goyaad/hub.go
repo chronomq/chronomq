@@ -252,11 +252,6 @@ func (h *Hub) mergeQueues(pq *PriorityQueue) {
 func (h *Hub) Prune() int {
 	pruned := 0
 	h.spokeMap.Range(func(k, v interface{}) bool {
-
-		return true
-	})
-
-	h.spokeMap.Range(func(k, v interface{}) bool {
 		s := v.(*Spoke)
 		if s.IsExpired() && s.PendingJobsLen() == 0 {
 			h.spokeMap.Delete(k)
