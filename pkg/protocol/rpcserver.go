@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
@@ -85,6 +86,26 @@ func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 func (r *RPCServer) Ping(ignore int8, pong *string) error {
 	logrus.Debug("Received ping from client")
 	*pong = "pong"
+	return nil
+}
+
+// InspectN returns n jobs without removing them for ad-hoc inspection
+func (r *RPCServer) InspectN(n int, rpcJobs *[]*RPCJob) error {
+	if n == 0 {
+		return nil
+	}
+	logrus.Debugf("Return %d jobs for inspection", n)
+	jobs := r.hub.GetNJobs(n)
+
+	for j := range jobs {
+		rpcJob := &RPCJob{
+			Body:  j.Body(),
+			ID:    j.ID(),
+			Delay: j.TriggerAt().Sub(time.Now()),
+		}
+		logrus.Infof("Sending inspect job: %v", rpcJob)
+		*rpcJobs = append(*rpcJobs, rpcJob)
+	}
 	return nil
 }
 

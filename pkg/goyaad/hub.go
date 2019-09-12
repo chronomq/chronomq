@@ -464,3 +464,40 @@ func (h *Hub) Restore() error {
 	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors adding persisted jobs", errAddCount)
 	return retErr
 }
+
+// GetNJobs returns upto N jobs (or less if there are less jobs in available)
+// It does not return a consistent snapshot of jobs but provides a best effort view
+func (h *Hub) GetNJobs(n int) chan *Job {
+	jobChan := make(chan *Job)
+	go func() {
+		defer close(jobChan)
+		// Iterate over jobs from the past spoke first
+		pastJobsLen := h.pastSpoke.jobQueue.Len()
+		for i := 0; i < pastJobsLen; i++ {
+			j := h.pastSpoke.jobQueue.AtIdx(i)
+			jobChan <- j.Value().(*Job)
+			n--
+			if n <= 0 {
+				return
+			}
+		}
+
+		// Iterate over the spokes from the map (We dont care about the order in this case)
+		h.spokeMap.Range(func(sk, sv interface{}) bool {
+			s := sv.(*Spoke)
+			// Iterate over the jobs in this spoke
+			jobsLen := s.jobQueue.Len()
+			for i := 0; i < jobsLen; i++ {
+				j := s.jobQueue.AtIdx(i)
+				jobChan <- j.Value().(*Job)
+				n--
+				if n <= 0 {
+					return false
+				}
+			}
+			return n <= 0
+		})
+	}()
+
+	return jobChan
+}
