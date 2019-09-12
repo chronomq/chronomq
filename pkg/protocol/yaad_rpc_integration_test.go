@@ -147,7 +147,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(n))
-		for i := 0; i < ng; i++ {
+		for i := 0; i < n; i++ {
 			Expect(rpcJobs[i].ID).To(Equal("foo" + string(i)))
 			Expect(rpcJobs[i].Body).To(Equal([]byte(hw)))
 		}
