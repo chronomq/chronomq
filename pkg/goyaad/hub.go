@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
@@ -26,7 +27,7 @@ type HubOpts struct {
 // Hub is a time ordered collection of spokes
 type Hub struct {
 	spokeSpan time.Duration
-	spokeMap  map[SpokeBound]*Spoke // quick lookup map
+	spokeMap  *sync.Map // quick lookup map
 	spokes    *PriorityQueue
 
 	pastSpoke    *Spoke // Permanently pinned to the past
@@ -43,7 +44,7 @@ type Hub struct {
 func NewHub(opts *HubOpts) *Hub {
 	h := &Hub{
 		spokeSpan:        opts.SpokeSpan,
-		spokeMap:         make(map[SpokeBound]*Spoke),
+		spokeMap:         &sync.Map{},
 		spokes:           &PriorityQueue{},
 		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
 		currentSpoke:     nil,
@@ -91,10 +92,10 @@ func (h *Hub) Stop(persist bool) {
 // PendingJobsCount return the number of jobs currently pending
 func (h *Hub) PendingJobsCount() int {
 	count := h.pastSpoke.PendingJobsLen()
-	for _, v := range h.spokeMap {
-		count += v.PendingJobsLen()
-	}
-
+	h.spokeMap.Range(func(k, v interface{}) bool {
+		count += v.(*Spoke).PendingJobsLen()
+		return true
+	})
 	return count
 }
 
@@ -131,17 +132,25 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 		return h.currentSpoke, nil
 	}
 
-	for _, v := range h.spokeMap {
-		if v.OwnsJob(jobID) {
-			return v, nil
+	// Find the owner in the spoke map
+	var owner *Spoke
+	h.spokeMap.Range(func(k, v interface{}) bool {
+		s := v.(*Spoke)
+		if s.OwnsJob(jobID) {
+			owner = s
+			return false
 		}
+		return true
+	})
+	if owner != nil {
+		return owner, nil
 	}
 	return nil, errors.New("Cannot find job owner spoke")
 }
 
 // addSpoke adds spoke s to this hub
 func (h *Hub) addSpoke(s *Spoke) {
-	h.spokeMap[s.SpokeBound] = s
+	h.spokeMap.Store(s.SpokeBound, s)
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
 
@@ -150,35 +159,47 @@ func (h *Hub) Next() *Job {
 	defer metrics.Time("hub.next.search.duration", time.Now())
 
 	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	// since we have the lock, send some metrics
 	go metrics.GaugeInt("hub.job.count", h.PendingJobsCount())
-	go metrics.GaugeInt("hub.spoke.count", len(h.spokeMap))
-	defer h.lock.Unlock()
+	go metrics.GaugeInt("hub.spoke.count", h.spokes.Len())
 
-	pastLocker := h.pastSpoke.GetLocker()
-	pastLocker.Lock()
-	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
-	defer pastLocker.Unlock()
+	// Lock Past spoke lock in func scope
+	if j := func() *Job {
+		pastLocker := h.pastSpoke.GetLocker()
+		pastLocker.Lock()
+		defer pastLocker.Unlock()
+		go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
-	// Find a job in past spoke
-	j := h.pastSpoke.Next()
-	if j != nil {
-		logrus.Debug("Got job from past spoke")
+		// Find a job in past spoke
+		j := h.pastSpoke.Next()
+		if j != nil {
+			logrus.Debug("Got job from past spoke")
+		}
+		return j
+	}(); j != nil {
+		h.removedJobsCount++
 		return j
 	}
+
 	// Checked past spoke
 
 	// Find a job in current spoke
 	// If current is empty and now expired, prune it...
 	if h.currentSpoke != nil {
-		if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
-			logrus.Info("pruning the current spoke")
-			// This routine could be unfortunate - it found a currentspoke that was expired
-			// so it has the pay the price finding the next candidate
-			delete(h.spokeMap, h.currentSpoke.SpokeBound)
-			h.currentSpoke = nil
-		}
+		h.currentSpoke = func() *Spoke {
+			h.currentSpoke.Lock()
+			defer h.currentSpoke.Unlock()
+			if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
+				logrus.Info("pruning the current spoke")
+				// This routine could be unfortunate - it found a currentspoke that was expired
+				// so it has the pay the price finding the next candidate
+				h.spokeMap.Delete(h.currentSpoke.SpokeBound)
+				return nil
+			}
+			return h.currentSpoke
+		}()
 	}
 
 	// No currently assigned spoke
@@ -216,10 +237,10 @@ func (h *Hub) Next() *Job {
 
 	currentLocker := h.currentSpoke.GetLocker()
 	currentLocker.Lock()
-	go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 	defer currentLocker.Unlock()
+	go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 
-	j = h.currentSpoke.Next()
+	j := h.currentSpoke.Next()
 	if j == nil {
 		// no job - return
 		logrus.Debug("No job in current spoke")
@@ -227,7 +248,7 @@ func (h *Hub) Next() *Job {
 	}
 
 	logrus.Debug("returning job: ", j.id)
-
+	h.removedJobsCount++
 	return j
 }
 
@@ -242,12 +263,14 @@ func (h *Hub) mergeQueues(pq *PriorityQueue) {
 // returns the number of spokes pruned
 func (h *Hub) Prune() int {
 	pruned := 0
-	for k, v := range h.spokeMap {
-		if v.IsExpired() && v.PendingJobsLen() == 0 {
-			delete(h.spokeMap, k)
+	h.spokeMap.Range(func(k, v interface{}) bool {
+		s := v.(*Spoke)
+		if s.IsExpired() && s.PendingJobsLen() == 0 {
+			h.spokeMap.Delete(k)
 		}
 		pruned++
-	}
+		return true
+	})
 
 	return pruned
 }
@@ -256,6 +279,9 @@ func (h *Hub) Prune() int {
 func (h *Hub) AddJob(j *Job) error {
 	defer metrics.Time("hub.job.add.duration", time.Now())
 	go metrics.GaugeInt("hub.job.size", len(j.body))
+
+	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	switch j.AsTemporalState() {
 	case Past:
@@ -273,10 +299,6 @@ func (h *Hub) AddJob(j *Job) error {
 		go metrics.Incr("hub.addjob.past")
 	case Future:
 		logrus.Tracef("Adding job: %s to future spoke", j.id)
-		// Lock hub so that current spoke isn't replaced
-		h.lock.Lock()
-		defer h.lock.Unlock()
-
 		// Lock current spoke so that add fixes the PQ as it adds
 		if h.currentSpoke != nil {
 			currLocker := h.currentSpoke.GetLocker()
@@ -296,11 +318,12 @@ func (h *Hub) AddJob(j *Job) error {
 		// Search for a spoke that can take ownership of this job
 		// Reads are still going to be ordered anyways
 		jobBound := j.AsBound(h.spokeSpan)
-		candidate, ok := h.spokeMap[jobBound]
+		candidate, ok := h.spokeMap.Load(jobBound)
 		if ok {
+			candidateSpoke := candidate.(*Spoke)
 			// Found a candidate that can take this job
 			logrus.Debugf("Adding job: %s to candidate spoke", j.id)
-			err := candidate.AddJob(j)
+			err := candidateSpoke.AddJob(j)
 			if err != nil {
 				logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
 				return err
@@ -328,13 +351,12 @@ func (h *Hub) AddJob(j *Job) error {
 // Status prints the state of the spokes of this hub
 func (h *Hub) Status() {
 	logrus.Info("-------------------------------------------------------------")
-
-	spokesCount := len(h.spokeMap)
-	logrus.Infof("Hub has %d spokes", spokesCount)
-	go metrics.GaugeInt("hub.spoke.count", spokesCount)
-
 	h.lock.Lock()
 	defer h.lock.Unlock()
+
+	spokesCount := h.spokes.Len()
+	logrus.Infof("Hub has %d spokes", spokesCount)
+	go metrics.GaugeInt("hub.spoke.count", spokesCount)
 
 	pendingJobCount := h.PendingJobsCount()
 	logrus.Infof("Hub has %d total jobs", pendingJobCount)
@@ -365,19 +387,17 @@ func (h *Hub) StatusPrinter() {
 
 // Persist locks the hub and starts persisting data to disk
 func (h *Hub) Persist() chan error {
-	h.lock.Lock()
-
 	logrus.Warn("Starting disk offload")
-	logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
-
 	wg := &sync.WaitGroup{}
-	wg.Add(h.spokes.Len())
-
 	ec := make(chan error)
 
 	go func() {
-		defer close(ec)
+		h.lock.Lock()
 		defer h.lock.Unlock()
+
+		logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+		wg.Add(h.spokes.Len())
+		defer close(ec)
 
 		for i := 0; i < h.spokes.Len(); i++ {
 			s := h.spokes.AtIdx(i).value.(*Spoke)
@@ -446,4 +466,56 @@ func (h *Hub) Restore() error {
 	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors decoding persisted jobs", errDecodeCount)
 	retErr = errors.Wrapf(retErr, "Hub:Restore encountered %d errors adding persisted jobs", errAddCount)
 	return retErr
+}
+
+// GetNJobs returns upto N jobs (or less if there are less jobs in available)
+// It does not return a consistent snapshot of jobs but provides a best effort view
+func (h *Hub) GetNJobs(n int) chan *Job {
+	jobChan := make(chan *Job)
+	go func() {
+		defer close(jobChan)
+		func() {
+			// Iterate over jobs from the past spoke first
+			h.pastSpoke.Lock()
+			defer h.pastSpoke.Unlock()
+
+			pastJobsLen := h.pastSpoke.jobQueue.Len()
+			for i := 0; i < pastJobsLen; i++ {
+				j := h.pastSpoke.jobQueue.AtIdx(i)
+				jobChan <- j.Value().(*Job)
+				n--
+				if n <= 0 {
+					return
+				}
+			}
+		}()
+		if n <= 0 {
+			// Found all requested jobs
+			return
+		}
+
+		// Iterate over the future spokes from the map (We dont care about the order in this case)
+		h.spokeMap.Range(func(sk, sv interface{}) bool {
+			s := sv.(*Spoke)
+			return func() bool {
+				s.Lock()
+				defer s.Unlock()
+
+				// Iterate over the jobs in this spoke
+				jobsLen := s.jobQueue.Len()
+				for i := 0; i < jobsLen; i++ {
+					j := s.jobQueue.AtIdx(i)
+					jobChan <- j.Value().(*Job)
+					n--
+					if n <= 0 {
+						return false
+					}
+				}
+				// Continue if n is not 0 yet (return true to Range fn)
+				return n > 0
+			}()
+		})
+	}()
+
+	return jobChan
 }

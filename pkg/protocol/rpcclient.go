@@ -96,3 +96,11 @@ func (c *RPCClient) Ping() error {
 	logrus.Debug("Received pong from server")
 	return nil
 }
+
+// InspectN fetches upto n number of jobs from the server without consuming them
+func (c *RPCClient) InspectN(n int, jobs *[]*RPCJob) error {
+	if c.client != nil {
+		return c.client.Call("RPCServer.InspectN", n, jobs)
+	}
+	return nil
+}
