@@ -103,7 +103,6 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*RPCJob) error {
 			ID:    j.ID(),
 			Delay: j.TriggerAt().Sub(time.Now()),
 		}
-		logrus.Infof("Sending inspect job: %v", rpcJob)
 		*rpcJobs = append(*rpcJobs, rpcJob)
 	}
 	return nil

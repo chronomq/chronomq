@@ -159,35 +159,47 @@ func (h *Hub) Next() *Job {
 	defer metrics.Time("hub.next.search.duration", time.Now())
 
 	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	// since we have the lock, send some metrics
 	go metrics.GaugeInt("hub.job.count", h.PendingJobsCount())
 	go metrics.GaugeInt("hub.spoke.count", h.spokes.Len())
-	defer h.lock.Unlock()
 
-	pastLocker := h.pastSpoke.GetLocker()
-	pastLocker.Lock()
-	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
-	defer pastLocker.Unlock()
+	// Lock Past spoke lock in func scope
+	if j := func() *Job {
+		pastLocker := h.pastSpoke.GetLocker()
+		pastLocker.Lock()
+		defer pastLocker.Unlock()
+		go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
-	// Find a job in past spoke
-	j := h.pastSpoke.Next()
-	if j != nil {
-		logrus.Debug("Got job from past spoke")
+		// Find a job in past spoke
+		j := h.pastSpoke.Next()
+		if j != nil {
+			logrus.Debug("Got job from past spoke")
+		}
+		return j
+	}(); j != nil {
+		h.removedJobsCount++
 		return j
 	}
+
 	// Checked past spoke
 
 	// Find a job in current spoke
 	// If current is empty and now expired, prune it...
 	if h.currentSpoke != nil {
-		if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
-			logrus.Info("pruning the current spoke")
-			// This routine could be unfortunate - it found a currentspoke that was expired
-			// so it has the pay the price finding the next candidate
-			h.spokeMap.Delete(h.currentSpoke.SpokeBound)
-			h.currentSpoke = nil
-		}
+		h.currentSpoke = func() *Spoke {
+			h.currentSpoke.Lock()
+			defer h.currentSpoke.Unlock()
+			if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
+				logrus.Info("pruning the current spoke")
+				// This routine could be unfortunate - it found a currentspoke that was expired
+				// so it has the pay the price finding the next candidate
+				h.spokeMap.Delete(h.currentSpoke.SpokeBound)
+				return nil
+			}
+			return h.currentSpoke
+		}()
 	}
 
 	// No currently assigned spoke
@@ -225,10 +237,10 @@ func (h *Hub) Next() *Job {
 
 	currentLocker := h.currentSpoke.GetLocker()
 	currentLocker.Lock()
-	go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 	defer currentLocker.Unlock()
+	go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 
-	j = h.currentSpoke.Next()
+	j := h.currentSpoke.Next()
 	if j == nil {
 		// no job - return
 		logrus.Debug("No job in current spoke")
@@ -236,7 +248,7 @@ func (h *Hub) Next() *Job {
 	}
 
 	logrus.Debug("returning job: ", j.id)
-
+	h.removedJobsCount++
 	return j
 }
 
@@ -268,6 +280,9 @@ func (h *Hub) AddJob(j *Job) error {
 	defer metrics.Time("hub.job.add.duration", time.Now())
 	go metrics.GaugeInt("hub.job.size", len(j.body))
 
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	switch j.AsTemporalState() {
 	case Past:
 		logrus.Tracef("Adding job: %s to past spoke", j.id)
@@ -284,10 +299,6 @@ func (h *Hub) AddJob(j *Job) error {
 		go metrics.Incr("hub.addjob.past")
 	case Future:
 		logrus.Tracef("Adding job: %s to future spoke", j.id)
-		// Lock hub so that current spoke isn't replaced
-		h.lock.Lock()
-		defer h.lock.Unlock()
-
 		// Lock current spoke so that add fixes the PQ as it adds
 		if h.currentSpoke != nil {
 			currLocker := h.currentSpoke.GetLocker()
@@ -340,13 +351,12 @@ func (h *Hub) AddJob(j *Job) error {
 // Status prints the state of the spokes of this hub
 func (h *Hub) Status() {
 	logrus.Info("-------------------------------------------------------------")
+	h.lock.Lock()
+	defer h.lock.Unlock()
 
 	spokesCount := h.spokes.Len()
 	logrus.Infof("Hub has %d spokes", spokesCount)
 	go metrics.GaugeInt("hub.spoke.count", spokesCount)
-
-	h.lock.Lock()
-	defer h.lock.Unlock()
 
 	pendingJobCount := h.PendingJobsCount()
 	logrus.Infof("Hub has %d total jobs", pendingJobCount)
@@ -377,19 +387,17 @@ func (h *Hub) StatusPrinter() {
 
 // Persist locks the hub and starts persisting data to disk
 func (h *Hub) Persist() chan error {
-	h.lock.Lock()
-
 	logrus.Warn("Starting disk offload")
-	logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
-
 	wg := &sync.WaitGroup{}
-	wg.Add(h.spokes.Len())
-
 	ec := make(chan error)
 
 	go func() {
-		defer close(ec)
+		h.lock.Lock()
 		defer h.lock.Unlock()
+
+		logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+		wg.Add(h.spokes.Len())
+		defer close(ec)
 
 		for i := 0; i < h.spokes.Len(); i++ {
 			s := h.spokes.AtIdx(i).value.(*Spoke)
@@ -466,31 +474,46 @@ func (h *Hub) GetNJobs(n int) chan *Job {
 	jobChan := make(chan *Job)
 	go func() {
 		defer close(jobChan)
-		// Iterate over jobs from the past spoke first
-		pastJobsLen := h.pastSpoke.jobQueue.Len()
-		for i := 0; i < pastJobsLen; i++ {
-			j := h.pastSpoke.jobQueue.AtIdx(i)
-			jobChan <- j.Value().(*Job)
-			n--
-			if n <= 0 {
-				return
-			}
-		}
+		func() {
+			// Iterate over jobs from the past spoke first
+			h.pastSpoke.Lock()
+			defer h.pastSpoke.Unlock()
 
-		// Iterate over the spokes from the map (We dont care about the order in this case)
-		h.spokeMap.Range(func(sk, sv interface{}) bool {
-			s := sv.(*Spoke)
-			// Iterate over the jobs in this spoke
-			jobsLen := s.jobQueue.Len()
-			for i := 0; i < jobsLen; i++ {
-				j := s.jobQueue.AtIdx(i)
+			pastJobsLen := h.pastSpoke.jobQueue.Len()
+			for i := 0; i < pastJobsLen; i++ {
+				j := h.pastSpoke.jobQueue.AtIdx(i)
 				jobChan <- j.Value().(*Job)
 				n--
 				if n <= 0 {
-					return false
+					return
 				}
 			}
-			return n <= 0
+		}()
+		if n <= 0 {
+			// Found all requested jobs
+			return
+		}
+
+		// Iterate over the future spokes from the map (We dont care about the order in this case)
+		h.spokeMap.Range(func(sk, sv interface{}) bool {
+			s := sv.(*Spoke)
+			return func() bool {
+				s.Lock()
+				defer s.Unlock()
+
+				// Iterate over the jobs in this spoke
+				jobsLen := s.jobQueue.Len()
+				for i := 0; i < jobsLen; i++ {
+					j := s.jobQueue.AtIdx(i)
+					jobChan <- j.Value().(*Job)
+					n--
+					if n <= 0 {
+						return false
+					}
+				}
+				// Continue if n is not 0 yet (return true to Range fn)
+				return n > 0
+			}()
 		})
 	}()
 
