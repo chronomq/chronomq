@@ -1,6 +1,6 @@
 before:
   hooks:
-    - dep ensure -vendor-only
+    - go mod tidy
     - ginkgo -r
 builds:
 - env:
