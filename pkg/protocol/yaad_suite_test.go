@@ -18,6 +18,7 @@ func TestYaad(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GoYaad Protocol Suite")
 }
+
 func ExpectNoErr(err error) {
 	defer GinkgoRecover()
 	Expect(err).To(BeNil())
