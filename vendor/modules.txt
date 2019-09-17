@@ -10,8 +10,6 @@ github.com/hpcloud/tail/winfile
 github.com/inconshreveable/mousetrap
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kr/beanstalk v0.0.0-20180818045031-cae1762e4858
-github.com/kr/beanstalk
 # github.com/onsi/ginkgo v1.7.0
 github.com/onsi/ginkgo
 github.com/onsi/ginkgo/config
