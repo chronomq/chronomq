@@ -2,12 +2,11 @@ package protocol_test
 
 import (
 	"log"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-
-	"testing"
 )
 
 func TestYaad(t *testing.T) {
@@ -18,4 +17,9 @@ func TestYaad(t *testing.T) {
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GoYaad Protocol Suite")
+}
+
+func ExpectNoErr(err error) {
+	defer GinkgoRecover()
+	Expect(err).To(BeNil())
 }

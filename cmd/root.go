@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
@@ -18,24 +19,19 @@ import (
 )
 
 var logLevel = "INFO"
-var baddr = ":11300"
 var raddr = ":11301"
 var statsAddr = ":8125"
 var dataDir string
 var restore bool
 var spokeSpan string
-var rpc bool
 
 func init() {
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
 	rootCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server listen addr (host:port)")
-	rootCmd.PersistentFlags().StringVar(&baddr, "baddr", baddr, "Set Beanstalkd server listen addr (host:port)")
 
 	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", statsAddr, "Stats addr (host:port)")
 	rootCmd.PersistentFlags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")
-
-	rootCmd.PersistentFlags().BoolVarP(&rpc, "rpc", "R", false, "Expose an rpc server")
 
 	dataDir, _ = os.Getwd()
 	rootCmd.Flags().StringVarP(&dataDir, "dataDir", "d", dataDir, `Data dir location - persits state here when SIGUSR1 is received. 
@@ -65,15 +61,9 @@ func runServer() {
 
 	hub := goyaad.NewHub(opts)
 	var rpcSRV io.Closer
-	var beanSRV io.Closer
 	wg := sync.WaitGroup{}
-	if rpc {
-		go func() {
-			rpcSRV, _ = protocol.ServeRPC(hub, raddr)
-		}()
-	}
 	go func() {
-		beanSRV = protocol.ServeBeanstalkd(hub, baddr)
+		rpcSRV, _ = protocol.ServeRPC(hub, raddr)
 	}()
 
 	sigc := make(chan os.Signal, 1)
@@ -83,14 +73,9 @@ func runServer() {
 	go func() {
 		defer wg.Done()
 		<-sigc
-		logrus.Info("Stopping bean protocol server")
-		beanSRV.Close()
-		logrus.Info("Stopping bean protocol server - Done")
-		if rpc {
-			logrus.Info("Stopping rpc protocol server")
-			rpcSRV.Close()
-			logrus.Info("Stopping rpc protocol server - Done")
-		}
+		logrus.Info("Stopping rpc protocol server")
+		rpcSRV.Close()
+		logrus.Info("Stopping rpc protocol server - Done")
 		hub.Stop(true)
 	}()
 
