@@ -1,4 +1,4 @@
-# github.com/DataDog/datadog-go v0.0.0-20180330214955-e67964b4021a
+# github.com/DataDog/datadog-go v2.2.0+incompatible
 github.com/DataDog/datadog-go/statsd
 # github.com/hpcloud/tail v1.0.0
 github.com/hpcloud/tail

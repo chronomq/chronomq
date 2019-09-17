@@ -3,7 +3,7 @@ module github.com/urjitbhatia/goyaad
 go 1.13
 
 require (
-	github.com/DataDog/datadog-go v0.0.0-20180330214955-e67964b4021a
+	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3
