@@ -26,12 +26,12 @@ type HubOpts struct {
 
 // Hub is a time ordered collection of spokes
 type Hub struct {
-	spokeSpan time.Duration
-	spokeMap  *sync.Map // quick lookup map
-	spokes    *PriorityQueue
+	spokeSpan time.Duration  // How much time does a spoke span
+	spokeMap  *sync.Map      // Quick lookup map
+	spokes    *PriorityQueue // Actual spokes sorted by time
 
 	pastSpoke    *Spoke // Permanently pinned to the past
-	currentSpoke *Spoke // The current spoke
+	currentSpoke *Spoke // The current spoke - started in the past or now, ends in the future or now
 
 	removedJobsCount uint64
 	lock             *sync.Mutex

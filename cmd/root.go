@@ -1,3 +1,4 @@
+// Package cmd contains the entrypoints to the binary
 package cmd
 
 import (
@@ -41,15 +42,18 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Short: "goyaad",
+	Long: `For advanced gc tuning:
+	Set GOGC levels using the env variable.
+	See: https://golang.org/pkg/runtime/#hdr-Environment_Variables`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setLogLevel()
+		metrics.InitMetrics(statsAddr)
 		runServer()
 	},
 }
 
 func runServer() {
 	logrus.Info("Starting Goyaad")
-	metrics.InitMetrics(statsAddr)
 	ss, err := time.ParseDuration(spokeSpan)
 	if err != nil {
 		log.Fatal(err)
@@ -84,11 +88,12 @@ func runServer() {
 
 // Execute root cmd by default
 func Execute() {
-	logrus.Infof("Runnig as pid: %d", os.Getpid())
+	logrus.Infof("Running as pid: %d", os.Getpid())
 	if err := rootCmd.Execute(); err != nil {
 		logrus.Error(err)
 		os.Exit(1)
 	}
+	logrus.Info("Shutdown ok")
 }
 
 func setLogLevel() {
