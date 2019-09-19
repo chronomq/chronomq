@@ -32,8 +32,8 @@ dockers:
     # Templates of the Docker image names.
     image_templates:
     - "urjitbhatia/goyaad:latest"
-    - "urjitbhatia/goyaad:v{{ .Tag }}"
     - "urjitbhatia/goyaad:v{{ .Major }}"
+    - "urjitbhatia/goyaad:{{ .Tag }}"
 
     # Skips the docker push. Could be useful if you also do draft releases.
     # Defaults to false.
