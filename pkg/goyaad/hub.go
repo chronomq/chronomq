@@ -290,10 +290,10 @@ func (h *Hub) AddJob(j *Job) error {
 		pastLocker.Lock()
 		defer pastLocker.Unlock()
 
-		logrus.WithField("JobID", j.ID()).Trace("Adding job to past spoke")
+		logrus.Tracef("Adding job to past spoke. JobID: %s", j.ID())
 		err := h.pastSpoke.AddJob(j)
 		if err != nil {
-			logrus.WithError(err).Error("Past spoke rejected job. This should never happen")
+			logrus.Error("Past spoke rejected job. This should never happen ", err)
 			return err
 		}
 		go metrics.Incr("hub.addjob.past")
@@ -308,7 +308,7 @@ func (h *Hub) AddJob(j *Job) error {
 			if h.currentSpoke.ContainsJob(j) {
 				err := h.currentSpoke.AddJob(j)
 				if err != nil {
-					logrus.WithError(err).Error("Current spoke rejected job. This should never happen")
+					logrus.Error("Current spoke rejected job. This should never happen ", err)
 					return err
 				}
 				return nil
@@ -325,7 +325,7 @@ func (h *Hub) AddJob(j *Job) error {
 			logrus.Debugf("Adding job: %s to candidate spoke", j.id)
 			err := candidateSpoke.AddJob(j)
 			if err != nil {
-				logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
+				logrus.Error("Hub should always accept a job. No spoke accepted ", err)
 				return err
 			}
 			// Accepted, all done...
@@ -337,7 +337,7 @@ func (h *Hub) AddJob(j *Job) error {
 		s := NewSpoke(jobBound.start, jobBound.end)
 		err := s.AddJob(j)
 		if err != nil {
-			logrus.WithError(err).Error("Hub should always accept a job. No spoke accepted")
+			logrus.Error("Hub should always accept a job. No spoke accepted ", err)
 			return err
 		}
 

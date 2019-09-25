@@ -21,6 +21,7 @@ import (
 
 var logLevel = "INFO"
 var raddr = ":11301"
+var gaddr = ":9999"
 var statsAddr = ":8125"
 var dataDir string
 var restore bool
@@ -30,6 +31,7 @@ func init() {
 	// Global persistent flags
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
 	rootCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server listen addr (host:port)")
+	rootCmd.PersistentFlags().StringVar(&gaddr, "gaddr", gaddr, "Set GRPC server listen addr (host:port)")
 
 	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", statsAddr, "Stats addr (host:port)")
 	rootCmd.PersistentFlags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")

@@ -9,6 +9,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
+
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
@@ -80,14 +81,11 @@ func (s *Spoke) AddJob(j *Job) error {
 	if !s.ContainsJob(j) {
 		return ErrJobOutOfSpokeBounds
 	}
-	logrus.WithFields(
-		logrus.Fields{
-			"jobID":        j.id,
-			"jobTriggerAt": j.triggerAt.UnixNano(),
-			"spokeID":      s.id,
-			"spokeStart":   s.start.UnixNano(),
-			"spokeEnd":     s.end.UnixNano(),
-		}).Trace("Accepting job")
+	logrus.Tracef("Accepting job. "+
+		"JobID: %s, jobTriggerAt: %d, "+
+		"spokeID: %s, spokeStart: %d, spokeEnd: %d",
+		j.id, j.triggerAt.UnixNano(),
+		s.id, s.start.UnixNano(), s.end.UnixNano())
 	s.jobMap.Store(j.id, true)
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
