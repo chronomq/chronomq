@@ -34,7 +34,7 @@ func init() {
 
 	loadTestCmd.Flags().IntVarP(&sizeBytes, "size", "z", 1000, "Job size in bytes")
 	loadTestCmd.Flags().IntVarP(&jobs, "num", "n", 1000, "Number of total jobs")
-	loadTestCmd.Flags().IntVarP(&connections, "con", "c", 5, "Number of total connections")
+	loadTestCmd.Flags().IntVarP(&connections, "con", "c", 5, "Number of connections to use")
 	loadTestCmd.Flags().IntVarP(&maxDelaySec, "delayMax", "M", 60, "Max delay in seconds (Delay is random over delayMin, delayMax)")
 	loadTestCmd.Flags().IntVarP(&minDelaySec, "delayMin", "N", 0, "Min delay in seconds (Delay is random over delayMin, delayMax)")
 
@@ -78,6 +78,18 @@ func runLoadTest() {
 	deqJobs := make(chan struct{})
 	data := randStringBytes(sizeBytes)
 
+	clients := []*protocol.RPCClient{}
+	for c := 0; c < connections; c++ {
+		client := &protocol.RPCClient{}
+		err := client.Connect(raddr)
+		if err != nil {
+			logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+		}
+
+		client.Ping()
+		clients = append(clients, client)
+	}
+
 	if jobs == 0 {
 		dequeueMode = false
 		enqueueMode = false
@@ -106,33 +118,16 @@ func runLoadTest() {
 		enqJobs = generateJobs(data)
 	}
 
-	for c := 0; c < connections; c++ {
+	for c, client := range clients {
 		if enqueueMode {
-			logrus.Infof("RPC Creating enqueue connection: %d", c)
-			client := &protocol.RPCClient{}
-			err := client.Connect(raddr)
-			if err != nil {
-				logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
-			}
-
-			client.Ping()
-
 			logrus.Infof("RPC Enqueuing using connection: %d", c)
 			enqWG.Add(1)
 			go enqueueRPC(enqWG, c, client, enqJobs)
 		}
 
 		if dequeueMode {
-			logrus.Infof("RPC Creating dequeue connection: %d", c)
-			client := &protocol.RPCClient{}
-			err := client.Connect(raddr)
-			if err != nil {
-				logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
-			}
-			client.Ping()
-
-			deqWG.Add(1)
 			logrus.Infof("RPC Dequeuing using connection: %d", c)
+			deqWG.Add(1)
 			go dequeueRPC(deqWG, c, client, deqJobs, stopDeq, data)
 		}
 	}
