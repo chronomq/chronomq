@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
-	"github.com/sirupsen/logrus"
 
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
@@ -81,11 +81,14 @@ func (s *Spoke) AddJob(j *Job) error {
 	if !s.ContainsJob(j) {
 		return ErrJobOutOfSpokeBounds
 	}
-	logrus.Tracef("Accepting job. "+
-		"JobID: %s, jobTriggerAt: %d, "+
-		"spokeID: %s, spokeStart: %d, spokeEnd: %d",
-		j.id, j.triggerAt.UnixNano(),
-		s.id, s.start.UnixNano(), s.end.UnixNano())
+	log.Debug().
+		Str("jobID", j.id).
+		Time("triggerAt", j.triggerAt).
+		Str("spokeID", s.id.String()).
+		Time("spokeStart", s.start).
+		Time("spokeEnd", s.end).
+		Msg("Accepting new job")
+
 	s.jobMap.Store(j.id, true)
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
@@ -168,7 +171,10 @@ func (s *Spoke) Persist(p persistence.Persister) chan error {
 				continue
 			}
 		}
-		logrus.Infof("Persisted %d jobs from spoke %s", i, s.ID())
+		log.Info().
+			Int("jobCount", i).
+			Str("spokeID", s.id.String()).
+			Msg("Persisted jobs from spoke")
 	}()
 	return errC
 }

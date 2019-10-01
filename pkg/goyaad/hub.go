@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
@@ -54,20 +54,19 @@ func NewHub(opts *HubOpts) *Hub {
 	}
 	heap.Init(h.spokes)
 
-	logrus.WithFields(logrus.Fields{
-		"spokeSpan":      opts.SpokeSpan,
-		"attemptRestore": opts.AttemptRestore,
-	}).Info("Created hub")
+	log.Info().Dur("spokeSpan", opts.SpokeSpan).
+		Bool("attemptRestore", opts.AttemptRestore).
+		Msg("Created hub")
 
 	go func() {
 		if opts.AttemptRestore {
-			logrus.Info("Hub: Entering restore mode")
+			log.Info().Msg("Hub: Entering restore mode")
 			err := h.Restore()
 			if err != nil {
-				logrus.Error("Hub: Restore error", err)
+				log.Error().Err(err).Msg("Hub: Restore error")
 			}
 
-			logrus.Info("Hub: Initial restore finished. Resuming")
+			log.Info().Msg("Hub: Initial restore finished. Resuming")
 		}
 	}()
 	go h.StatusPrinter()
@@ -78,15 +77,15 @@ func NewHub(opts *HubOpts) *Hub {
 // Stop the hub gracefully and if persist is true, then persist all jobs to disk for later recovery
 func (h *Hub) Stop(persist bool) {
 	if persist {
-		logrus.Infof("Hub:Stop Starting persistence for pid: %d", os.Getpid())
+		log.Info().Int("PID", os.Getpid()).Msg("Hub:Stop Starting persistence")
 		errC := h.Persist()
 		errCount := 0
 		for range errC {
 			errCount++
 		}
-		logrus.Infof("Hub:Stop Finished persistence with %d errors", errCount)
+		log.Info().Int("errorCount", errCount).Msg("Hub:Stop Finished persistence with errors")
 	}
-	logrus.Infof("Hub:Stop stopped")
+	log.Info().Msg("Hub:Stop stopped")
 }
 
 // PendingJobsCount return the number of jobs currently pending
@@ -105,15 +104,15 @@ func (h *Hub) CancelJob(jobID string) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	logrus.Debug("cancel: ", jobID)
+	log.Debug().Str("jobID", jobID).Msg("canceling job")
 
 	s, err := h.FindOwnerSpoke(jobID)
 	if err != nil {
-		logrus.Debug("cancel found no owner spoke: ", jobID)
+		log.Debug().Str("jobID", jobID).Msg("cancel found no owner spoke")
 		// return nil - cancel if job not found is idempotent
 		return nil
 	}
-	logrus.Debug("cancel found owner spoke: ", jobID)
+	log.Debug().Str("jobID", jobID).Msg("cancel found owner spoke")
 	err = s.CancelJob(jobID)
 	h.removedJobsCount++
 	go metrics.Incr("hub.cancel.ok")
@@ -175,7 +174,7 @@ func (h *Hub) Next() *Job {
 		// Find a job in past spoke
 		j := h.pastSpoke.Next()
 		if j != nil {
-			logrus.Debug("Got job from past spoke")
+			log.Debug().Msg("Got job from past spoke")
 		}
 		return j
 	}(); j != nil {
@@ -192,7 +191,7 @@ func (h *Hub) Next() *Job {
 			h.currentSpoke.Lock()
 			defer h.currentSpoke.Unlock()
 			if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
-				logrus.Info("pruning the current spoke")
+				log.Info().Msg("pruning the current spoke")
 				// This routine could be unfortunate - it found a currentspoke that was expired
 				// so it has the pay the price finding the next candidate
 				h.spokeMap.Delete(h.currentSpoke.SpokeBound)
@@ -224,7 +223,7 @@ func (h *Hub) Next() *Job {
 			h.currentSpoke = current
 			// Pop it from the queue - this is now a current spoke
 			heap.Pop(h.spokes)
-			logrus.Infof("Hub spoke pop cap: %d", h.spokes.Cap())
+			log.Info().Int("spokesCapacity", h.spokes.Cap()).Msg("Hub spoke cap")
 		}
 	}
 
@@ -232,7 +231,7 @@ func (h *Hub) Next() *Job {
 
 	// Assert - At this point, hub should have a current spoke
 	if h.currentSpoke == nil {
-		logrus.Panic("Unreachable state :: hub has a nil spoke after candidate search")
+		log.Panic().Msg("Unreachable state :: hub has a nil spoke after candidate search")
 	}
 
 	currentLocker := h.currentSpoke.GetLocker()
@@ -243,11 +242,11 @@ func (h *Hub) Next() *Job {
 	j := h.currentSpoke.Next()
 	if j == nil {
 		// no job - return
-		logrus.Debug("No job in current spoke")
+		log.Debug().Msg("No job in current spoke")
 		return nil
 	}
 
-	logrus.Debug("returning job: ", j.id)
+	log.Debug().Str("jobID", j.id).Msg("returning next job")
 	h.removedJobsCount++
 	return j
 }
@@ -285,20 +284,19 @@ func (h *Hub) AddJob(j *Job) error {
 
 	switch j.AsTemporalState() {
 	case Past:
-		logrus.Tracef("Adding job: %s to past spoke", j.id)
+		log.Debug().Str("jobID", j.id).Msg("Adding job to past spoke")
 		pastLocker := h.pastSpoke.GetLocker()
 		pastLocker.Lock()
 		defer pastLocker.Unlock()
 
-		logrus.Tracef("Adding job to past spoke. JobID: %s", j.ID())
 		err := h.pastSpoke.AddJob(j)
 		if err != nil {
-			logrus.Error("Past spoke rejected job. This should never happen ", err)
+			log.Error().Err(err).Msg("Past spoke rejected job. This should never happen")
 			return err
 		}
 		go metrics.Incr("hub.addjob.past")
 	case Future:
-		logrus.Tracef("Adding job: %s to future spoke", j.id)
+		log.Debug().Str("jobID", j.id).Msg("Adding job to future spoke")
 		// Lock current spoke so that add fixes the PQ as it adds
 		if h.currentSpoke != nil {
 			currLocker := h.currentSpoke.GetLocker()
@@ -308,7 +306,7 @@ func (h *Hub) AddJob(j *Job) error {
 			if h.currentSpoke.ContainsJob(j) {
 				err := h.currentSpoke.AddJob(j)
 				if err != nil {
-					logrus.Error("Current spoke rejected job. This should never happen ", err)
+					log.Error().Err(err).Msg("Current spoke rejected job. This should never happen")
 					return err
 				}
 				return nil
@@ -322,10 +320,10 @@ func (h *Hub) AddJob(j *Job) error {
 		if ok {
 			candidateSpoke := candidate.(*Spoke)
 			// Found a candidate that can take this job
-			logrus.Debugf("Adding job: %s to candidate spoke", j.id)
+			log.Debug().Str("jobID", j.id).Msg("Adding job to candidate spoke")
 			err := candidateSpoke.AddJob(j)
 			if err != nil {
-				logrus.Error("Hub should always accept a job. No spoke accepted ", err)
+				log.Error().Err(err).Msg("Hub should always accept a job. No spoke accepted ")
 				return err
 			}
 			// Accepted, all done...
@@ -333,11 +331,11 @@ func (h *Hub) AddJob(j *Job) error {
 		}
 
 		// Time to create a new spoke for this job
-		logrus.Debugf("Adding job: %s to a new spoke", j.id)
+		log.Debug().Str("jobID", j.id).Msg("Adding job to a new spoke")
 		s := NewSpoke(jobBound.start, jobBound.end)
 		err := s.AddJob(j)
 		if err != nil {
-			logrus.Error("Hub should always accept a job. No spoke accepted ", err)
+			log.Error().Err(err).Msg("Hub should always accept a job. No spoke accepted ")
 			return err
 		}
 
@@ -350,31 +348,31 @@ func (h *Hub) AddJob(j *Job) error {
 
 // Status prints the state of the spokes of this hub
 func (h *Hub) Status() {
-	logrus.Info("-------------------------------------------------------------")
 	h.lock.Lock()
 	defer h.lock.Unlock()
+	log.Info().Msg("------------------------Hub Stats----------------------------")
 
 	spokesCount := h.spokes.Len()
-	logrus.Infof("Hub has %d spokes", spokesCount)
+	log.Info().Int("spokesCount", spokesCount).Send()
 	go metrics.GaugeInt("hub.spoke.count", spokesCount)
 
 	pendingJobCount := h.PendingJobsCount()
-	logrus.Infof("Hub has %d total jobs", pendingJobCount)
+	log.Info().Int("pendingJobsCount", pendingJobCount).Send()
 	go metrics.GaugeInt("hub.job.count", pendingJobCount)
 
-	logrus.Infof("Hub has %d removed jobs", h.removedJobsCount)
+	log.Info().Uint64("removedJobsCount", h.removedJobsCount).Send()
 	go metrics.Gauge("hub.job.removed.count", float64(h.removedJobsCount))
 
-	logrus.Infof("Past spoke has %d jobs", h.pastSpoke.PendingJobsLen())
+	log.Info().Int("pastSpokePendingJobsCount", h.pastSpoke.PendingJobsLen()).Send()
 	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
 	if h.currentSpoke != nil {
-		logrus.Infof("Current spoke has %d jobs", h.currentSpoke.PendingJobsLen())
+		log.Info().Int("currentSpokePendingJobsCount", h.currentSpoke.PendingJobsLen()).Send()
 		go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 	}
 
-	logrus.Infof("Assigned current spoke: %v", h.currentSpoke == nil)
-	logrus.Info("-------------------------------------------------------------")
+	log.Info().Bool("isCurrentSpokeNil", h.currentSpoke == nil).Send()
+	log.Info().Msg("-------------------------------------------------------------")
 }
 
 // StatusPrinter starts a status printer that prints hub stats over some time interval
@@ -387,7 +385,7 @@ func (h *Hub) StatusPrinter() {
 
 // Persist locks the hub and starts persisting data to disk
 func (h *Hub) Persist() chan error {
-	logrus.Warn("Starting disk offload")
+	log.Warn().Msg("Starting disk offload")
 	wg := &sync.WaitGroup{}
 	ec := make(chan error)
 
@@ -395,7 +393,10 @@ func (h *Hub) Persist() chan error {
 		h.lock.Lock()
 		defer h.lock.Unlock()
 
-		logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+		log.Warn().
+			Int("totalSpokes", h.spokes.Len()).
+			Int("pendingJobsCount", h.PendingJobsCount()).
+			Msg("About to persist")
 		wg.Add(h.spokes.Len())
 		defer close(ec)
 
@@ -446,17 +447,17 @@ func (h *Hub) Restore() error {
 		err := j.GobDecode(e)
 		if err != nil {
 			errDecodeCount++
-			logrus.Error(err)
+			log.Error().Err(err).Send()
 			continue
 		}
 		if err = h.AddJob(j); err != nil {
 			errAddCount++
-			logrus.Error(err)
+			log.Error().Err(err).Send()
 			continue
 		}
 		recoverCount++
 	}
-	logrus.Infof("Hub:Restore recovered %d entries", recoverCount)
+	log.Info().Int("recoverCount", recoverCount).Msg("Hub:Restore recovered entries")
 
 	if errAddCount == 0 && errDecodeCount == 0 {
 		return nil
