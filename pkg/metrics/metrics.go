@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/statsd"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // Client is the global metrics client for sending statsd compatible metrics
@@ -16,7 +16,7 @@ func InitMetrics(statsAddr string) {
 		var err error
 		Client, err = statsd.NewBuffered(statsAddr, 500)
 		if err != nil {
-			logrus.Fatal(err)
+			log.Fatal().Err(err).Send()
 		}
 		Client.Namespace = "goyaad"
 	}
