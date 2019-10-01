@@ -2,18 +2,20 @@ package protocol_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
 var opts = goyaad.HubOpts{
 	AttemptRestore: false,
-	Persister:      persistence.NewJournalPersister(""),
 	SpokeSpan:      time.Second * 5}
 
 type jobPutter interface {
@@ -35,6 +37,7 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 }
 
 func BenchmarkRPCJobPuts(b *testing.B) {
+	log.Logger = zerolog.New(ioutil.Discard)
 	go func() {
 		protocol.ServeRPC(goyaad.NewHub(&opts), ":8001")
 	}()
