@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
@@ -52,7 +52,7 @@ var loadTestCmd = &cobra.Command{
 		fmt.Println("Running Yaad load test")
 
 		if !enqueueMode && !dequeueMode {
-			logrus.Fatal("One of enqueue mode or dequeue mode required. See --help.")
+			log.Fatal().Msg("One of enqueue mode or dequeue mode required. See --help.")
 		}
 		runLoadTest()
 	},
@@ -61,15 +61,14 @@ var loadTestCmd = &cobra.Command{
 func runLoadTest() {
 	metrics.InitMetrics(statsAddr)
 
-	logrus.WithFields(logrus.Fields{
-		"MaxJobs":        jobs,
-		"MaxConnections": connections,
-		"MaxDelaySec":    maxDelaySec,
-		"MinDelaySec":    minDelaySec,
-		"EnqueueMode":    enqueueMode,
-		"DequeueMode":    dequeueMode,
-		"RPCAddr":        raddr,
-	}).Info("Setting up load test parameters")
+	log.Info().Int("MaxJobs", jobs).
+		Int("MaxConnections", connections).
+		Int("MaxDelaySec", maxDelaySec).
+		Int("MinDelaySec", minDelaySec).
+		Bool("EnqueueMode", enqueueMode).
+		Bool("DequeueMode", dequeueMode).
+		Str("RPCAddr", raddr).
+		Msg("Setting up load test parameters")
 
 	enqWG := &sync.WaitGroup{}
 	deqWG := &sync.WaitGroup{}
@@ -83,7 +82,7 @@ func runLoadTest() {
 		client := &protocol.RPCClient{}
 		err := client.Connect(raddr)
 		if err != nil {
-			logrus.WithError(err).Fatalf("Failed to connect for worker: %d", c)
+			log.Fatal().Int("WorkerID", c).Err(err).Msg("Failed to connect for worker")
 		}
 
 		client.Ping()
@@ -98,13 +97,13 @@ func runLoadTest() {
 	if dequeueMode {
 		dequeueCount := 0
 		go func() {
-			logrus.Info("Dequeue sink chan starting...")
+			log.Info().Msg("Dequeue sink chan starting...")
 			for range deqJobs {
 				dequeueCount++
 				metrics.Incr("loadtest.dequeue")
 
 				if dequeueCount == jobs {
-					logrus.Infof("Dequeued all jobs: %d", dequeueCount)
+					log.Info().Int("DequeueCount", dequeueCount).Msg("Dequeued all jobs")
 					for c := 0; c < connections; c++ {
 						stopDeq <- struct{}{}
 					}
@@ -120,21 +119,21 @@ func runLoadTest() {
 
 	for c, client := range clients {
 		if enqueueMode {
-			logrus.Infof("RPC Enqueuing using connection: %d", c)
+			log.Info().Int("ConnectionID", c).Msg("RPC Enqueuing")
 			enqWG.Add(1)
 			go enqueueRPC(enqWG, c, client, enqJobs)
 		}
 
 		if dequeueMode {
-			logrus.Infof("RPC Dequeuing using connection: %d", c)
+			log.Info().Int("ConnectionID", c).Msg("RPC Dequeuing")
 			deqWG.Add(1)
 			go dequeueRPC(deqWG, c, client, deqJobs, stopDeq, data)
 		}
 	}
 
-	logrus.Info("waiting for enqueue to end")
+	log.Info().Msg("waiting for enqueue to end")
 	enqWG.Wait()
-	logrus.Info("waiting for dequeue to end")
+	log.Info().Msg("waiting for dequeue to end")
 	deqWG.Wait()
 }
 
@@ -148,12 +147,12 @@ func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *protocol.RPCClie
 					continue
 				}
 				// legit error
-				logrus.Fatal("Error reading from rpc client: ", err)
+				log.Fatal().Err(err).Msg("Error reading from rpc client")
 			}
-			logrus.Debugf("Canceling id: %s", id)
+			log.Debug().Str("JobID", id).Msg("Canceling job")
 			err = rpcClient.Cancel(id)
 			if err != nil {
-				logrus.Fatal("Error canceling rpc job", err)
+				log.Fatal().Err(err).Msg("Error canceling rpc job")
 			}
 			validateJob(data, body, prevTriggerAt, workerID)
 			deqJobs <- struct{}{}
@@ -162,7 +161,7 @@ func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *protocol.RPCClie
 
 	<-stopDeq
 	deqWG.Done()
-	logrus.Infof("Stopping dequeue for connection: %d", workerID)
+	log.Info().Int("workerID", workerID).Msg("Stopping dequeue for connection")
 }
 
 func validateJob(testData []byte, body []byte, prevTriggerAt int64, workerID int) {
@@ -175,28 +174,38 @@ func validateJob(testData []byte, body []byte, prevTriggerAt int64, workerID int
 	if enableTolerance {
 		triggerAt, err := strconv.ParseInt(string(parts[0]), 10, 64)
 		if err != nil {
-			logrus.WithError(err).Fatalf("Failed to dequeue and ready delay for worker: %d", workerID)
+			log.Fatal().Int("workerID", workerID).Err(err).Msg("Failed to dequeue and ready delay")
 		}
 
 		triggerAtTime := time.Unix(0, triggerAt)
 		prevTriggerAtTime := time.Unix(0, prevTriggerAt)
-		logrus.Debugf("Prev trigger at: %s Trigger at: %s", prevTriggerAtTime, triggerAtTime)
+		log.Debug().Time("prevTriggerAtTime", prevTriggerAtTime).
+			Time("triggetAtTime", triggerAtTime).Send()
 
 		if triggerAtTime.Before(prevTriggerAtTime) {
 			diff := prevTriggerAt - triggerAt
 			if diff >= nsTolerance {
-				logrus.Errorf("Dequeue got jobs out of order for worker: %d\n\ttriggerAt:\t%s,\n\tprevTriggerAt:\t%s\n\tdelta:\t%d,\n\ttrigger.sub(prev):\t%f ms",
-					workerID, triggerAtTime, prevTriggerAtTime, prevTriggerAtTime.Sub(triggerAtTime), float64(diff)/1e6)
-				logrus.Fatalf("\ttriggerAtNS:\t%d,\n\tprevTriggerAtNS:\t%d\n\ttrigger.sub(prev):\t%d ns",
-					triggerAt, prevTriggerAt, diff)
+				log.Error().Int("workerID", workerID).
+					Time("triggerAtTime", triggerAtTime).
+					Time("prevTriggerAtTime", prevTriggerAtTime).
+					Dur("delta", prevTriggerAtTime.Sub(triggerAtTime)).
+					Float64("triggerDeltaMS", float64(diff)/1e6).
+					Msg("Dequeue got jobs out of order for worker")
+
+				log.Fatal().Int64("triggerAtNS", triggerAt).
+					Int64("prevTriggerAtNS", prevTriggerAt).
+					Int64("triggerDeltaNS", diff).
+					Send()
 			}
 		}
 		prevTriggerAt = triggerAt
 	}
 
 	if !bytes.Equal(body, testData) {
-		logrus.Fatalf("Dequeue got wrong body for worker: %d Expected: %s Got: %s",
-			workerID, testData, body)
+		log.Fatal().Int("workderID", workerID).
+			Bytes("expectedBody", testData).
+			Bytes("receivedBody", body).
+			Msg("Dequeue got wrong body")
 	}
 }
 
@@ -209,10 +218,10 @@ func enqueueRPC(wg *sync.WaitGroup, workerID int, client *protocol.RPCClient, jo
 		metrics.Incr("loadtest.enqueuerpc")
 
 		if err != nil {
-			logrus.WithError(err).Fatalf("Failed to enqueue for worker: %d", workerID)
+			log.Fatal().Int("workderID", workerID).Err(err).Msg("Failed to enqueue")
 		}
 	}
-	logrus.Infof("Connection: %c done enqueueing", workerID)
+	log.Info().Int("workerID", workerID).Msg("Connection done enqueueing")
 }
 
 func generateJobs(data []byte) chan *testJob {

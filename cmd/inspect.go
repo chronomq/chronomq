@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
@@ -27,10 +27,10 @@ var inspectCmd = &cobra.Command{
 	to slow down during the inspect operation as well as place memory pressure. For large
 	num, it will also put mem pressure on the client call`,
 	Run: func(cmd *cobra.Command, args []string) {
-		logrus.Info("inspecting")
+		log.Info().Msg("inspecting")
 		err := inspect()
 		if err != nil {
-			logrus.Fatal(err)
+			log.Fatal().Err(err).Send()
 		}
 	},
 }
@@ -39,7 +39,7 @@ const delimiter = "-----------------------------------------"
 
 func inspect() error {
 	client := &protocol.RPCClient{}
-	logrus.Infof("Connecting to server: %v", raddr)
+	log.Info().Str("address", raddr).Msg("Connecting to server")
 	// This ensures all contexts get a running server
 	err := client.Connect(raddr)
 	if err != nil {
@@ -47,7 +47,7 @@ func inspect() error {
 	}
 	output := os.Stdout
 	if outfile != "" {
-		logrus.Warnf("Writing to file: %s", outfile)
+		log.Warn().Str("outfile", outfile).Msg("Writing to file")
 		output, err = os.OpenFile(outfile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0777)
 		if err != nil {
 			return err

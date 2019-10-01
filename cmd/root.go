@@ -3,14 +3,15 @@ package cmd
 
 import (
 	"io"
-	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
@@ -55,10 +56,10 @@ var rootCmd = &cobra.Command{
 }
 
 func runServer() {
-	logrus.Info("Starting Goyaad")
+	log.Info().Msg("Starting Goyaad")
 	ss, err := time.ParseDuration(spokeSpan)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	opts := &goyaad.HubOpts{
 		AttemptRestore: restore,
@@ -79,9 +80,9 @@ func runServer() {
 	go func() {
 		defer wg.Done()
 		<-sigc
-		logrus.Info("Stopping rpc protocol server")
+		log.Info().Msg("Stopping rpc protocol server")
 		rpcSRV.Close()
-		logrus.Info("Stopping rpc protocol server - Done")
+		log.Info().Msg("Stopping rpc protocol server - Done")
 		hub.Stop(true)
 	}()
 
@@ -90,18 +91,18 @@ func runServer() {
 
 // Execute root cmd by default
 func Execute() {
-	logrus.Infof("Running as pid: %d", os.Getpid())
+	log.Info().Msgf("Running as pid: %d", os.Getpid())
 	if err := rootCmd.Execute(); err != nil {
-		logrus.Error(err)
+		log.Error().Err(err).Send()
 		os.Exit(1)
 	}
-	logrus.Info("Shutdown ok")
+	log.Info().Msg("Shutdown ok")
 }
 
 func setLogLevel() {
-	lvl, err := logrus.ParseLevel(logLevel)
+	lvl, err := zerolog.ParseLevel(strings.ToLower(logLevel))
 	if err != nil {
-		logrus.Fatal("Invalid log-level provided: ", logLevel)
+		log.Fatal().Str("LevelStr", logLevel).Msg("Invalid log-level provided")
 	}
-	logrus.SetLevel(lvl)
+	zerolog.SetGlobalLevel(lvl)
 }
