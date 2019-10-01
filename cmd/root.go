@@ -26,11 +26,13 @@ var gaddr = ":9999"
 var statsAddr = ":8125"
 var dataDir string
 var restore bool
+var friendlyLog bool
 var spokeSpan string
 
 func init() {
 	// Global persistent flags
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "INFO", "Set log level: INFO, DEBUG")
+	rootCmd.PersistentFlags().BoolVarP(&friendlyLog, "friendly-log", "L", false, "Use a human-friendly logging style")
 	rootCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server listen addr (host:port)")
 	rootCmd.PersistentFlags().StringVar(&gaddr, "gaddr", gaddr, "Set GRPC server listen addr (host:port)")
 
@@ -105,4 +107,10 @@ func setLogLevel() {
 		log.Fatal().Str("LevelStr", logLevel).Msg("Invalid log-level provided")
 	}
 	zerolog.SetGlobalLevel(lvl)
+	if friendlyLog {
+		log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.Kitchen}).
+			With().
+			Timestamp().
+			Logger()
+	}
 }
