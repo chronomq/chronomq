@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
@@ -67,7 +67,11 @@ func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 
 	waitTill := time.Now().Add(timeout)
 	// wait for timeout and keep trying
-	logrus.Debugf("waiting for reserve timeout: %v now: %v till: %v ", timeout, time.Now(), waitTill)
+	log.Debug().
+		Dur("timeout", timeout).
+		Time("now", time.Now()).
+		Time("waitTill", waitTill).
+		Msg("waiting for reserve")
 	for waitTill.After(time.Now()) {
 		if j := r.hub.Next(); j != nil {
 			job.Body = j.Body()
@@ -75,7 +79,7 @@ func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 			return nil
 		}
 		time.Sleep(time.Millisecond * 200)
-		logrus.Debug("waiting for reserve finished sleep for total timeout: ", timeout)
+		log.Debug().Dur("timeout", timeout).Msg("waiting for reserve finished sleep duration")
 	}
 
 	return ErrTimeout
@@ -84,7 +88,7 @@ func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 // Ping the server, sets "pong" as the reply
 // useful for basic connectivity/liveness check
 func (r *RPCServer) Ping(ignore int8, pong *string) error {
-	logrus.Debug("Received ping from client")
+	log.Debug().Msg("Received ping from client")
 	*pong = "pong"
 	return nil
 }
@@ -94,7 +98,7 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*RPCJob) error {
 	if n == 0 {
 		return nil
 	}
-	logrus.Debugf("Return %d jobs for inspection", n)
+	log.Debug().Int("count", n).Msg("Returning jobs for inspection")
 	jobs := r.hub.GetNJobs(n)
 
 	for j := range jobs {
@@ -121,7 +125,7 @@ func ServeRPC(hub *goyaad.Hub, addr string) (io.Closer, error) {
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				logrus.Errorf("Cannot handle client connection %s", err)
+				log.Error().Err(err).Msg("Cannot handle client connection")
 				return
 			}
 			go rpcSrv.ServeConn(conn)

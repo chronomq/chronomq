@@ -8,7 +8,7 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/syndtr/goleveldb/leveldb/journal"
 )
 
@@ -30,7 +30,7 @@ func NewJournalPersister(dataDir string) Persister {
 		finalize: make(chan struct{}, 1),
 	}
 
-	logrus.Infof("Created Journal persister with datadir: %s", dataDir)
+	log.Info().Str("datadir", dataDir).Msg("Created Journal persister with datadir")
 	return lp
 }
 
@@ -38,7 +38,7 @@ func NewJournalPersister(dataDir string) Persister {
 func (lp *JournalPersister) ResetDataDir() error {
 	// Currently, only reset namespaces
 	p := lp.getPath()
-	logrus.Warnf("JournalPersister:ResetDataDir resetting base path: %s", p)
+	log.Warn().Str("basePath", p).Msg("JournalPersister:ResetDataDir resetting base path")
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
 		return os.Remove(p)
 	}
@@ -49,27 +49,27 @@ func (lp *JournalPersister) ResetDataDir() error {
 // Finalize tells persister that it can finalize and close writes
 // It is an error to send new items to persist once Finalize has been called
 func (lp *JournalPersister) Finalize() {
-	logrus.Info("JournalPersister:Finalize finalizing persister")
+	log.Info().Msg("JournalPersister:Finalize finalizing persister")
 
 	// close db
 	if lp.writer != nil {
-		logrus.Info("JournalPersister:Finalize closing writer db")
+		log.Info().Msg("JournalPersister:Finalize closing writer db")
 		err := lp.writer.Flush()
 		if err != nil {
-			logrus.Error("JournalPersister:Finalize error flushing journal", err)
+			log.Error().Err(err).Msg("JournalPersister:Finalize error flushing journal")
 		}
 		err = lp.writer.Close()
 		if err != nil {
-			logrus.Error("JournalPersister:Finalize error finalizing writer", err)
+			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing writer")
 		}
-		logrus.Info("JournalPersister:Finalize closed writer db")
+		log.Info().Msg("JournalPersister:Finalize closed writer db")
 	}
-	logrus.Info("JournalPersister:Finalize done")
+	log.Info().Msg("JournalPersister:Finalize done")
 }
 
 // Persist stores an entry to disk
 func (lp *JournalPersister) Persist(enc gob.GobEncoder) error {
-	logrus.Debug("JournalPersister:Persist persisting an entry")
+	log.Debug().Msg("JournalPersister:Persist persisting an entry")
 	return lp.write(enc)
 }
 
@@ -79,7 +79,7 @@ func (lp *JournalPersister) PersistStream(encC chan gob.GobEncoder) chan error {
 	go func() {
 		defer close(errC)
 		for e := range encC {
-			logrus.Debug("JournalPersister:PersistStream persisting an entry")
+			log.Debug().Msg("JournalPersister:PersistStream persisting an entry")
 
 			if err := lp.write(e); err != nil {
 				errC <- err
@@ -95,21 +95,21 @@ func (lp *JournalPersister) Recover() (chan []byte, error) {
 	bufC := make(chan []byte)
 
 	filePath := lp.getPath()
-	logrus.WithField("File", filePath).Infof("JournalPersister:Recover starting recovery")
+	log.Info().Str("file", filePath).Msg("JournalPersister:Recover starting recovery")
 	f, err := os.Open(filePath)
 	if err != nil {
 		err = errors.Wrap(err, "Failed to open peristence file")
-		logrus.Errorf("JournalPersister:Recover %s", err)
+		log.Error().Err(err).Msg("JournalPersister:Recover")
 		return nil, err
 	}
 	r := journal.NewReader(f, nil, false, true)
 	if err != nil {
 		err = errors.Wrap(err, "Failed to open peristence journal reader")
-		logrus.Errorf("JournalPersister:Recover %s", err)
+		log.Error().Err(err).Msg("JournalPersister:Recover")
 		return nil, err
 	}
 
-	logrus.Info("JournalPersister:Recover streaming items for recovery")
+	log.Info().Msg("JournalPersister:Recover streaming items for recovery")
 	go func() {
 		defer close(bufC)
 
@@ -120,17 +120,17 @@ func (lp *JournalPersister) Recover() (chan []byte, error) {
 			}
 			if err != nil {
 				err = errors.Wrap(err, "Failed to fetch next journal reader")
-				logrus.Errorf("JournalPersister:Recover %s", err)
+				log.Error().Err(err).Msg("JournalPersister:Recover")
 				break
 			}
 			buf, err := ioutil.ReadAll(j)
 			if err != nil {
-				logrus.Tracef("JournalPersister:Recover error reading from journal %s", err)
+				log.Debug().Err(err).Msg("JournalPersister:Recover error reading from journal")
 				continue
 			}
 			bufC <- buf
 		}
-		logrus.Infof("JournalPersister:Recover finished recovery stream")
+		log.Info().Msg("JournalPersister:Recover finished recovery stream")
 	}()
 
 	return bufC, nil
@@ -142,11 +142,11 @@ func (lp *JournalPersister) write(enc gob.GobEncoder) error {
 	if lp.writer == nil {
 		var err error
 		filePath := lp.getPath()
-		logrus.WithField("File", filePath).Infof("JournalPersister:writer starting persistence")
+		log.Info().Str("file", filePath).Msg("JournalPersister:writer starting persistence")
 		f, err := os.Create(filePath)
 		if err != nil {
 			err = errors.Wrap(err, "JournalPersister:writer Failed to open peristence file")
-			logrus.Error(err)
+			log.Error().Err(err).Send()
 			return err
 		}
 		lp.writer = journal.NewWriter(f)
@@ -155,7 +155,7 @@ func (lp *JournalPersister) write(enc gob.GobEncoder) error {
 	w, err := lp.writer.Next()
 	if err != nil {
 		err = errors.Wrap(err, "JournalPersister:writer failed to get next journal writer")
-		logrus.Error(err)
+		log.Error().Err(err).Send()
 		return err
 	}
 
@@ -166,7 +166,7 @@ func (lp *JournalPersister) write(enc gob.GobEncoder) error {
 	_, err = w.Write(buf)
 	if err != nil {
 		err = errors.Wrap(err, "JournalPersister:writer failed to persist entry")
-		logrus.Error(err)
+		log.Error().Err(err).Send()
 		return err
 	}
 	return nil

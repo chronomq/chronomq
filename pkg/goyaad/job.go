@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // Job is the basic unit of work in yaad
@@ -127,7 +127,7 @@ func (j *Job) GobEncode() (data []byte, err error) {
 
 	if err != nil {
 		err = errors.Wrap(err, "Job: Failed to encode job for persistence")
-		logrus.Error(err)
+		log.Error().Err(err)
 		return nil, err
 	}
 	return buf.Bytes(), nil

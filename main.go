@@ -17,7 +17,7 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 
 	"github.com/urjitbhatia/goyaad/cmd"
 )
@@ -34,16 +34,18 @@ func init() {
 }
 
 func main() {
-	// logrus.SetLevel(logrus.DebugLevel)
 	// More Aggressive GC
 	if os.Getenv("GOGC") == "" {
-		logrus.Infof("Applying default GC tuning")
+		log.Info().Msg("Applying default GC tuning")
 		debug.SetGCPercent(5)
 	} else {
-		logrus.Infof("Custom GCPercent set to: %s", os.Getenv("GOGC"))
+		log.Info().Str("GCPercent", os.Getenv("GOGC")).Msg("Using custom GC tuning")
 	}
 	go func() {
-		logrus.Info(http.ListenAndServe(":6060", nil))
+		err := http.ListenAndServe(":6060", nil)
+		if err != nil {
+			log.Error().Err(err).Msg("pprof server has stopped")
+		}
 	}()
 	cmd.Execute()
 }

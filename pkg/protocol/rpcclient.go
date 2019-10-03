@@ -5,7 +5,7 @@ import (
 	"net/rpc"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // ErrClientDisconnected means a client was used while it was disconnected from the remote server
@@ -93,7 +93,7 @@ func (c *RPCClient) Ping() error {
 	if pong != "pong" {
 		return errors.New("Unexpected ping response: " + pong)
 	}
-	logrus.Debug("Received pong from server")
+	log.Debug().Msg("Received pong from server")
 	return nil
 }
 

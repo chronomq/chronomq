@@ -3,14 +3,15 @@ package cmd
 
 import (
 	"io"
-	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
@@ -25,11 +26,13 @@ var gaddr = ":9999"
 var statsAddr = ":8125"
 var dataDir string
 var restore bool
+var friendlyLog bool
 var spokeSpan string
 
 func init() {
 	// Global persistent flags
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "", "INFO", "Set log level: INFO, DEBUG")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "INFO", "Set log level: INFO, DEBUG")
+	rootCmd.PersistentFlags().BoolVarP(&friendlyLog, "friendly-log", "L", false, "Use a human-friendly logging style")
 	rootCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server listen addr (host:port)")
 	rootCmd.PersistentFlags().StringVar(&gaddr, "gaddr", gaddr, "Set GRPC server listen addr (host:port)")
 
@@ -55,10 +58,10 @@ var rootCmd = &cobra.Command{
 }
 
 func runServer() {
-	logrus.Info("Starting Goyaad")
+	log.Info().Msg("Starting Goyaad")
 	ss, err := time.ParseDuration(spokeSpan)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	opts := &goyaad.HubOpts{
 		AttemptRestore: restore,
@@ -79,9 +82,9 @@ func runServer() {
 	go func() {
 		defer wg.Done()
 		<-sigc
-		logrus.Info("Stopping rpc protocol server")
+		log.Info().Msg("Stopping rpc protocol server")
 		rpcSRV.Close()
-		logrus.Info("Stopping rpc protocol server - Done")
+		log.Info().Msg("Stopping rpc protocol server - Done")
 		hub.Stop(true)
 	}()
 
@@ -90,18 +93,24 @@ func runServer() {
 
 // Execute root cmd by default
 func Execute() {
-	logrus.Infof("Running as pid: %d", os.Getpid())
+	log.Info().Msgf("Running as pid: %d", os.Getpid())
 	if err := rootCmd.Execute(); err != nil {
-		logrus.Error(err)
+		log.Error().Err(err).Send()
 		os.Exit(1)
 	}
-	logrus.Info("Shutdown ok")
+	log.Info().Msg("Shutdown ok")
 }
 
 func setLogLevel() {
-	lvl, err := logrus.ParseLevel(logLevel)
+	lvl, err := zerolog.ParseLevel(strings.ToLower(logLevel))
 	if err != nil {
-		logrus.Fatal("Invalid log-level provided: ", logLevel)
+		log.Fatal().Str("LevelStr", logLevel).Msg("Invalid log-level provided")
 	}
-	logrus.SetLevel(lvl)
+	zerolog.SetGlobalLevel(lvl)
+	if friendlyLog {
+		log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.Kitchen}).
+			With().
+			Timestamp().
+			Logger()
+	}
 }

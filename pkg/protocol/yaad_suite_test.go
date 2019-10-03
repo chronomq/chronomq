@@ -1,20 +1,17 @@
 package protocol_test
 
 import (
-	"log"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func TestYaad(t *testing.T) {
 	defer GinkgoRecover()
-
-	logrus.SetOutput(GinkgoWriter)
-	log.SetOutput(GinkgoWriter)
-
+	log.Logger = zerolog.New(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "GoYaad Protocol Suite")
 }
