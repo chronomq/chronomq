@@ -17,8 +17,8 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	SpokeBound
-	jobMap   *sync.Map     // Provides quicker lookup of jobs owned by this spoke
-	jobQueue PriorityQueue // Orders the jobs by trigger priority
+	jobMap   map[string]bool // Provides quicker lookup of jobs owned by this spoke
+	jobQueue PriorityQueue   // Orders the jobs by trigger priority
 
 	lock *sync.Mutex
 }
@@ -41,7 +41,7 @@ func NewSpoke(start, end time.Time) *Spoke {
 	jq := PriorityQueue{}
 	heap.Init(&jq)
 	return &Spoke{id: uuid.NewV4(),
-		jobMap:     &sync.Map{},
+		jobMap:     make(map[string]bool),
 		jobQueue:   jq,
 		SpokeBound: SpokeBound{start, end},
 		lock:       &sync.Mutex{}}
@@ -75,9 +75,11 @@ func (s *Spoke) AsTemporalState() TemporalState {
 	}
 }
 
-// AddJob submits a job to the spoke. If the spoke cannot take responsibility
+// AddJobLocked submits a job to the spoke. If the spoke cannot take responsibility
 // of this job, it will return it as it is, otherwise nil is returned
-func (s *Spoke) AddJob(j *Job) error {
+func (s *Spoke) AddJobLocked(j *Job) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if !s.ContainsJob(j) {
 		return ErrJobOutOfSpokeBounds
 	}
@@ -89,13 +91,16 @@ func (s *Spoke) AddJob(j *Job) error {
 		Time("spokeEnd", s.end).
 		Msg("Accepting new job")
 
-	s.jobMap.Store(j.id, true)
+	s.jobMap[j.id] = true
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
 }
 
-// Next returns the next ready job
-func (s *Spoke) Next() *Job {
+// NextLocked returns the next ready job
+func (s *Spoke) NextLocked() *Job {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if s.jobQueue.Len() == 0 {
 		return nil
 	}
@@ -109,7 +114,7 @@ func (s *Spoke) Next() *Job {
 	switch j.AsTemporalState() {
 	case Past, Current:
 		// pop from queue
-		s.jobMap.Delete(j.id)
+		delete(s.jobMap, j.id)
 		heap.Pop(&s.jobQueue)
 		return j
 	default:
@@ -117,13 +122,13 @@ func (s *Spoke) Next() *Job {
 	}
 }
 
-// CancelJob will try to delete a job that hasn't been consumed yet
-func (s *Spoke) CancelJob(id string) error {
+// CancelJobLocked will try to delete a job that hasn't been consumed yet
+func (s *Spoke) CancelJobLocked(id string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if _, ok := s.jobMap.Load(id); ok {
-		s.jobMap.Delete(id)
+	if _, ok := s.jobMap[id]; ok {
+		delete(s.jobMap, id)
 		// Also delete from pq
 		for i, j := range s.jobQueue {
 			if j.value.(*Job).id == id {
@@ -135,9 +140,12 @@ func (s *Spoke) CancelJob(id string) error {
 	return fmt.Errorf("Cannot find job to cancel")
 }
 
-// OwnsJob returns true if a job by given id is owned by this spoke
-func (s *Spoke) OwnsJob(id string) bool {
-	_, ok := s.jobMap.Load(id)
+// OwnsJobLocked returns true if a job by given id is owned by this spoke
+func (s *Spoke) OwnsJobLocked(id string) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	_, ok := s.jobMap[id]
 	return ok
 }
 
@@ -156,8 +164,8 @@ func (s *Spoke) AsPriorityItem() *Item {
 	return &Item{index: 0, priority: s.start, value: s}
 }
 
-// Persist all jobs in this spoke
-func (s *Spoke) Persist(p persistence.Persister) chan error {
+// PersistLocked all jobs in this spoke
+func (s *Spoke) PersistLocked(p persistence.Persister) chan error {
 	s.Lock()
 	errC := make(chan error)
 	go func() {
