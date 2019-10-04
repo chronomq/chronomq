@@ -17,6 +17,7 @@ var dataDir = path.Join(os.TempDir(), "goyaadtest")
 var persister persistence.Persister
 
 var _ = Describe("Test hub", func() {
+	defer GinkgoRecover()
 
 	BeforeEach(func() {
 		persister = persistence.NewJournalPersister(dataDir)
@@ -26,7 +27,7 @@ var _ = Describe("Test hub", func() {
 	It("can create a hub", func() {
 		// A hub with 10ms spokes
 		h := NewHub(&HubOpts{SpokeSpan: time.Millisecond * 10, Persister: persister, AttemptRestore: false})
-		Expect(h.PendingJobsCount()).To(Equal(0))
+		Expect(h.Stats().CurrentJobs).To(Equal(int64(0)))
 	})
 
 	It("accepts jobs with random times and random spoke durations into a hub", func() {
@@ -38,8 +39,8 @@ var _ = Describe("Test hub", func() {
 
 			j := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
 			h.AddJobLocked(j)
+			Expect(h.Stats().CurrentJobs).To(Equal(int64(1)))
 
-			Expect(h.PendingJobsCount()).To(Equal(1))
 		}
 	})
 
@@ -75,12 +76,12 @@ var _ = Describe("Test hub", func() {
 		// Add all of them
 		for i, j := range jobs {
 			h.AddJobLocked(j)
-			Expect(h.PendingJobsCount()).To(Equal(i + 1))
+			Expect(h.Stats().CurrentJobs).To(Equal(int64(i + 1)))
 		}
 
 		// Walk should return all jobs in global order
 		walked := []*Job{}
-		for h.PendingJobsCount() > 0 {
+		for h.Stats().CurrentJobs > 0 {
 			walked = append(walked, h.NextLocked())
 		}
 
@@ -93,7 +94,7 @@ var _ = Describe("Test hub", func() {
 			prev = j
 		}
 
-		Expect(h.PendingJobsCount()).To(Equal(0))
+		Expect(h.Stats().CurrentJobs).To(Equal(int64(0)))
 
 	}, 1.500)
 
@@ -125,7 +126,7 @@ var _ = Describe("Test hub", func() {
 		for i, j := range jobs {
 			h.AddJobLocked(j)
 			jobMap[j.ID()] = j
-			Expect(h.PendingJobsCount()).To(Equal(i + 1))
+			Expect(h.Stats().CurrentJobs).To(Equal(int64(i + 1)))
 		}
 
 		// Reserve some jobs
@@ -148,7 +149,7 @@ var _ = Describe("Test hub", func() {
 			counter++
 		}
 
-		Expect(counter).To(Equal(h.PendingJobsCount()))
+		Expect(int64(counter)).To(Equal(h.Stats().CurrentJobs))
 	}, 15)
 
 	It("bootstraps a new hub from a golden peristence record", func(done Done) {
@@ -163,6 +164,6 @@ var _ = Describe("Test hub", func() {
 		err := h.Restore()
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(h.PendingJobsCount()).To(Equal(1000))
+		Expect(h.Stats().CurrentJobs).To(Equal(int64(1000)))
 	})
 })

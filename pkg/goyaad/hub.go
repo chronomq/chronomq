@@ -89,6 +89,11 @@ func (h *Hub) Stop(persist bool) {
 	log.Info().Msg("Hub:Stop stopped")
 }
 
+// Stats returns a snapshot of the current hubs stats
+func (h *Hub) Stats() stats.Snapshot {
+	return h.stats.Read()
+}
+
 // CancelJobLocked cancels a job if found. Calls are noop for unknown jobs
 func (h *Hub) CancelJobLocked(jobID string) error {
 	go metrics.Incr("hub.cancel.req")
@@ -231,7 +236,7 @@ func (h *Hub) NextLocked() *Job {
 	}
 
 	log.Debug().Str("jobID", j.id).Msg("returning next job")
-	h.stats.IncrJob()
+	h.stats.DecrJob()
 	return j
 }
 
@@ -266,21 +271,29 @@ func (h *Hub) AddJobLocked(j *Job) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
+	err := h.addJob(j)
+	if err == nil {
+		h.stats.IncrJob()
+		go metrics.Incr("hub.addjob")
+	}
+	return err
+}
+
+func (h *Hub) addJob(j *Job) error {
 	switch j.AsTemporalState() {
 	case Past:
 		log.Debug().Str("jobID", j.id).Msg("Adding job to past spoke")
-
 		err := h.pastSpoke.AddJobLocked(j)
 		if err != nil {
 			log.Error().Err(err).Msg("Past spoke rejected job. This should never happen")
 			return err
 		}
 		go metrics.Incr("hub.addjob.past")
+		return nil
 	case Future:
 		log.Debug().Str("jobID", j.id).Msg("Adding job to future spoke")
 		// Lock current spoke so that add fixes the PQ as it adds
 		if h.currentSpoke != nil {
-
 			if h.currentSpoke.ContainsJob(j) {
 				err := h.currentSpoke.AddJobLocked(j)
 				if err != nil {
@@ -316,12 +329,14 @@ func (h *Hub) AddJobLocked(j *Job) error {
 			log.Error().Err(err).Msg("Hub should always accept a job. No spoke accepted ")
 			return err
 		}
-
 		// h is still locked here so it's ok
 		h.addSpoke(s)
+		return nil
 	}
-	go metrics.Incr("hub.addjob")
-	return nil
+
+	err := errors.Errorf("Unable to find a spoke for job. This should never happen")
+	log.Error().Err(err).Msg("Cant add job to hub")
+	return err
 }
 
 // StatusLocked prints the state of the spokes of this hub
