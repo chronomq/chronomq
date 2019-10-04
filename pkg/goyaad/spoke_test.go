@@ -9,8 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	uuid "github.com/satori/go.uuid"
+
 	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
@@ -42,9 +42,9 @@ var _ = Describe("Test spokes", func() {
 
 			// Accepts the job and returns nil
 			Expect(s.ContainsJob(j)).To(BeTrue())
-			Expect(s.AddJob(j)).To(BeNil())
+			Expect(s.AddJobLocked(j)).To(BeNil())
 			Expect(s.PendingJobsLen()).To(Equal(1))
-			Expect(s.OwnsJob(j.ID())).To(BeTrue())
+			Expect(s.OwnsJobLocked(j.ID())).To(BeTrue())
 		})
 
 		It("rejects jobs from spoke that lie outside its time bounds", func() {
@@ -55,14 +55,14 @@ var _ = Describe("Test spokes", func() {
 			j := NewJobAutoID(s.End().Add(time.Hour*1), nil)
 
 			// Rejects the job and returns it
-			Expect(s.AddJob(j)).To(Not(BeNil()))
+			Expect(s.AddJobLocked(j)).To(Not(BeNil()))
 			Expect(s.PendingJobsLen()).To(Equal(0))
 
 			// Job triggers before spoke ends
 			j = NewJobAutoID(s.Start().Add(-10*time.Minute), nil)
 
 			// Rejects the job and returns it
-			Expect(s.AddJob(j)).To(Not(BeNil()))
+			Expect(s.AddJobLocked(j)).To(Not(BeNil()))
 			Expect(s.PendingJobsLen()).To(Equal(0))
 		})
 
@@ -71,7 +71,7 @@ var _ = Describe("Test spokes", func() {
 
 			for i := 0; i < 10; i++ {
 				j := NewJobAutoID(s.Start().Add(time.Nanosecond*time.Duration(rand.Intn(900))), nil)
-				Expect(s.AddJob(j)).To(BeNil())
+				Expect(s.AddJobLocked(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(10))
 
@@ -80,7 +80,7 @@ var _ = Describe("Test spokes", func() {
 
 			jobs := []*Job{}
 			for s.PendingJobsLen() > 0 {
-				jobs = append(jobs, s.Next())
+				jobs = append(jobs, s.NextLocked())
 			}
 			Expect(len(jobs)).To(Equal(10))
 			prev := jobs[0]
@@ -96,13 +96,13 @@ var _ = Describe("Test spokes", func() {
 			// Add some jobs < 1 sec triggerAt
 			for i := 0; i < 10; i++ {
 				j := NewJobAutoID(s.Start().Add(time.Duration(rand.Intn(900))), nil)
-				Expect(s.AddJob(j)).To(BeNil())
+				Expect(s.AddJobLocked(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(10))
 			// Add some jobs > 1 sec triggerAt
 			for i := 0; i < 10; i++ {
 				j := NewJobAutoID(s.Start().Add(time.Second*20+time.Duration(10+rand.Intn(40))), nil)
-				Expect(s.AddJob(j)).To(BeNil())
+				Expect(s.AddJobLocked(j)).To(BeNil())
 			}
 			Expect(s.PendingJobsLen()).To(Equal(20))
 
@@ -111,7 +111,7 @@ var _ = Describe("Test spokes", func() {
 
 			jobs := []*Job{}
 			for s.PendingJobsLen() > 10 {
-				j := s.Next()
+				j := s.NextLocked()
 				jobs = append(jobs, j)
 			}
 			Expect(len(jobs)).To(Equal(10))
@@ -130,18 +130,18 @@ var _ = Describe("Test spokes", func() {
 			Expect(s.PendingJobsLen()).To(Equal(0))
 
 			j := NewJobAutoID(s.Start().Add(time.Minute*10), nil)
-			Expect(s.AddJob(j)).To(BeNil())
+			Expect(s.AddJobLocked(j)).To(BeNil())
 			Expect(s.PendingJobsLen()).To(Equal(1))
 
-			s.CancelJob(j.ID())
+			s.CancelJobLocked(j.ID())
 			Expect(s.PendingJobsLen()).To(Equal(0))
 		})
 
 		It("cancels job from spoke that doesnt exist does nothing", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
 			Expect(s.PendingJobsLen()).To(Equal(0))
-			s.CancelJob(uuid.NewV4().String())
-			s.CancelJob(uuid.NewV4().String())
+			s.CancelJobLocked(uuid.NewV4().String())
+			s.CancelJobLocked(uuid.NewV4().String())
 		})
 	})
 
@@ -171,7 +171,7 @@ var _ = Describe("Test spokes", func() {
 			p := persistence.NewJournalPersister(persistenceTestDir)
 			Expect(p.ResetDataDir()).To(BeNil())
 
-			errC := s.Persist(p)
+			errC := s.PersistLocked(p)
 			Eventually(errC).ShouldNot(Receive())
 		})
 	})

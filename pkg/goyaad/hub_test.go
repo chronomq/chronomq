@@ -37,7 +37,7 @@ var _ = Describe("Test hub", func() {
 				AttemptRestore: false})
 
 			j := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
-			h.AddJob(j)
+			h.AddJobLocked(j)
 
 			Expect(h.PendingJobsCount()).To(Equal(1))
 		}
@@ -74,14 +74,14 @@ var _ = Describe("Test hub", func() {
 
 		// Add all of them
 		for i, j := range jobs {
-			h.AddJob(j)
+			h.AddJobLocked(j)
 			Expect(h.PendingJobsCount()).To(Equal(i + 1))
 		}
 
 		// Walk should return all jobs in global order
 		walked := []*Job{}
 		for h.PendingJobsCount() > 0 {
-			walked = append(walked, h.Next())
+			walked = append(walked, h.NextLocked())
 		}
 
 		// Expect correct order
@@ -123,18 +123,18 @@ var _ = Describe("Test hub", func() {
 		jobMap := make(map[string]*Job, len(jobs))
 		// Add all of them
 		for i, j := range jobs {
-			h.AddJob(j)
+			h.AddJobLocked(j)
 			jobMap[j.ID()] = j
 			Expect(h.PendingJobsCount()).To(Equal(i + 1))
 		}
 
 		// Reserve some jobs
-		Expect(h.Next()).ToNot(BeNil())
-		Expect(h.Next()).ToNot(BeNil())
-		Expect(h.Next()).ToNot(BeNil())
+		Expect(h.NextLocked()).ToNot(BeNil())
+		Expect(h.NextLocked()).ToNot(BeNil())
+		Expect(h.NextLocked()).ToNot(BeNil())
 
 		// Persist
-		persistErrs := h.Persist()
+		persistErrs := h.PersistLocked()
 
 		// if any errors pop up, fail the test
 		for e := range persistErrs {

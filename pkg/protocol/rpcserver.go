@@ -41,13 +41,13 @@ func (r *RPCServer) PutWithID(job RPCJob, id *string) error {
 	} else {
 		j = goyaad.NewJob(job.ID, time.Now().Add(job.Delay), job.Body)
 	}
-	return r.hub.AddJob(j)
+	return r.hub.AddJobLocked(j)
 }
 
 // Cancel deletes the job pointed to by the id, reply is ignored
 // If the job doesn't exist, no error is returned so calls to Cancel are idempotent
 func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
-	return r.hub.CancelJob(id)
+	return r.hub.CancelJobLocked(id)
 }
 
 // Next sets the reply (job) to a valid job if a job is ready to be triggered
@@ -55,7 +55,7 @@ func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
 // for ready jobs. If no job is ready by the end of the timeout, ErrTimeout is returned
 func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 	// try once
-	if j := r.hub.Next(); j != nil {
+	if j := r.hub.NextLocked(); j != nil {
 		job.Body = j.Body()
 		job.ID = j.ID()
 		return nil
@@ -73,7 +73,7 @@ func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 		Time("waitTill", waitTill).
 		Msg("waiting for reserve")
 	for waitTill.After(time.Now()) {
-		if j := r.hub.Next(); j != nil {
+		if j := r.hub.NextLocked(); j != nil {
 			job.Body = j.Body()
 			job.ID = j.ID()
 			return nil

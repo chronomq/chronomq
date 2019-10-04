@@ -75,9 +75,11 @@ func (s *Spoke) AsTemporalState() TemporalState {
 	}
 }
 
-// AddJob submits a job to the spoke. If the spoke cannot take responsibility
+// AddJobLocked submits a job to the spoke. If the spoke cannot take responsibility
 // of this job, it will return it as it is, otherwise nil is returned
-func (s *Spoke) AddJob(j *Job) error {
+func (s *Spoke) AddJobLocked(j *Job) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if !s.ContainsJob(j) {
 		return ErrJobOutOfSpokeBounds
 	}
@@ -94,8 +96,11 @@ func (s *Spoke) AddJob(j *Job) error {
 	return nil
 }
 
-// Next returns the next ready job
-func (s *Spoke) Next() *Job {
+// NextLocked returns the next ready job
+func (s *Spoke) NextLocked() *Job {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if s.jobQueue.Len() == 0 {
 		return nil
 	}
@@ -117,8 +122,8 @@ func (s *Spoke) Next() *Job {
 	}
 }
 
-// CancelJob will try to delete a job that hasn't been consumed yet
-func (s *Spoke) CancelJob(id string) error {
+// CancelJobLocked will try to delete a job that hasn't been consumed yet
+func (s *Spoke) CancelJobLocked(id string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -135,8 +140,11 @@ func (s *Spoke) CancelJob(id string) error {
 	return fmt.Errorf("Cannot find job to cancel")
 }
 
-// OwnsJob returns true if a job by given id is owned by this spoke
-func (s *Spoke) OwnsJob(id string) bool {
+// OwnsJobLocked returns true if a job by given id is owned by this spoke
+func (s *Spoke) OwnsJobLocked(id string) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	_, ok := s.jobMap.Load(id)
 	return ok
 }
@@ -156,8 +164,8 @@ func (s *Spoke) AsPriorityItem() *Item {
 	return &Item{index: 0, priority: s.start, value: s}
 }
 
-// Persist all jobs in this spoke
-func (s *Spoke) Persist(p persistence.Persister) chan error {
+// PersistLocked all jobs in this spoke
+func (s *Spoke) PersistLocked(p persistence.Persister) chan error {
 	s.Lock()
 	errC := make(chan error)
 	go func() {
