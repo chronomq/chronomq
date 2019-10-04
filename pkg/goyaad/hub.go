@@ -208,7 +208,6 @@ func (h *Hub) NextLocked() *Job {
 			h.currentSpoke = current
 			// Pop it from the queue - this is now a current spoke
 			heap.Pop(h.spokes)
-			log.Info().Int("spokesCapacity", h.spokes.Cap()).Msg("Hub spoke cap")
 		}
 	}
 
@@ -329,6 +328,7 @@ func (h *Hub) addJob(j *Job) error {
 
 // StatusLocked prints the state of the spokes of this hub
 func (h *Hub) StatusLocked() {
+	// TODO: this can be made to run unlocked at the hub level? by adding the spoken len to stats/Counter too
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	log.Info().Msg("------------------------Hub Stats----------------------------")
