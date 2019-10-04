@@ -139,8 +139,15 @@ func (h *Hub) findOwnerSpoke(jobID string) (*Spoke, error) {
 
 // addSpoke adds spoke s to this hub
 func (h *Hub) addSpoke(s *Spoke) {
+	defer h.stats.IncrSpoke()
 	h.spokeMap[s.SpokeBound] = s
 	heap.Push(h.spokes, s.AsPriorityItem())
+}
+
+// deleteSpokeFromMap removes a spoke from the map
+func (h *Hub) deleteSpokeFromMap(s *Spoke) {
+	defer h.stats.DecrSpoke()
+	delete(h.spokeMap, s.SpokeBound)
 }
 
 // NextLocked returns the next job that is ready now or returns nil.
@@ -179,7 +186,7 @@ func (h *Hub) NextLocked() *Job {
 				log.Info().Msg("pruning the current spoke")
 				// This routine could be unfortunate - it found a currentspoke that was expired
 				// so it has the pay the price finding the next candidate
-				delete(h.spokeMap, h.currentSpoke.SpokeBound)
+				h.deleteSpokeFromMap(h.currentSpoke)
 				return nil
 			}
 			return h.currentSpoke
@@ -243,9 +250,9 @@ func (h *Hub) mergeQueues(pq *PriorityQueue) {
 // returns the number of spokes pruned
 func (h *Hub) Prune() int {
 	pruned := 0
-	for sb, s := range h.spokeMap {
+	for _, s := range h.spokeMap {
 		if s.IsExpired() && s.PendingJobsLen() == 0 {
-			delete(h.spokeMap, sb)
+			h.deleteSpokeFromMap(s)
 		}
 		pruned++
 	}
@@ -328,22 +335,21 @@ func (h *Hub) addJob(j *Job) error {
 
 // StatusLocked prints the state of the spokes of this hub
 func (h *Hub) StatusLocked() {
-	// TODO: this can be made to run unlocked at the hub level? by adding the spoken len to stats/Counter too
-	h.lock.Lock()
-	defer h.lock.Unlock()
 	log.Info().Msg("------------------------Hub Stats----------------------------")
 
-	spokesCount := h.spokes.Len()
-	log.Info().Int("spokesCount", spokesCount).Send()
-	go metrics.GaugeInt("hub.spoke.count", spokesCount)
-
 	hubStats := h.stats.Read()
+	log.Info().Int64("spokesCount", hubStats.CurrentSpokes).Send()
+	go metrics.GaugeInt("hub.spoke.count", int(hubStats.CurrentSpokes))
+
 	log.Info().Int64("pendingJobsCount", hubStats.CurrentJobs).Send()
 	go metrics.GaugeInt("hub.job.count", int(hubStats.CurrentJobs))
 
 	log.Info().Int64("removedJobsCount", hubStats.RemovedJobs).Send()
 	go metrics.GaugeInt("hub.job.removed.count", int(hubStats.RemovedJobs))
 
+	// lock only for this bit - current spoke can be replaced while running...
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	log.Info().Int("pastSpokePendingJobsCount", h.pastSpoke.PendingJobsLen()).Send()
 	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
@@ -351,8 +357,6 @@ func (h *Hub) StatusLocked() {
 		log.Info().Int("currentSpokePendingJobsCount", h.currentSpoke.PendingJobsLen()).Send()
 		go metrics.GaugeInt("hub.job.currentspoke.count", h.currentSpoke.PendingJobsLen())
 	}
-
-	log.Info().Bool("isCurrentSpokeNil", h.currentSpoke == nil).Send()
 	log.Info().Msg("-------------------------------------------------------------")
 }
 
