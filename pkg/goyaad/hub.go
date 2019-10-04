@@ -27,9 +27,9 @@ type HubOpts struct {
 
 // Hub is a time ordered collection of spokes
 type Hub struct {
-	spokeSpan time.Duration  // How much time does a spoke span
-	spokeMap  *sync.Map      // Quick lookup map
-	spokes    *PriorityQueue // Actual spokes sorted by time
+	spokeSpan time.Duration         // How much time does a spoke span
+	spokeMap  map[SpokeBound]*Spoke // Quick lookup map
+	spokes    *PriorityQueue        // Actual spokes sorted by time
 
 	pastSpoke    *Spoke // Permanently pinned to the past
 	currentSpoke *Spoke // The current spoke - started in the past or now, ends in the future or now
@@ -45,7 +45,7 @@ type Hub struct {
 func NewHub(opts *HubOpts) *Hub {
 	h := &Hub{
 		spokeSpan:    opts.SpokeSpan,
-		spokeMap:     &sync.Map{},
+		spokeMap:     make(map[SpokeBound]*Spoke),
 		spokes:       &PriorityQueue{},
 		pastSpoke:    NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
 		currentSpoke: nil,
@@ -102,7 +102,7 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 
 	log.Debug().Str("jobID", jobID).Msg("canceling job")
 
-	s, err := h.FindOwnerSpoke(jobID)
+	s, err := h.findOwnerSpoke(jobID)
 	if err != nil {
 		log.Debug().Str("jobID", jobID).Msg("cancel found no owner spoke")
 		// return nil - cancel if job not found is idempotent
@@ -117,8 +117,8 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 	return err
 }
 
-// FindOwnerSpoke returns the spoke that owns this job
-func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
+// findOwnerSpoke returns the spoke that owns this job
+func (h *Hub) findOwnerSpoke(jobID string) (*Spoke, error) {
 	if h.pastSpoke.OwnsJobLocked(jobID) {
 		return h.pastSpoke, nil
 	}
@@ -129,24 +129,17 @@ func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
 	}
 
 	// Find the owner in the spoke map
-	var owner *Spoke
-	h.spokeMap.Range(func(k, v interface{}) bool {
-		s := v.(*Spoke)
+	for _, s := range h.spokeMap {
 		if s.OwnsJobLocked(jobID) {
-			owner = s
-			return false
+			return s, nil
 		}
-		return true
-	})
-	if owner != nil {
-		return owner, nil
 	}
 	return nil, errors.New("Cannot find job owner spoke")
 }
 
 // addSpoke adds spoke s to this hub
 func (h *Hub) addSpoke(s *Spoke) {
-	h.spokeMap.Store(s.SpokeBound, s)
+	h.spokeMap[s.SpokeBound] = s
 	heap.Push(h.spokes, s.AsPriorityItem())
 }
 
@@ -186,7 +179,7 @@ func (h *Hub) NextLocked() *Job {
 				log.Info().Msg("pruning the current spoke")
 				// This routine could be unfortunate - it found a currentspoke that was expired
 				// so it has the pay the price finding the next candidate
-				h.spokeMap.Delete(h.currentSpoke.SpokeBound)
+				delete(h.spokeMap, h.currentSpoke.SpokeBound)
 				return nil
 			}
 			return h.currentSpoke
@@ -251,15 +244,12 @@ func (h *Hub) mergeQueues(pq *PriorityQueue) {
 // returns the number of spokes pruned
 func (h *Hub) Prune() int {
 	pruned := 0
-	h.spokeMap.Range(func(k, v interface{}) bool {
-		s := v.(*Spoke)
+	for sb, s := range h.spokeMap {
 		if s.IsExpired() && s.PendingJobsLen() == 0 {
-			h.spokeMap.Delete(k)
+			delete(h.spokeMap, sb)
 		}
 		pruned++
-		return true
-	})
-
+	}
 	return pruned
 }
 
@@ -307,9 +297,7 @@ func (h *Hub) addJob(j *Job) error {
 		// Search for a spoke that can take ownership of this job
 		// Reads are still going to be ordered anyways
 		jobBound := j.AsBound(h.spokeSpan)
-		candidate, ok := h.spokeMap.Load(jobBound)
-		if ok {
-			candidateSpoke := candidate.(*Spoke)
+		if candidateSpoke, ok := h.spokeMap[jobBound]; ok {
 			// Found a candidate that can take this job
 			log.Debug().Str("jobID", j.id).Msg("Adding job to candidate spoke")
 			err := candidateSpoke.AddJobLocked(j)
@@ -489,26 +477,21 @@ func (h *Hub) GetNJobs(n int) chan *Job {
 		}
 
 		// Iterate over the future spokes from the map (We dont care about the order in this case)
-		h.spokeMap.Range(func(sk, sv interface{}) bool {
-			s := sv.(*Spoke)
-			return func() bool {
-				s.Lock()
-				defer s.Unlock()
-
-				// Iterate over the jobs in this spoke
-				jobsLen := s.jobQueue.Len()
-				for i := 0; i < jobsLen; i++ {
-					j := s.jobQueue.AtIdx(i)
-					jobChan <- j.Value().(*Job)
-					n--
-					if n <= 0 {
-						return false
-					}
+		for _, s := range h.spokeMap {
+			s.Lock()
+			defer s.Unlock()
+			// Iterate over the jobs in this spoke
+			jobsLen := s.jobQueue.Len()
+			for i := 0; i < jobsLen; i++ {
+				j := s.jobQueue.AtIdx(i)
+				jobChan <- j.Value().(*Job)
+				n--
+				if n <= 0 {
+					break
 				}
-				// Continue if n is not 0 yet (return true to Range fn)
-				return n > 0
-			}()
-		})
+			}
+			// Continue if n is not 0 yet
+		}
 	}()
 
 	return jobChan
