@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
+	"github.com/urjitbhatia/goyaad/pkg/goyaad/stats"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
@@ -33,8 +34,8 @@ type Hub struct {
 	pastSpoke    *Spoke // Permanently pinned to the past
 	currentSpoke *Spoke // The current spoke - started in the past or now, ends in the future or now
 
-	removedJobsCount uint64
-	lock             *sync.Mutex
+	stats *stats.Counters
+	lock  *sync.Mutex
 
 	persister persistence.Persister
 }
@@ -43,14 +44,14 @@ type Hub struct {
 // spokeSpan duration boundary.
 func NewHub(opts *HubOpts) *Hub {
 	h := &Hub{
-		spokeSpan:        opts.SpokeSpan,
-		spokeMap:         &sync.Map{},
-		spokes:           &PriorityQueue{},
-		pastSpoke:        NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
-		currentSpoke:     nil,
-		removedJobsCount: 0,
-		lock:             &sync.Mutex{},
-		persister:        opts.Persister,
+		spokeSpan:    opts.SpokeSpan,
+		spokeMap:     &sync.Map{},
+		spokes:       &PriorityQueue{},
+		pastSpoke:    NewSpoke(time.Now().Add(-1*hundredYears), time.Now().Add(hundredYears)),
+		currentSpoke: nil,
+		stats:        &stats.Counters{},
+		lock:         &sync.Mutex{},
+		persister:    opts.Persister,
 	}
 	heap.Init(h.spokes)
 
@@ -88,16 +89,6 @@ func (h *Hub) Stop(persist bool) {
 	log.Info().Msg("Hub:Stop stopped")
 }
 
-// PendingJobsCount return the number of jobs currently pending
-func (h *Hub) PendingJobsCount() int {
-	count := h.pastSpoke.PendingJobsLen()
-	h.spokeMap.Range(func(k, v interface{}) bool {
-		count += v.(*Spoke).PendingJobsLen()
-		return true
-	})
-	return count
-}
-
 // CancelJobLocked cancels a job if found. Calls are noop for unknown jobs
 func (h *Hub) CancelJobLocked(jobID string) error {
 	go metrics.Incr("hub.cancel.req")
@@ -114,14 +105,15 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 	}
 	log.Debug().Str("jobID", jobID).Msg("cancel found owner spoke")
 	err = s.CancelJobLocked(jobID)
-	h.removedJobsCount++
-	go metrics.Incr("hub.cancel.ok")
+	if err != nil {
+		h.stats.DecrJob()
+		go metrics.Incr("hub.cancel.ok")
+	}
 	return err
 }
 
 // FindOwnerSpoke returns the spoke that owns this job
 func (h *Hub) FindOwnerSpoke(jobID string) (*Spoke, error) {
-
 	if h.pastSpoke.OwnsJobLocked(jobID) {
 		return h.pastSpoke, nil
 	}
@@ -161,7 +153,7 @@ func (h *Hub) NextLocked() *Job {
 	defer h.lock.Unlock()
 
 	// since we have the lock, send some metrics
-	go metrics.GaugeInt("hub.job.count", h.PendingJobsCount())
+	go metrics.GaugeInt("hub.job.count", int(h.stats.Read().CurrentJobs))
 	go metrics.GaugeInt("hub.spoke.count", h.spokes.Len())
 
 	// Lock Past spoke lock in func scope
@@ -175,7 +167,7 @@ func (h *Hub) NextLocked() *Job {
 		}
 		return j
 	}(); j != nil {
-		h.removedJobsCount++
+		h.stats.DecrJob()
 		return j
 	}
 
@@ -239,7 +231,7 @@ func (h *Hub) NextLocked() *Job {
 	}
 
 	log.Debug().Str("jobID", j.id).Msg("returning next job")
-	h.removedJobsCount++
+	h.stats.IncrJob()
 	return j
 }
 
@@ -342,12 +334,12 @@ func (h *Hub) StatusLocked() {
 	log.Info().Int("spokesCount", spokesCount).Send()
 	go metrics.GaugeInt("hub.spoke.count", spokesCount)
 
-	pendingJobCount := h.PendingJobsCount()
-	log.Info().Int("pendingJobsCount", pendingJobCount).Send()
-	go metrics.GaugeInt("hub.job.count", pendingJobCount)
+	hubStats := h.stats.Read()
+	log.Info().Int64("pendingJobsCount", hubStats.CurrentJobs).Send()
+	go metrics.GaugeInt("hub.job.count", int(hubStats.CurrentJobs))
 
-	log.Info().Uint64("removedJobsCount", h.removedJobsCount).Send()
-	go metrics.Gauge("hub.job.removed.count", float64(h.removedJobsCount))
+	log.Info().Int64("removedJobsCount", hubStats.RemovedJobs).Send()
+	go metrics.GaugeInt("hub.job.removed.count", int(hubStats.RemovedJobs))
 
 	log.Info().Int("pastSpokePendingJobsCount", h.pastSpoke.PendingJobsLen()).Send()
 	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
@@ -381,7 +373,7 @@ func (h *Hub) PersistLocked() chan error {
 
 		log.Warn().
 			Int("totalSpokes", h.spokes.Len()).
-			Int("pendingJobsCount", h.PendingJobsCount()).
+			Int64("pendingJobsCount", h.stats.Read().CurrentJobs).
 			Msg("About to persist")
 		wg.Add(h.spokes.Len())
 		defer close(ec)
