@@ -3,8 +3,10 @@ package cmd
 
 import (
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -35,9 +37,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&friendlyLog, "friendly-log", "L", false, "Use a human-friendly logging style")
 	rootCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server listen addr (host:port)")
 	rootCmd.PersistentFlags().StringVar(&gaddr, "gaddr", gaddr, "Set GRPC server listen addr (host:port)")
-
 	rootCmd.PersistentFlags().StringVarP(&statsAddr, "statsAddr", "s", statsAddr, "Stats addr (host:port)")
-	rootCmd.PersistentFlags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")
+
+	rootCmd.Flags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")
 
 	dataDir, _ = os.Getwd()
 	rootCmd.Flags().StringVarP(&dataDir, "dataDir", "d", dataDir, `Data dir location - persits state here when SIGUSR1 is received. 
@@ -47,17 +49,32 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Short: "goyaad",
-	Long: `For advanced gc tuning:
-	Set GOGC levels using the env variable.
+	Long: `For advanced gc tuning: Set GOGC levels using the env variable.
 	See: https://golang.org/pkg/runtime/#hdr-Environment_Variables`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setLogLevel()
+		log.Info().Int("PID", os.Getpid()).Msg("Starting Yaad")
 		metrics.InitMetrics(statsAddr)
 		runServer()
+		log.Info().Msg("Shutdown ok")
 	},
 }
 
 func runServer() {
+	// More Aggressive GC
+	if os.Getenv("GOGC") == "" {
+		log.Info().Msg("Applying default GC tuning")
+		debug.SetGCPercent(5)
+	} else {
+		log.Info().Str("GCPercent", os.Getenv("GOGC")).Msg("Using custom GC tuning")
+	}
+	go func() {
+		err := http.ListenAndServe(":6060", nil)
+		if err != nil {
+			log.Error().Err(err).Msg("pprof server has stopped")
+		}
+	}()
+
 	log.Info().Msg("Starting Goyaad")
 	ss, err := time.ParseDuration(spokeSpan)
 	if err != nil {
@@ -93,12 +110,10 @@ func runServer() {
 
 // Execute root cmd by default
 func Execute() {
-	log.Info().Msgf("Running as pid: %d", os.Getpid())
 	if err := rootCmd.Execute(); err != nil {
 		log.Error().Err(err).Send()
 		os.Exit(1)
 	}
-	log.Info().Msg("Shutdown ok")
 }
 
 func setLogLevel() {

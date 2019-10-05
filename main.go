@@ -12,12 +12,7 @@ Installation:
 package main
 
 import (
-	"net/http"
 	_ "net/http/pprof"
-	"os"
-	"runtime/debug"
-
-	"github.com/rs/zerolog/log"
 
 	"github.com/urjitbhatia/goyaad/cmd"
 )
@@ -34,18 +29,5 @@ func init() {
 }
 
 func main() {
-	// More Aggressive GC
-	if os.Getenv("GOGC") == "" {
-		log.Info().Msg("Applying default GC tuning")
-		debug.SetGCPercent(5)
-	} else {
-		log.Info().Str("GCPercent", os.Getenv("GOGC")).Msg("Using custom GC tuning")
-	}
-	go func() {
-		err := http.ListenAndServe(":6060", nil)
-		if err != nil {
-			log.Error().Err(err).Msg("pprof server has stopped")
-		}
-	}()
 	cmd.Execute()
 }
