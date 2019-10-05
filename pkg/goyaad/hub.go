@@ -110,7 +110,7 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 	}
 	log.Debug().Str("jobID", jobID).Msg("cancel found owner spoke")
 	err = s.CancelJobLocked(jobID)
-	if err != nil {
+	if err == nil {
 		h.stats.DecrJob()
 		go metrics.Incr("hub.cancel.ok")
 	}
