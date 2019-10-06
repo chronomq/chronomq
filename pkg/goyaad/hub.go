@@ -2,6 +2,7 @@ package goyaad
 
 import (
 	"container/heap"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -117,13 +118,13 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 	return err
 }
 
-// findOwnerSpoke returns the spoke that owns this job
+// findOwnerSpoke returns the spoke that owns this job. Lock the hub before calling this
 func (h *Hub) findOwnerSpoke(jobID string) (*Spoke, error) {
 	if h.pastSpoke.OwnsJobLocked(jobID) {
 		return h.pastSpoke, nil
 	}
 
-	// Checking the current spoke - lock the hub
+	// Checking the current spoke
 	if h.currentSpoke != nil && h.currentSpoke.OwnsJobLocked(jobID) {
 		return h.currentSpoke, nil
 	}
@@ -266,6 +267,11 @@ func (h *Hub) AddJobLocked(j *Job) error {
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
+
+	// Check is job already exists in the system
+	if spoke, _ := h.findOwnerSpoke(j.id); spoke != nil {
+		return fmt.Errorf("Rejecting job. Job with ID: %s already exists", j.id)
+	}
 
 	err := h.addJob(j)
 	if err == nil {
