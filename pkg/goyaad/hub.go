@@ -23,7 +23,7 @@ const (
 	// creates a Cuckoo filter taking 512MB fixed space overhead on a 64 bit machine
 	// with an average job size of 1Kb, that is 500*1000_000_000/1024/1024/1024=465.66128730773926 GB of just job payload storage
 	// so this upper-bound should be enough
-	DefaultMaxCFSize uint = 500_000_000
+	DefaultMaxCFSize uint = 500 * 1000 * 1000
 
 	// TestMaxCFSize value should be used for testing
 	TestMaxCFSize uint = 10000
