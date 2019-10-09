@@ -83,7 +83,9 @@ func runServer() {
 	opts := &goyaad.HubOpts{
 		AttemptRestore: restore,
 		SpokeSpan:      ss,
-		Persister:      persistence.NewJournalPersister(dataDir)}
+		Persister:      persistence.NewJournalPersister(dataDir),
+		MaxCFSize:      goyaad.DefaultMaxCFSize,
+	}
 
 	hub := goyaad.NewHub(opts)
 	var rpcSRV io.Closer

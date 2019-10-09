@@ -1,5 +1,7 @@
 # github.com/DataDog/datadog-go v2.2.0+incompatible
 github.com/DataDog/datadog-go/statsd
+# github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc
+github.com/dgryski/go-metro
 # github.com/hpcloud/tail v1.0.0
 github.com/hpcloud/tail
 github.com/hpcloud/tail/ratelimiter
@@ -49,6 +51,8 @@ github.com/rs/zerolog/internal/json
 github.com/rs/zerolog/log
 # github.com/satori/go.uuid v1.2.0
 github.com/satori/go.uuid
+# github.com/seiflotfy/cuckoofilter v0.0.0-20190302225222-764cb5258d9b
+github.com/seiflotfy/cuckoofilter
 # github.com/spf13/cobra v0.0.3
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3

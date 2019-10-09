@@ -214,7 +214,7 @@ func enqueueRPC(wg *sync.WaitGroup, workerID int, client *protocol.RPCClient, jo
 	for j := range jobs {
 		var err error
 		// To use PutWithID - have to ensure ids are globally unique among the multiple producer goroutines
-		_, err = client.Put(j.data, time.Second*time.Duration(j.delaySec))
+		err = client.PutWithID(j.id, j.data, time.Second*time.Duration(j.delaySec))
 		metrics.Incr("loadtest.enqueuerpc")
 
 		if err != nil {
@@ -237,11 +237,13 @@ func generateJobs(data []byte) chan *testJob {
 			if enableTolerance {
 				body := []byte(strconv.FormatInt(triggerAt.UnixNano(), 10) + " ")
 				j = &testJob{
+					id:       fmt.Sprintf("%d", i),
 					data:     append(body, data...),
 					delaySec: delaySec,
 				}
 			} else {
 				j = &testJob{
+					id:       fmt.Sprintf("%d", i),
 					data:     data,
 					delaySec: delaySec,
 				}
@@ -255,6 +257,7 @@ func generateJobs(data []byte) chan *testJob {
 }
 
 type testJob struct {
+	id       string
 	data     []byte
 	delaySec int
 }

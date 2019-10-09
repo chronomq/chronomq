@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/seiflotfy/cuckoofilter"
 
 	"github.com/urjitbhatia/goyaad/pkg/goyaad/stats"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
@@ -17,6 +18,15 @@ import (
 
 const (
 	hundredYears = time.Hour * 24 * 365 * 100
+
+	// DefaultMaxCFSize is the max number of entries the filter is expected to hold
+	// creates a Cuckoo filter taking 512MB fixed space overhead on a 64 bit machine
+	// with an average job size of 1Kb, that is 500*1000_000_000/1024/1024/1024=465.66128730773926 GB of just job payload storage
+	// so this upper-bound should be enough
+	DefaultMaxCFSize uint = 500_000_000
+
+	// TestMaxCFSize value should be used for testing
+	TestMaxCFSize uint = 10000
 )
 
 // HubOpts define customizations for Hub initialization
@@ -24,10 +34,12 @@ type HubOpts struct {
 	Persister      persistence.Persister // persister to store/restore from disk
 	AttemptRestore bool                  // If true, hub will try to restore from disk on start
 	SpokeSpan      time.Duration         // How wide should the spokes be
+	MaxCFSize      uint                  // Max size of the Cuckoo Filter
 }
 
 // Hub is a time ordered collection of spokes
 type Hub struct {
+	jobFilter *cuckoo.Filter
 	spokeSpan time.Duration         // How much time does a spoke span
 	spokeMap  map[SpokeBound]*Spoke // Quick lookup map
 	spokes    *PriorityQueue        // Actual spokes sorted by time
@@ -44,7 +56,12 @@ type Hub struct {
 // NewHub creates a new hub where adjacent spokes lie at the given
 // spokeSpan duration boundary.
 func NewHub(opts *HubOpts) *Hub {
+	maxCFSize := TestMaxCFSize // keep test mem requirements low by default
+	if opts.MaxCFSize != 0 {
+		maxCFSize = opts.MaxCFSize
+	}
 	h := &Hub{
+		jobFilter:    cuckoo.NewFilter(maxCFSize),
 		spokeSpan:    opts.SpokeSpan,
 		spokeMap:     make(map[SpokeBound]*Spoke),
 		spokes:       &PriorityQueue{},
@@ -100,7 +117,20 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 	go metrics.Incr("hub.cancel.req")
 	h.lock.Lock()
 	defer h.lock.Unlock()
+	id := []byte(jobID)
+	if !h.jobFilter.Lookup(id) {
+		// no such job
+		go metrics.Incr("hub.cancel.ok")
+		return nil
+	}
+	err := h.cancelJob(jobID)
+	if err != nil {
+		h.jobFilter.Delete(id)
+	}
+	return err
+}
 
+func (h *Hub) cancelJob(jobID string) error {
 	log.Debug().Str("jobID", jobID).Msg("canceling job")
 
 	s, err := h.findOwnerSpoke(jobID)
@@ -157,6 +187,14 @@ func (h *Hub) NextLocked() *Job {
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
+	j := h.next()
+	if j != nil {
+		h.jobFilter.Delete([]byte(j.id))
+	}
+
+	return j
+}
+func (h *Hub) next() *Job {
 
 	// since we have the lock, send some metrics
 	go metrics.GaugeInt("hub.job.count", int(h.stats.Read().CurrentJobs))
@@ -269,12 +307,19 @@ func (h *Hub) AddJobLocked(j *Job) error {
 	defer h.lock.Unlock()
 
 	// Check is job already exists in the system
-	if spoke, _ := h.findOwnerSpoke(j.id); spoke != nil {
-		return fmt.Errorf("Rejecting job. Job with ID: %s already exists", j.id)
+	id := []byte(j.id)
+	if h.jobFilter.Lookup(id) {
+		// filter can give us false positives, do a full scan
+		if spoke, _ := h.findOwnerSpoke(j.id); spoke != nil {
+			return fmt.Errorf("Rejecting job. Job with ID: %s already exists", j.id)
+		}
 	}
 
 	err := h.addJob(j)
 	if err == nil {
+		if !h.jobFilter.Insert(id) {
+			log.Error().Msgf("Could not insert into the filter. ID: %s", id)
+		}
 		h.stats.IncrJob()
 		go metrics.Incr("hub.addjob")
 	}
@@ -357,6 +402,7 @@ func (h *Hub) StatusLocked() {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	log.Info().Int("pastSpokePendingJobsCount", h.pastSpoke.PendingJobsLen()).Send()
+	log.Info().Uint("jobFilterCount", h.jobFilter.Count()).Send()
 	go metrics.GaugeInt("hub.job.pastspoke.count", h.pastSpoke.PendingJobsLen())
 
 	if h.currentSpoke != nil {
