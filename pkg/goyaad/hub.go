@@ -75,6 +75,7 @@ func NewHub(opts *HubOpts) *Hub {
 
 	log.Info().Dur("spokeSpan", opts.SpokeSpan).
 		Bool("attemptRestore", opts.AttemptRestore).
+		Uint("maxCFSize", maxCFSize).
 		Msg("Created hub")
 
 	go func() {
@@ -222,7 +223,6 @@ func (h *Hub) next() *Job {
 	if h.currentSpoke != nil {
 		h.currentSpoke = func() *Spoke {
 			if h.currentSpoke.PendingJobsLen() == 0 && h.currentSpoke.AsTemporalState() == Past {
-				log.Info().Msg("pruning the current spoke")
 				// This routine could be unfortunate - it found a currentspoke that was expired
 				// so it has the pay the price finding the next candidate
 				h.deleteSpokeFromMap(h.currentSpoke)
