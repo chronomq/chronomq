@@ -19,7 +19,6 @@ var _ = Describe("Test rpc protocol:", func() {
 	var client *protocol.RPCClient
 
 	var srv io.Closer
-	var ctr int
 	var hub *goyaad.Hub
 
 	BeforeEach(func(done Done) {
@@ -28,7 +27,6 @@ var _ = Describe("Test rpc protocol:", func() {
 			AttemptRestore: false,
 			Persister:      persistence.NewJournalPersister(""),
 			SpokeSpan:      time.Second * 5}
-		ctr++
 		var err error
 		hub = goyaad.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
