@@ -114,14 +114,18 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*RPCJob) error {
 
 // ServeRPC starts serving hub over rpc
 func ServeRPC(hub *goyaad.Hub, addr string) (io.Closer, error) {
-	srv := newRPCServer(hub)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	yaadRPCSrv := newRPCServer(hub)
 	rpcSrv := rpc.NewServer()
-	rpcSrv.Register(srv)
-	l, e := net.Listen("tcp", addr)
-	if e != nil {
-		return nil, e
+	err = rpcSrv.Register(yaadRPCSrv)
+	if err != nil {
+		return nil, err
 	}
 	go func() {
+		log.Info().Str("Addr", l.Addr().String()).Msg("Starting RPC Server")
 		for {
 			conn, err := l.Accept()
 			if err != nil {
