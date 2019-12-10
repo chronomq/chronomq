@@ -1,0 +1,56 @@
+syntax = "proto3";
+package grpc;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+import "google/api/annotations.proto";
+
+// Job is the main unit of information exchange with Yaad.
+message Job {
+  string id = 1;
+  google.protobuf.Duration delay = 2;
+  bytes body = 3;
+}
+
+// NextResponse can either return a job or an Empty.
+message NextResponse {
+  oneof next {
+    Job job = 1;
+    google.protobuf.Empty empty = 2;
+  }
+}
+
+// InspectNRequest returns upto n jobs from Yaad.
+// This does not mean that there are len(returned jobs) number of jobs stored.
+// Callers should not rely on this other than for occasional inspection of what
+// jobs might be stored.
+message InspectNRequest {
+  uint64 n = 1; // n will be a param on the get
+};
+
+// PingRequest tests client-server connectivity.
+
+service Yaad {
+  rpc PutWithID(Job) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put : "/v1/putwithid"
+      body : "*"
+    };
+  };
+  rpc Cancel(google.protobuf.StringValue) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put : "/v1/cancel"
+    };
+  };
+  rpc Next(google.protobuf.Duration) returns (NextResponse) {
+    option (google.api.http) = {
+      get : "/v1/next"
+    };
+  };
+  rpc InspectN(InspectNRequest) returns (stream Job) {
+    option (google.api.http) = {
+      get : "/v1/inspectn"
+    };
+  };
+};

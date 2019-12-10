@@ -20,6 +20,7 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
+	"github.com/urjitbhatia/goyaad/pkg/protocol/grpc"
 )
 
 var logLevel = "INFO"
@@ -90,9 +91,15 @@ func runServer() {
 	hub := goyaad.NewHub(opts)
 	var rpcSRV io.Closer
 	wg := sync.WaitGroup{}
-	go func() {
-		rpcSRV, _ = protocol.ServeRPC(hub, raddr)
-	}()
+	rpcSRV, err = protocol.ServeRPC(hub, raddr)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to start RPC Server")
+	}
+
+	grpcSrv, err := grpc.Serve(hub, gaddr)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to start GRPC Server")
+	}
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGUSR1)
@@ -102,8 +109,11 @@ func runServer() {
 		defer wg.Done()
 		<-sigc
 		log.Info().Msg("Stopping rpc protocol server")
-		rpcSRV.Close()
-		log.Info().Msg("Stopping rpc protocol server - Done")
+		err = rpcSRV.Close()
+		log.Info().Err(err).Msg("Stopping rpc protocol server - Done")
+		log.Info().Msg("Stopping grpc protocol server")
+		err = grpcSrv.Close()
+		log.Info().Err(err).Msg("Stopping grpc protocol server - Done")
 		hub.Stop(true)
 	}()
 
