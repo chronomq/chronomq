@@ -1,5 +1,8 @@
 # github.com/DataDog/datadog-go v2.2.0+incompatible
 github.com/DataDog/datadog-go/statsd
+# github.com/ckaznocha/protoc-gen-lint v0.2.1
+github.com/ckaznocha/protoc-gen-lint
+github.com/ckaznocha/protoc-gen-lint/linter
 # github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc
 github.com/dgryski/go-metro
 # github.com/ghodss/yaml v1.0.0

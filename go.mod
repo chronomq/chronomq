@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/DataDog/datadog-go v2.2.0+incompatible
+	github.com/ckaznocha/protoc-gen-lint v0.2.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc // indirect
 	github.com/golang/protobuf v1.3.2
