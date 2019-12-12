@@ -3,54 +3,69 @@ package grpc;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/wrappers.proto";
 import "google/api/annotations.proto";
 
-// Job is the main unit of information exchange with Yaad.
+service Yaad {
+  /* Put a new job onto the storage hub.
+   * Put throws an error if a Job with the same ID already exists */
+  rpc Put(PutRequest) returns (PutResponse) {
+    option (google.api.http) = {
+      put : "/v1/putwithid"
+      body : "*"
+    };
+  };
+
+  /* Cancel tries to find and cancel the job corresponding to the given job id.
+   * Cancel is idempotent
+   * If no matching job is found, Cancel will not do anything */
+  rpc Cancel(CancelRequest) returns (CancelResponse) {
+    option (google.api.http) = {
+      put : "/v1/cancel"
+    };
+  };
+
+  /* Next fetches the next ready job. If not jobs are ready when the request is
+   * received, Yaad will wait for the given duration for a job that might be
+   * ready soon. Once the timeout expires, the call will return an empty
+   * response */
+  rpc Next(NextRequest) returns (NextResponse) {
+    option (google.api.http) = {
+      get : "/v1/next"
+    };
+  };
+
+  /* InspectNRequest returns upto n jobs from Yaad.
+   * This does not mean that there are len(returned jobs) number of jobs stored.
+   * Callers should not rely on this other than for occasional inspection of
+   * what jobs might be stored. */
+  rpc Inspect(InspectRequest) returns (stream InspectResponse) {
+    option (google.api.http) = {
+      get : "/v1/inspectn"
+    };
+  };
+};
+
+/* Job is the main unit of information exchange with Yaad. */
 message Job {
   string id = 1;
   google.protobuf.Duration delay = 2;
   bytes body = 3;
 }
 
-// NextResponse can either return a job or an Empty.
+// Put
+message PutRequest { Job job = 1; }
+message PutResponse {}
+// Cancel
+message CancelRequest { string id = 1; }
+message CancelResponse {}
+// Next
+message NextRequest { google.protobuf.Duration timeout = 1; }
 message NextResponse {
   oneof next {
     Job job = 1;
     google.protobuf.Empty empty = 2;
   }
 }
-
-// InspectNRequest returns upto n jobs from Yaad.
-// This does not mean that there are len(returned jobs) number of jobs stored.
-// Callers should not rely on this other than for occasional inspection of what
-// jobs might be stored.
-message InspectNRequest {
-  uint64 n = 1; // n will be a param on the get
-};
-
-// PingRequest tests client-server connectivity.
-
-service Yaad {
-  rpc PutWithID(Job) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      put : "/v1/putwithid"
-      body : "*"
-    };
-  };
-  rpc Cancel(google.protobuf.StringValue) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      put : "/v1/cancel"
-    };
-  };
-  rpc Next(google.protobuf.Duration) returns (NextResponse) {
-    option (google.api.http) = {
-      get : "/v1/next"
-    };
-  };
-  rpc InspectN(InspectNRequest) returns (stream Job) {
-    option (google.api.http) = {
-      get : "/v1/inspectn"
-    };
-  };
-};
+// Inspect
+message InspectRequest { int32 count = 1; }
+message InspectResponse { Job job = 1; }

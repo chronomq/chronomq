@@ -1,2 +1,5 @@
 dist
 .vscode
+goyaad
+*.pb.*
+*.swagger.json
