@@ -14,11 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	yaadgrpc "github.com/urjitbhatia/goyaad/internal/api/grpc"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
-	"github.com/urjitbhatia/goyaad/pkg/protocol/grpc"
 )
 
 var logLevel = "INFO"
@@ -98,7 +98,7 @@ func runServer() {
 	}
 
 	// GRPC listener
-	grpcSrv := grpc.NewGRPCServer(hub)
+	grpcSrv := yaadgrpc.NewGRPCServer(hub)
 	grpcCloser, err := grpcSrv.ServeGRPC(gaddr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to start GRPC Server")

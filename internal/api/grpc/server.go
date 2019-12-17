@@ -3,7 +3,8 @@ package grpc
 //go:generate go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 //go:generate go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
 //go:generate go install github.com/ckaznocha/protoc-gen-lint
-//go:generate protoc -I. -I../../../ -I$GOPATH/bin --lint_out=. --go_out=plugins=grpc:. --grpc-gateway_out=logtostderr=true:. --swagger_out=logtostderr=true:. service.proto
+//go:generate protoc -I../../../pkg/api/goyaad -I./thirdparty -I$GOPATH/bin --lint_out=. --go_out=plugins=grpc:../../../pkg/api/goyaad/ --grpc-gateway_out=logtostderr=true:../../../pkg/api/goyaad/ --swagger_out=logtostderr=true:../../../pkg/api/goyaad/ service.proto
+
 import (
 	context "context"
 	"errors"
@@ -18,17 +19,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	yaadgrpc "github.com/urjitbhatia/goyaad/pkg/api/grpc/goyaad"
+	yaadsrv "github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
 // Server is used to implement YaadServer
 type Server struct {
 	*grpc.Server
-	hub *goyaad.Hub
+	hub *yaadsrv.Hub
 }
 
 // Put saves a new job. It can error if another job with the ID already exists in the system
-func (s *Server) Put(ctx context.Context, pr *PutRequest) (*PutResponse, error) {
+func (s *Server) Put(ctx context.Context, pr *yaadgrpc.PutRequest) (*yaadgrpc.PutResponse, error) {
 	log.Debug().Msgf("GRPC: Putting new job : %v", pr)
 
 	// Validate input
@@ -51,56 +53,56 @@ func (s *Server) Put(ctx context.Context, pr *PutRequest) (*PutResponse, error) 
 
 	// Add job to hub
 	triggerAt := time.Now().Add(d)
-	j := goyaad.NewJob(pr.GetJob().GetId(), triggerAt, pr.GetJob().GetBody())
+	j := yaadsrv.NewJob(pr.GetJob().GetId(), triggerAt, pr.GetJob().GetBody())
 	err = s.hub.AddJobLocked(j)
 	if err != nil {
 		return nil, err
 	}
-	return &PutResponse{}, nil
+	return &yaadgrpc.PutResponse{}, nil
 }
 
 // Cancel a job with the given ID if it exists. This call is idempotent
-func (s *Server) Cancel(ctx context.Context, cr *CancelRequest) (*CancelResponse, error) {
+func (s *Server) Cancel(ctx context.Context, cr *yaadgrpc.CancelRequest) (*yaadgrpc.CancelResponse, error) {
 	var err error
 	if cr.GetId() != "" {
 		err = s.hub.CancelJobLocked(cr.GetId())
 	}
-	return &CancelResponse{}, err
+	return &yaadgrpc.CancelResponse{}, err
 }
 
 // Next returns the next job that is ready to be consumed. If no job is ready, response is empty
-func (s *Server) Next(ctx context.Context, nr *NextRequest) (*NextResponse, error) {
+func (s *Server) Next(ctx context.Context, nr *yaadgrpc.NextRequest) (*yaadgrpc.NextResponse, error) {
 	log.Info().Msg("Got a next request for grpc server")
 	job := s.hub.NextLocked()
 
 	// TODO: Implement timeout wait loop
 
 	if job == nil {
-		return &NextResponse{}, nil
+		return &yaadgrpc.NextResponse{}, nil
 	}
 	log.Info().
 		Str("jobID", job.ID()).
 		Bytes("jobBody", job.Body()).
 		Msgf("Responding with job with id and body")
-	return &NextResponse{
-		Next: &NextResponse_Job{
-			Job: &Job{Id: job.ID(),
+	return &yaadgrpc.NextResponse{
+		Next: &yaadgrpc.NextResponse_Job{
+			Job: &yaadgrpc.Job{Id: job.ID(),
 				Delay: &duration.Duration{Seconds: int64(job.TriggerAt().Sub(time.Now()).Seconds())},
 				Body:  job.Body()}}}, nil
 }
 
 // Inspect returns upto N jobs. Can return none
-func (s *Server) Inspect(req *InspectRequest, srv Yaad_InspectServer) error {
+func (s *Server) Inspect(req *yaadgrpc.InspectRequest, srv yaadgrpc.Yaad_InspectServer) error {
 	log.Debug().Int32("count", req.GetCount()).Msg("Returning jobs for inspection")
 	jobs := s.hub.GetNJobs(int(req.GetCount()))
 
 	for j := range jobs {
-		grpcJob := &Job{
+		grpcJob := &yaadgrpc.Job{
 			Id:    j.ID(),
 			Delay: &duration.Duration{Seconds: int64(j.TriggerAt().Sub(time.Now()).Seconds())},
 			Body:  j.Body(),
 		}
-		srv.Send(&InspectResponse{
+		srv.Send(&yaadgrpc.InspectResponse{
 			Job: grpcJob,
 		})
 	}
@@ -123,7 +125,7 @@ func (s *Server) ServeHTTP(hAddr, gAddr string) (io.Closer, error) {
 	// Note: Make sure the gRPC server is running properly and accessible
 	mux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := RegisterYaadHandlerFromEndpoint(ctx, mux, gAddr, opts)
+	err := yaadgrpc.RegisterYaadHandlerFromEndpoint(ctx, mux, gAddr, opts)
 	if err != nil {
 		log.Fatal().Err(err).Msg("GRPC:HTTPGW: Failed to register grpc-http-gateway")
 	}
@@ -142,7 +144,7 @@ func (s *Server) ServeHTTP(hAddr, gAddr string) (io.Closer, error) {
 }
 
 // NewGRPCServer creates a new GRPC capable server backed by a yaad hub
-func NewGRPCServer(hub *goyaad.Hub) *Server {
+func NewGRPCServer(hub *yaadsrv.Hub) *Server {
 	return &Server{hub: hub, Server: grpc.NewServer()}
 }
 
@@ -153,7 +155,7 @@ func (s *Server) ServeGRPC(addr string) (io.Closer, error) {
 		return nil, err
 	}
 	reflection.Register(s.Server)
-	RegisterYaadServer(s.Server, s)
+	yaadgrpc.RegisterYaadServer(s.Server, s)
 	go func() {
 		log.Info().Str("Addr", l.Addr().String()).Msg("Starting GRPC Server")
 		if err := s.Serve(l); err != nil {
