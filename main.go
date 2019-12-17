@@ -1,20 +1,20 @@
 /*
-Goyaad is a cancelable job scheduler.
+yaad is a cancelable job scheduler.
 
-There are two main primitives that Goyaad provides
+There are two main primitives that yaad provides
 	- Time ordered scheduleable jobs
 	- Cancelation of scheduled jobs
 
 Installation:
-	- go get github.com/urjitbhatia/goyaad
-	- Docker image: https://hub.docker.com/r/urjitbhatia/goyaad
+	- go get github.com/urjitbhatia/yaad
+	- Docker image: https://hub.docker.com/r/urjitbhatia/yaad
 */
 package main
 
 import (
 	_ "net/http/pprof"
 
-	"github.com/urjitbhatia/goyaad/cmd"
+	"github.com/urjitbhatia/yaad/cmd"
 )
 
 // Set by gorelease during binary

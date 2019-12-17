@@ -1,4 +1,4 @@
-package goyaad
+package yaad
 
 import (
 	"time"

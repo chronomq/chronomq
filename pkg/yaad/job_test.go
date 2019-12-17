@@ -1,4 +1,4 @@
-package goyaad_test
+package yaad_test
 
 import (
 	"container/heap"
@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	uuid "github.com/satori/go.uuid"
-	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	. "github.com/urjitbhatia/yaad/pkg/yaad"
+	"github.com/urjitbhatia/yaad/pkg/persistence"
 )
 
 var _ = Describe("Test jobs", func() {
@@ -68,7 +68,7 @@ var _ = Describe("Test jobs", func() {
 
 		It("use a persister to save a job", func() {
 			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
-			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
+			persistenceTestDir := path.Join(os.TempDir(), "yaadtest")
 			p := persistence.NewJournalPersister(persistenceTestDir)
 			Expect(p.ResetDataDir()).To(BeNil())
 

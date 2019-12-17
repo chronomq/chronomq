@@ -13,7 +13,7 @@ func TestYaad(t *testing.T) {
 	defer GinkgoRecover()
 	log.Logger = zerolog.New(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GoYaad Protocol Suite")
+	RunSpecs(t, "yaad Protocol Suite")
 }
 
 func ExpectNoErr(err error) {

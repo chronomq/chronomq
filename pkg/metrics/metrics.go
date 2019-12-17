@@ -18,7 +18,7 @@ func InitMetrics(statsAddr string) {
 		if err != nil {
 			log.Fatal().Err(err).Send()
 		}
-		Client.Namespace = "goyaad"
+		Client.Namespace = "yaad"
 	}
 }
 

@@ -1,4 +1,4 @@
-package goyaad
+package yaad
 
 // TemporalState is a classification of time for an object
 type TemporalState int

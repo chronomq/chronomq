@@ -30,8 +30,8 @@ func SetBuildInfo(version, date, commit string) {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Prints full build info of GoYaad",
-	Long:  `All software has versions. This is GoYaad's`,
+	Short: "Prints full build info of yaad",
+	Long:  `All software has versions. This is yaad's`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("Version: %s\nCommit: %s\nBuild Date: %s\n",
 			buildInfo.version,

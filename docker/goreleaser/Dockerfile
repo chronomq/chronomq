@@ -1,11 +1,11 @@
 # Goyaad is a job-queue that orders jobs by their trigger time.
 #
 # docker run --rm -it \
-# 			 --name goyaad \
-#				 urjitbhatia/goyaad
+# 			 --name yaad \
+#				 urjitbhatia/yaad
 
 FROM scratch as binBase
-COPY goyaad /
+COPY yaad /
 
 FROM alpine:edge
 LABEL maintainer Urjit Singh Bhatia<(urjitsinghbhatia@gmail.com> (github: @urjitbhatia)
@@ -25,5 +25,5 @@ RUN buildDeps=' \
     && apk del $buildDeps \
     && echo "Build complete."
 
-COPY --from=binBase /goyaad /usr/local/bin/goyaad
-ENTRYPOINT [ "goyaad" ]
+COPY --from=binBase /yaad /usr/local/bin/yaad
+ENTRYPOINT [ "yaad" ]

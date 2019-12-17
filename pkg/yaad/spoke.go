@@ -1,4 +1,4 @@
-package goyaad
+package yaad
 
 import (
 	"container/heap"
@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	"github.com/urjitbhatia/yaad/pkg/persistence"
 )
 
 // Spoke is a time bound chain of jobs

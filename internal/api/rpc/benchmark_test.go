@@ -10,12 +10,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	yaadrpc "github.com/urjitbhatia/goyaad/api/rpc/goyaad"
-	. "github.com/urjitbhatia/goyaad/internal/api/rpc"
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	yaadrpc "github.com/urjitbhatia/yaad/api/rpc/yaad"
+	. "github.com/urjitbhatia/yaad/internal/api/rpc"
+	"github.com/urjitbhatia/yaad/pkg/yaad"
 )
 
-var opts = goyaad.HubOpts{
+var opts = yaad.HubOpts{
 	AttemptRestore: false,
 	SpokeSpan:      time.Second * 5}
 
@@ -40,7 +40,7 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 func BenchmarkRPCJobPuts(b *testing.B) {
 	log.Logger = zerolog.New(ioutil.Discard)
 	go func() {
-		ServeRPC(goyaad.NewHub(&opts), ":8001")
+		ServeRPC(yaad.NewHub(&opts), ":8001")
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start

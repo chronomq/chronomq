@@ -8,10 +8,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	yaadrpc "github.com/urjitbhatia/goyaad/api/rpc/goyaad"
-	. "github.com/urjitbhatia/goyaad/internal/api/rpc"
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	yaadrpc "github.com/urjitbhatia/yaad/api/rpc/yaad"
+	. "github.com/urjitbhatia/yaad/internal/api/rpc"
+	"github.com/urjitbhatia/yaad/pkg/yaad"
+	"github.com/urjitbhatia/yaad/pkg/persistence"
 )
 
 var _ = Describe("Test rpc protocol:", func() {
@@ -20,16 +20,16 @@ var _ = Describe("Test rpc protocol:", func() {
 	var client *yaadrpc.Client
 
 	var srv io.Closer
-	var hub *goyaad.Hub
+	var hub *yaad.Hub
 
 	BeforeEach(func(done Done) {
 		defer close(done)
-		var opts = goyaad.HubOpts{
+		var opts = yaad.HubOpts{
 			AttemptRestore: false,
 			Persister:      persistence.NewJournalPersister(""),
 			SpokeSpan:      time.Second * 5}
 		var err error
-		hub = goyaad.NewHub(&opts)
+		hub = yaad.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
 		srv, err = ServeRPC(hub, addr)
 		Expect(err).NotTo(HaveOccurred())

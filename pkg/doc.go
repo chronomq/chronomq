@@ -1,6 +1,6 @@
 /*
-Package pkg contains the main implementation of the Goyaad library code.
+Package pkg contains the main implementation of the yaad library code.
 
-Goyaad can be used as an embedded scheduler by embedding the Hub.
+yaad can be used as an embedded scheduler by embedding the Hub.
 */
 package pkg

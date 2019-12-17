@@ -1,8 +1,8 @@
 # A simple beanstalkd-like job queue implementation in go
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/urjitbhatia/goyaad)](https://goreportcard.com/report/github.com/urjitbhatia/goyaad)
-[![Build Status](https://travis-ci.com/urjitbhatia/goyaad.svg?branch=master)](https://travis-ci.com/urjitbhatia/goyaad)
-[![GoDoc](https://godoc.org/github.com/urjitbhatia/goyaad/pkg?status.svg)](https://godoc.org/github.com/urjitbhatia/goyaad/pkg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/urjitbhatia/yaad)](https://goreportcard.com/report/github.com/urjitbhatia/yaad)
+[![Build Status](https://travis-ci.com/urjitbhatia/yaad.svg?branch=master)](https://travis-ci.com/urjitbhatia/yaad)
+[![GoDoc](https://godoc.org/github.com/urjitbhatia/yaad/pkg?status.svg)](https://godoc.org/github.com/urjitbhatia/yaad/pkg)
 
 ## Goals
 
@@ -36,6 +36,6 @@ Jobs that we accept responsibility for.
 
 ## Running
 
-- `goyaad -addr localhost:11300 -s localhost:8125` starts the goyaad server listening at 11300 on localhost and sends statsd metrics to 8125.
-- Run `goyaad -help` for more information
+- `yaad -addr localhost:11300 -s localhost:8125` starts the yaad server listening at 11300 on localhost and sends statsd metrics to 8125.
+- Run `yaad -help` for more information
 - `SIGUSR1` will trigger a graceful shutdown by persisting current jobs to disk. To bootstrap with the jobs from disk, run with the `-r or --restore` flag (With the appropriate data dir set `-d or --dataDir`)

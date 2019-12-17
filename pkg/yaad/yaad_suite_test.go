@@ -1,4 +1,4 @@
-package goyaad_test
+package yaad_test
 
 import (
 	"testing"
@@ -14,5 +14,5 @@ func TestYaad(t *testing.T) {
 	log.Logger = log.Output(GinkgoWriter)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GoYaad Suite")
+	RunSpecs(t, "yaad Suite")
 }

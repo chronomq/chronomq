@@ -14,11 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/internal/api/grpc"
-	"github.com/urjitbhatia/goyaad/internal/api/rpc"
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	"github.com/urjitbhatia/yaad/internal/api/grpc"
+	"github.com/urjitbhatia/yaad/internal/api/rpc"
+	"github.com/urjitbhatia/yaad/pkg/yaad"
+	"github.com/urjitbhatia/yaad/pkg/metrics"
+	"github.com/urjitbhatia/yaad/pkg/persistence"
 )
 
 var logLevel = "INFO"
@@ -49,7 +49,7 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Short: "goyaad",
+	Short: "yaad",
 	Long: `For advanced gc tuning: Set GOGC levels using the env variable.
 	See: https://golang.org/pkg/runtime/#hdr-Environment_Variables`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -76,20 +76,20 @@ func runServer() {
 		}
 	}()
 
-	log.Info().Msg("Starting Goyaad")
+	log.Info().Msg("Starting yaad")
 	ss, err := time.ParseDuration(spokeSpan)
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
-	opts := &goyaad.HubOpts{
+	opts := &yaad.HubOpts{
 		AttemptRestore: restore,
 		SpokeSpan:      ss,
 		Persister:      persistence.NewJournalPersister(dataDir),
-		MaxCFSize:      goyaad.DefaultMaxCFSize,
+		MaxCFSize:      yaad.DefaultMaxCFSize,
 	}
 
 	// Create a new hub
-	hub := goyaad.NewHub(opts)
+	hub := yaad.NewHub(opts)
 
 	// RPC listener
 	rpcSRV, err := rpc.ServeRPC(hub, raddr)

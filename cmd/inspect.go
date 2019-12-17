@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/api/rpc/goyaad"
+	"github.com/urjitbhatia/yaad/api/rpc/yaad"
 )
 
 var num int
@@ -38,7 +38,7 @@ var inspectCmd = &cobra.Command{
 const delimiter = "-----------------------------------------"
 
 func inspect() error {
-	client := &goyaad.Client{}
+	client := &yaad.Client{}
 	log.Info().Str("address", raddr).Msg("Connecting to server")
 	// This ensures all contexts get a running server
 	err := client.Connect(raddr)
@@ -54,7 +54,7 @@ func inspect() error {
 		}
 	}
 
-	jobs := []*goyaad.Job{}
+	jobs := []*yaad.Job{}
 	err = client.InspectN(num, &jobs)
 	if err != nil {
 		return err

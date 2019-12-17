@@ -8,28 +8,28 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	yaadrpc "github.com/urjitbhatia/goyaad/api/rpc/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	yaadrpc "github.com/urjitbhatia/yaad/api/rpc/yaad"
+	"github.com/urjitbhatia/yaad/pkg/yaad"
 )
 
 // Server exposes a Yaad hub backed RPC endpoint
 type Server struct {
-	hub *goyaad.Hub
+	hub *yaad.Hub
 }
 
-func newServer(hub *goyaad.Hub) *Server {
+func newServer(hub *yaad.Hub) *Server {
 	return &Server{hub: hub}
 }
 
 // PutWithID accepts a new job and stores it in a Hub, reply is ignored
 func (r *Server) PutWithID(job yaadrpc.Job, id *string) error {
-	var j *goyaad.Job
+	var j *yaad.Job
 	if job.ID == "" {
 		// need to generate an id
-		j = goyaad.NewJobAutoID(time.Now().Add(job.Delay), job.Body)
+		j = yaad.NewJobAutoID(time.Now().Add(job.Delay), job.Body)
 		*id = j.ID()
 	} else {
-		j = goyaad.NewJob(job.ID, time.Now().Add(job.Delay), job.Body)
+		j = yaad.NewJob(job.ID, time.Now().Add(job.Delay), job.Body)
 	}
 	return r.hub.AddJobLocked(j)
 }
@@ -103,7 +103,7 @@ func (r *Server) InspectN(n int, rpcJobs *[]*yaadrpc.Job) error {
 }
 
 // ServeRPC starts serving hub over rpc
-func ServeRPC(hub *goyaad.Hub, addr string) (io.Closer, error) {
+func ServeRPC(hub *yaad.Hub, addr string) (io.Closer, error) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err

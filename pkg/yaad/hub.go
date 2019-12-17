@@ -1,4 +1,4 @@
-package goyaad
+package yaad
 
 import (
 	"container/heap"
@@ -11,9 +11,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/seiflotfy/cuckoofilter"
 
-	"github.com/urjitbhatia/goyaad/pkg/goyaad/stats"
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	"github.com/urjitbhatia/yaad/pkg/yaad/stats"
+	"github.com/urjitbhatia/yaad/pkg/metrics"
+	"github.com/urjitbhatia/yaad/pkg/persistence"
 )
 
 const (

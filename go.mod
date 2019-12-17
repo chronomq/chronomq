@@ -1,4 +1,4 @@
-module github.com/urjitbhatia/goyaad
+module github.com/urjitbhatia/yaad
 
 go 1.13
 

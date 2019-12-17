@@ -1,5 +1,5 @@
 syntax = "proto3";
-package goyaad;
+package yaad;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";

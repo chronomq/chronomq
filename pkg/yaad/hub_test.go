@@ -1,4 +1,4 @@
-package goyaad_test
+package yaad_test
 
 import (
 	"math/rand"
@@ -9,11 +9,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	. "github.com/urjitbhatia/yaad/pkg/yaad"
+	"github.com/urjitbhatia/yaad/pkg/persistence"
 )
 
-var dataDir = path.Join(os.TempDir(), "goyaadtest")
+var dataDir = path.Join(os.TempDir(), "yaadtest")
 var persister persistence.Persister
 
 var _ = Describe("Test hub", func() {

@@ -11,8 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/api/rpc/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/yaad/api/rpc/yaad"
+	"github.com/urjitbhatia/yaad/pkg/metrics"
 )
 
 var jobs = 1000
@@ -77,9 +77,9 @@ func runLoadTest() {
 	deqJobs := make(chan struct{})
 	data := randStringBytes(sizeBytes)
 
-	clients := []*goyaad.Client{}
+	clients := []*yaad.Client{}
 	for c := 0; c < connections; c++ {
-		client := &goyaad.Client{}
+		client := &yaad.Client{}
 		err := client.Connect(raddr)
 		if err != nil {
 			log.Fatal().Int("WorkerID", c).Err(err).Msg("Failed to connect for worker")
@@ -137,13 +137,13 @@ func runLoadTest() {
 	deqWG.Wait()
 }
 
-func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *goyaad.Client, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
+func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *yaad.Client, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
 	go func() {
 		var prevTriggerAt int64
 		for {
 			id, body, err := rpcClient.Next(time.Second * 1)
 			if err != nil {
-				if err.Error() == goyaad.ErrTimeout.Error() {
+				if err.Error() == yaad.ErrTimeout.Error() {
 					continue
 				}
 				// legit error
@@ -209,7 +209,7 @@ func validateJob(testData []byte, body []byte, prevTriggerAt int64, workerID int
 	}
 }
 
-func enqueueRPC(wg *sync.WaitGroup, workerID int, client *goyaad.Client, jobs chan *testJob) {
+func enqueueRPC(wg *sync.WaitGroup, workerID int, client *yaad.Client, jobs chan *testJob) {
 	defer wg.Done()
 	for j := range jobs {
 		var err error
