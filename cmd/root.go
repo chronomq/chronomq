@@ -14,11 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	yaadgrpc "github.com/urjitbhatia/goyaad/internal/api/grpc"
+	"github.com/urjitbhatia/goyaad/internal/api/grpc"
+	"github.com/urjitbhatia/goyaad/internal/api/rpc"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
 var logLevel = "INFO"
@@ -92,13 +92,13 @@ func runServer() {
 	hub := goyaad.NewHub(opts)
 
 	// RPC listener
-	rpcSRV, err := protocol.ServeRPC(hub, raddr)
+	rpcSRV, err := rpc.ServeRPC(hub, raddr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to start RPC Server")
 	}
 
 	// GRPC listener
-	grpcSrv := yaadgrpc.NewGRPCServer(hub)
+	grpcSrv := grpc.NewGRPCServer(hub)
 	grpcCloser, err := grpcSrv.ServeGRPC(gaddr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to start GRPC Server")

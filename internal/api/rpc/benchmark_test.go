@@ -1,4 +1,4 @@
-package protocol_test
+package rpc_test
 
 import (
 	"fmt"
@@ -10,8 +10,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	yaadrpc "github.com/urjitbhatia/goyaad/api/rpc/goyaad"
+	. "github.com/urjitbhatia/goyaad/internal/api/rpc"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
 var opts = goyaad.HubOpts{
@@ -39,11 +40,11 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 func BenchmarkRPCJobPuts(b *testing.B) {
 	log.Logger = zerolog.New(ioutil.Discard)
 	go func() {
-		protocol.ServeRPC(goyaad.NewHub(&opts), ":8001")
+		ServeRPC(goyaad.NewHub(&opts), ":8001")
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start
-	client := &protocol.RPCClient{}
+	client := &yaadrpc.Client{}
 	err := client.Connect(":8001")
 	if err != nil {
 		b.Error(err)

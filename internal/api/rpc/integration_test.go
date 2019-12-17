@@ -1,4 +1,4 @@
-package protocol_test
+package rpc_test
 
 import (
 	"fmt"
@@ -8,15 +8,16 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	yaadrpc "github.com/urjitbhatia/goyaad/api/rpc/goyaad"
+	. "github.com/urjitbhatia/goyaad/internal/api/rpc"
 	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
 var _ = Describe("Test rpc protocol:", func() {
 	defer GinkgoRecover()
 	var port = 9001
-	var client *protocol.RPCClient
+	var client *yaadrpc.Client
 
 	var srv io.Closer
 	var hub *goyaad.Hub
@@ -30,11 +31,11 @@ var _ = Describe("Test rpc protocol:", func() {
 		var err error
 		hub = goyaad.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
-		srv, err = protocol.ServeRPC(hub, addr)
+		srv, err = ServeRPC(hub, addr)
 		Expect(err).NotTo(HaveOccurred())
 		port++
 
-		client = &protocol.RPCClient{}
+		client = &yaadrpc.Client{}
 
 		// This ensures all contexts get a running server
 		Eventually(func() error {
@@ -92,7 +93,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		ExpectNoErr(err)
 
 		// We can inspect without consuming too
-		rpcJobs := []*protocol.RPCJob{}
+		rpcJobs := []*yaadrpc.Job{}
 		err = client.InspectN(2, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(1))
@@ -120,7 +121,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 		// InspectN < n
 		inspectN := 5
-		rpcJobs := []*protocol.RPCJob{}
+		rpcJobs := []*yaadrpc.Job{}
 		err := client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
@@ -130,7 +131,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		}
 		// InspectN == n
 		inspectN = n
-		rpcJobs = []*protocol.RPCJob{}
+		rpcJobs = []*yaadrpc.Job{}
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
@@ -141,7 +142,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 		// InspectN > n
 		inspectN = n + 3
-		rpcJobs = []*protocol.RPCJob{}
+		rpcJobs = []*yaadrpc.Job{}
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(n))
