@@ -3,7 +3,7 @@ package grpc
 //go:generate go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 //go:generate go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
 //go:generate go install github.com/ckaznocha/protoc-gen-lint
-//go:generate protoc -I../../../pkg/api/goyaad -I./thirdparty -I$GOPATH/bin --lint_out=. --go_out=plugins=grpc:../../../pkg/api/goyaad/ --grpc-gateway_out=logtostderr=true:../../../pkg/api/goyaad/ --swagger_out=logtostderr=true:../../../pkg/api/goyaad/ service.proto
+//go:generate protoc -I../../../api/grpc/goyaad -I./thirdparty -I$GOPATH/bin --lint_out=. --go_out=plugins=grpc:../../../api/grpc/goyaad/ --grpc-gateway_out=logtostderr=true:../../../api/grpc/goyaad/ --swagger_out=logtostderr=true:../../../api/grpc/goyaad/ service.proto
 
 import (
 	context "context"
@@ -19,14 +19,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	yaadgrpc "github.com/urjitbhatia/goyaad/pkg/api/grpc/goyaad"
-	yaadsrv "github.com/urjitbhatia/goyaad/pkg/goyaad"
+	yaadgrpc "github.com/urjitbhatia/goyaad/api/grpc/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/goyaad"
 )
 
 // Server is used to implement YaadServer
 type Server struct {
 	*grpc.Server
-	hub *yaadsrv.Hub
+	hub *goyaad.Hub
 }
 
 // Put saves a new job. It can error if another job with the ID already exists in the system
@@ -53,7 +53,7 @@ func (s *Server) Put(ctx context.Context, pr *yaadgrpc.PutRequest) (*yaadgrpc.Pu
 
 	// Add job to hub
 	triggerAt := time.Now().Add(d)
-	j := yaadsrv.NewJob(pr.GetJob().GetId(), triggerAt, pr.GetJob().GetBody())
+	j := goyaad.NewJob(pr.GetJob().GetId(), triggerAt, pr.GetJob().GetBody())
 	err = s.hub.AddJobLocked(j)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (s *Server) ServeHTTP(hAddr, gAddr string) (io.Closer, error) {
 }
 
 // NewGRPCServer creates a new GRPC capable server backed by a yaad hub
-func NewGRPCServer(hub *yaadsrv.Hub) *Server {
+func NewGRPCServer(hub *goyaad.Hub) *Server {
 	return &Server{hub: hub, Server: grpc.NewServer()}
 }
 
