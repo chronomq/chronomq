@@ -18,7 +18,6 @@ type JournalPersister struct {
 	dataDir string
 	writer  *journal.Writer
 
-	finalize chan struct{}
 }
 
 // NewJournalPersister initializes a Journal backed persister
@@ -27,7 +26,6 @@ func NewJournalPersister(dataDir string) Persister {
 		stream:   make(chan gob.GobEncoder, 10),
 		dataDir:  dataDir,
 		writer:   nil, // lazy init writer
-		finalize: make(chan struct{}, 1),
 	}
 
 	log.Info().Str("datadir", dataDir).Msg("Created Journal persister with datadir")
