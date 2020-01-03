@@ -8,8 +8,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	uuid "github.com/satori/go.uuid"
+
 	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
@@ -69,10 +69,12 @@ var _ = Describe("Test jobs", func() {
 		It("use a persister to save a job", func() {
 			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
 			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
-			p := persistence.NewJournalPersister(persistenceTestDir)
+			store, err := persistence.NewFS(persistenceTestDir)
+			Expect(err).NotTo(HaveOccurred())
+			p := persistence.NewJournalPersister(store)
 			Expect(p.ResetDataDir()).To(BeNil())
 
-			err := p.Persist(j)
+			err = p.Persist(j)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

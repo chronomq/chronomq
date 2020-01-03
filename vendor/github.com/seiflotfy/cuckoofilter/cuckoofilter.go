@@ -2,9 +2,7 @@ package cuckoo
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
-	"runtime/debug"
 )
 
 const maxCuckooCount = 500
@@ -89,8 +87,6 @@ func (cf *Filter) reinsert(fp byte, i uint) bool {
 			return true
 		}
 	}
-	debug.PrintStack()
-	log.Fatal("Exceeded maxCuckooCount")
 	return false
 }
 

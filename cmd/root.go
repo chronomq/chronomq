@@ -26,7 +26,14 @@ var logLevel = "INFO"
 var raddr = ":11301"
 var gaddr = ":9999"
 var statsAddr = ":8125"
+
+// storage
 var dataDir string
+var s3Bucket string
+var s3Prefix string
+var s3Store bool
+var fileStore bool
+
 var restore bool
 var friendlyLog bool
 var spokeSpan string
@@ -41,9 +48,15 @@ func init() {
 
 	rootCmd.Flags().StringVarP(&spokeSpan, "spokeSpan", "S", "10s", "Spoke span (golang duration string format)")
 
+	rootCmd.Flags().BoolVar(&fileStore, "fileStore", fileStore, "Use file store for peristence")
 	dataDir, _ = os.Getwd()
 	rootCmd.Flags().StringVarP(&dataDir, "dataDir", "d", dataDir, `Data dir location - persits state here when SIGUSR1 is received. 
 	Restores from this location at start if journal files are present.`)
+
+	rootCmd.Flags().BoolVar(&s3Store, "s3Store", s3Store, "Use s3 store for peristence")
+	rootCmd.Flags().StringVar(&s3Bucket, "s3Bucket", s3Bucket, "S3 bucket")
+	rootCmd.Flags().StringVar(&s3Prefix, "s3Prefix", s3Prefix, "S3 prefix")
+
 	rootCmd.Flags().BoolVarP(&restore, "restore", "r", false, "Restore existing data if possible (from dataDir)")
 }
 
@@ -53,6 +66,10 @@ var rootCmd = &cobra.Command{
 	See: https://golang.org/pkg/runtime/#hdr-Environment_Variables`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setLogLevel()
+		// Check for store args
+		if s3Store && fileStore {
+			log.Fatal().Msg("Cannot have both s3Store and fileStore enabled")
+		}
 		log.Info().Int("PID", os.Getpid()).Msg("Starting Yaad")
 		metrics.InitMetrics(statsAddr)
 		runServer()
@@ -80,10 +97,20 @@ func runServer() {
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
+	var storage persistence.Storage
+	switch {
+	case fileStore:
+		storage, err = persistence.NewFS(dataDir)
+	case s3Store:
+		storage, err = persistence.NewS3(s3Bucket, s3Prefix)
+	}
+	if err != nil || storage == nil {
+		log.Fatal().Err(err).Msg("store is nil booooo")
+	}
 	opts := &goyaad.HubOpts{
 		AttemptRestore: restore,
 		SpokeSpan:      ss,
-		Persister:      persistence.NewJournalPersister(dataDir),
+		Persister:      persistence.NewJournalPersister(storage),
 		MaxCFSize:      goyaad.DefaultMaxCFSize,
 	}
 
@@ -95,7 +122,7 @@ func runServer() {
 	}()
 
 	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGUSR1)
+	signal.Notify(sigc, syscall.SIGUSR1, os.Interrupt)
 
 	wg.Add(1)
 	go func() {

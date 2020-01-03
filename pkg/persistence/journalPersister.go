@@ -4,8 +4,6 @@ import (
 	"encoding/gob"
 	"io"
 	"io/ioutil"
-	"os"
-	"path"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -15,33 +13,26 @@ import (
 // JournalPersister saves data in an embedded Journal store
 type JournalPersister struct {
 	stream  chan gob.GobEncoder // Internal stream so that all writes are ordered
-	dataDir string
+	storage Storage
 	writer  *journal.Writer
-
 }
 
 // NewJournalPersister initializes a Journal backed persister
-func NewJournalPersister(dataDir string) Persister {
+func NewJournalPersister(s Storage) Persister {
 	lp := &JournalPersister{
-		stream:   make(chan gob.GobEncoder, 10),
-		dataDir:  dataDir,
-		writer:   nil, // lazy init writer
+		stream:  make(chan gob.GobEncoder, 10),
+		storage: s,
+		writer:  nil,
 	}
 
-	log.Info().Str("datadir", dataDir).Msg("Created Journal persister with datadir")
+	log.Info().Msgf("Created Journal persister with store: %+v", s)
+	log.Info().Str("store", s.String()).Msg("Created Journal persister with store")
 	return lp
 }
 
 // ResetDataDir tells persister to *delete* everything in the datadir
 func (lp *JournalPersister) ResetDataDir() error {
-	// Currently, only reset namespaces
-	p := lp.getPath()
-	log.Warn().Str("basePath", p).Msg("JournalPersister:ResetDataDir resetting base path")
-	if _, err := os.Stat(p); !os.IsNotExist(err) {
-		return os.Remove(p)
-	}
-
-	return nil
+	return lp.storage.Reset()
 }
 
 // Finalize tells persister that it can finalize and close writes
@@ -60,18 +51,26 @@ func (lp *JournalPersister) Finalize() {
 		if err != nil {
 			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing writer")
 		}
+		err = lp.storage.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing store")
+		}
 		log.Info().Msg("JournalPersister:Finalize closed writer db")
 	}
 	log.Info().Msg("JournalPersister:Finalize done")
 }
 
-// Persist stores an entry to disk
+// Persist stores an entry to given storage
 func (lp *JournalPersister) Persist(enc gob.GobEncoder) error {
 	log.Debug().Msg("JournalPersister:Persist persisting an entry")
-	return lp.write(enc)
+	err := lp.write(enc)
+	if err != nil {
+		log.Error().Err(err).Send()
+	}
+	return err
 }
 
-// PersistStream listens to the input channel and persists entries to disk
+// PersistStream listens to the input channel and persists entries to storage
 func (lp *JournalPersister) PersistStream(encC chan gob.GobEncoder) chan error {
 	errC := make(chan error)
 	go func() {
@@ -90,17 +89,17 @@ func (lp *JournalPersister) PersistStream(encC chan gob.GobEncoder) chan error {
 
 // Recover reads back persisted data and emits entries
 func (lp *JournalPersister) Recover() (chan []byte, error) {
-	bufC := make(chan []byte)
+	log.Info().Msg("JournalPersister:Recover starting recovery")
 
-	filePath := lp.getPath()
-	log.Info().Str("file", filePath).Msg("JournalPersister:Recover starting recovery")
-	f, err := os.Open(filePath)
+	// Get a reader from the store
+	sr, err := lp.storage.Reader()
 	if err != nil {
-		err = errors.Wrap(err, "Failed to open peristence file")
+		err = errors.Wrap(err, "Failed to open store")
 		log.Error().Err(err).Msg("JournalPersister:Recover")
 		return nil, err
 	}
-	r := journal.NewReader(f, nil, false, true)
+	// Get a new journal reader wrapping the store reader
+	r := journal.NewReader(sr, nil, false, true)
 	if err != nil {
 		err = errors.Wrap(err, "Failed to open peristence journal reader")
 		log.Error().Err(err).Msg("JournalPersister:Recover")
@@ -108,6 +107,7 @@ func (lp *JournalPersister) Recover() (chan []byte, error) {
 	}
 
 	log.Info().Msg("JournalPersister:Recover streaming items for recovery")
+	bufC := make(chan []byte)
 	go func() {
 		defer close(bufC)
 
@@ -135,19 +135,17 @@ func (lp *JournalPersister) Recover() (chan []byte, error) {
 }
 
 func (lp *JournalPersister) write(enc gob.GobEncoder) error {
-
-	// lazy init writer
+	// lazy init journal writer
 	if lp.writer == nil {
 		var err error
-		filePath := lp.getPath()
-		log.Info().Str("file", filePath).Msg("JournalPersister:writer starting persistence")
-		f, err := os.Create(filePath)
+		log.Info().Msg("JournalPersister:writer starting persistence")
+		sw, err := lp.storage.Writer()
 		if err != nil {
-			err = errors.Wrap(err, "JournalPersister:writer Failed to open peristence file")
+			err = errors.Wrap(err, "JournalPersister:writer Failed to open store")
 			log.Error().Err(err).Send()
 			return err
 		}
-		lp.writer = journal.NewWriter(f)
+		lp.writer = journal.NewWriter(sw)
 	}
 
 	w, err := lp.writer.Next()
@@ -168,11 +166,4 @@ func (lp *JournalPersister) write(enc gob.GobEncoder) error {
 		return err
 	}
 	return nil
-}
-
-// getPathForNamespace returns the canonical path where data for the given namespace will be persisted
-func (lp *JournalPersister) getPath() string {
-	p := path.Join(lp.dataDir, "journal")
-	os.MkdirAll(p, os.ModeDir|0774)
-	return path.Join(p, "jobs.snapshot")
 }
