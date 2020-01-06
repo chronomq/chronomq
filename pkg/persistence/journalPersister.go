@@ -51,7 +51,7 @@ func (lp *JournalPersister) Finalize() {
 		if err != nil {
 			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing writer")
 		}
-		err = lp.storage.Close()
+		err = lp.writer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing store")
 		}
