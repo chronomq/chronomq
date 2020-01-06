@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"os"
 	"path"
 	"time"
 
@@ -13,25 +15,33 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// slim s3 bucket interface to help testing
+type bucket interface {
+	Delete(key string) error
+	PutWriter(path string, h http.Header, c *s3util.Config) (w io.WriteCloser, err error)
+	GetReader(path string, c *s3util.Config) (r io.ReadCloser, h http.Header, err error)
+}
+
+// s3 provides access to S3 as a storage layer for persistence
+type s3 struct {
+	bucketName string
+	b          bucket
+	key        string
+}
+
 // NewS3 creates a new s3 backed store
-func NewS3(bucket, prefix string) (Storage, error) {
+// supply a custom http client if need. If customClient is nil,
+func NewS3(bucketName, prefix string) (Storage, error) {
 	keys, err := s3util.EnvKeys()
 	if err != nil {
 		return nil, err
 	}
 	s3u := s3util.New("", keys)
-	b := s3u.Bucket(bucket)
-
+	b := s3u.Bucket(bucketName)
+	s3util.SetLogger(os.Stdout, "", 1, true)
 	key := path.Join(prefix, "journal", "jobs.snapshot")
-	s := &s3{b, key, nil}
+	s := &s3{bucketName, b, key}
 	return s, s.setup()
-}
-
-// s3 provides access to S3 as a storage layer for persistence
-type s3 struct {
-	b   *s3util.Bucket
-	key string
-	w   io.WriteCloser // ref to w so that we can close it later when needed
 }
 
 // Reset deletes any data stored in the storage
@@ -41,7 +51,7 @@ func (s *s3) Reset() error {
 
 // Path returns the canonical storage location for s3 including the final key
 func (s *s3) path() string {
-	return fmt.Sprintf("%s/%s", s.b.Name, s.key)
+	return fmt.Sprintf("%s/%s", s.bucketName, s.key)
 }
 
 // Writer creates a new io.Writer for the storage
@@ -51,14 +61,12 @@ func (s *s3) Writer() (io.WriteCloser, error) {
 
 // writer creates a writer for the given key location
 func (s *s3) writer(key string) (io.WriteCloser, error) {
-	if s.w == nil {
-		w, err := s.b.PutWriter(key, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		s.w = w
+	log.Info().Msg("s3store ::: creating writer for key " + key)
+	w, err := s.b.PutWriter(key, nil, nil)
+	if err != nil {
+		return nil, err
 	}
-	return s.w, nil
+	return w, nil
 }
 
 // Reader creates a new io.Reader for the storage
@@ -74,14 +82,6 @@ func (s *s3) reader(key string) (io.ReadCloser, error) {
 		log.Error().Err(err).Msg("Store:s3:reader failed to create a reader")
 	}
 	return r, err
-}
-
-// Close the writer
-func (s *s3) Close() error {
-	if s.w != nil {
-		return s.w.Close()
-	}
-	return nil
 }
 
 // AccessCheck makes sure the store is wired correctly reachable
@@ -102,6 +102,7 @@ func (s *s3) setup() error {
 		log.Error().Err(err).Msg("Store:s3:accessCheck Failed to close writer")
 		return err
 	}
+	time.Sleep(time.Second)
 	r, _, err := s.b.GetReader(testKey, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("Store:s3:accessCheck Failed to create reader")
@@ -114,7 +115,10 @@ func (s *s3) setup() error {
 	}
 	if !bytes.Equal(readData, testData) {
 		err = errors.New("Unable to verify s3 store data integrity")
-		log.Error().Err(err).Msg("Store:s3:accessCheck Failed integrity check")
+		log.Error().
+			Str("read", string(readData)).
+			Str("wrote", string(testData)).
+			Err(err).Msg("Store:s3:accessCheck Failed integrity check")
 		return err
 	}
 	return nil
