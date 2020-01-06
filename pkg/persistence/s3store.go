@@ -45,7 +45,7 @@ func (s *s3) path() string {
 }
 
 // Writer creates a new io.Writer for the storage
-func (s *s3) Writer() (io.Writer, error) {
+func (s *s3) Writer() (io.WriteCloser, error) {
 	return s.writer(s.key)
 }
 
@@ -62,12 +62,12 @@ func (s *s3) writer(key string) (io.WriteCloser, error) {
 }
 
 // Reader creates a new io.Reader for the storage
-func (s *s3) Reader() (io.Reader, error) {
+func (s *s3) Reader() (io.ReadCloser, error) {
 	return s.reader(s.key)
 }
 
 // reader creates a new io.Reader for the storage
-func (s *s3) reader(key string) (io.Reader, error) {
+func (s *s3) reader(key string) (io.ReadCloser, error) {
 	// Ignore the headers
 	r, _, err := s.b.GetReader(key, nil)
 	if err != nil {

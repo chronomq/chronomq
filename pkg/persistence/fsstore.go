@@ -12,7 +12,6 @@ import (
 // fs provides access to the local file-system as a storage layer for persistence
 type fs struct {
 	dataDir string
-	w       io.WriteCloser
 }
 
 // NewFS creates a new file based storage
@@ -40,22 +39,19 @@ func (f *fs) path() string {
 }
 
 // Writer creates a new io.Writer for the storage
-func (f *fs) Writer() (io.Writer, error) {
-	if f.w == nil {
-		w, err := os.OpenFile(f.path(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(0600))
-		if err != nil {
-			err = errors.Wrap(err, "Store:fs:writer Failed to open file")
-			log.Error().Err(err).Send()
-			return nil, err
-		}
-		log.Info().Str("filename", w.Name()).Msg("Store:fs:writer Created writer")
-		f.w = w
+func (f *fs) Writer() (io.WriteCloser, error) {
+	w, err := os.OpenFile(f.path(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(0600))
+	if err != nil {
+		err = errors.Wrap(err, "Store:fs:writer Failed to open file")
+		log.Error().Err(err).Send()
+		return nil, err
 	}
-	return f.w, nil
+	log.Info().Str("filename", w.Name()).Msg("Store:fs:writer Created writer")
+	return w, nil
 }
 
 // Reader creates a new io.Reader for the storage
-func (f *fs) Reader() (io.Reader, error) {
+func (f *fs) Reader() (io.ReadCloser, error) {
 	log.Info().Str("file", f.path()).Msg("Store:fs:reader setting up file store")
 	r, err := os.Open(f.path())
 	if err != nil {
@@ -64,14 +60,6 @@ func (f *fs) Reader() (io.Reader, error) {
 		return nil, err
 	}
 	return r, err
-}
-
-// Close the storage provider
-func (f *fs) Close() error {
-	if f.w != nil {
-		return f.w.Close()
-	}
-	return nil
 }
 
 // Setup makes sure the store is wired correctly reachable

@@ -133,6 +133,10 @@ func (j *Job) GobEncode() (data []byte, err error) {
 	return buf.Bytes(), nil
 }
 
+func (j *Job) Decode(dec *gob.Decoder) error {
+	return dec.Decode(j)
+}
+
 // GobDecode encodes a job into a binary buffer
 func (j *Job) GobDecode(data []byte) error {
 	dec := gob.NewDecoder(bytes.NewReader(data))
