@@ -100,9 +100,9 @@ func runServer() {
 	var storage persistence.Storage
 	switch {
 	case fileStore:
-		storage, err = persistence.NewFS(dataDir)
+		storage, err = persistence.NewFSStore(dataDir)
 	case s3Store:
-		storage, err = persistence.NewS3(s3Bucket, s3Prefix)
+		storage, err = persistence.NewS3Store(s3Bucket, s3Prefix)
 	}
 	if err != nil || storage == nil {
 		log.Fatal().Err(err).Msg("store is nil booooo")

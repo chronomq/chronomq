@@ -14,14 +14,13 @@ type fs struct {
 	dataDir string
 }
 
-// NewFS creates a new file based storage
-func NewFS(loc string) (Storage, error) {
+// NewFSStore creates a new file based storage
+func NewFSStore(loc string) (Storage, error) {
 	dataDir := path.Join(loc, "journal")
 	log.Info().Msg("Store:fs Creating file store")
 	f := &fs{dataDir: dataDir}
 	log.Info().Msgf("store: %s", f)
-	err := f.setup()
-	return f, err
+	return f, f.verifyAccess()
 }
 
 // Reset deletes any data stored in the storage
@@ -62,9 +61,9 @@ func (f *fs) Reader() (io.ReadCloser, error) {
 	return r, err
 }
 
-// Setup makes sure the store is wired correctly reachable
+// verifyAccess makes sure the store is wired correctly reachable
 // detects access failures as early as possible rather than at shutdown much later
-func (f *fs) setup() error {
+func (f *fs) verifyAccess() error {
 	// Check that we have r/w access to datadir
 	dirMode := os.FileMode(os.ModeDir | 0700)
 	err := os.MkdirAll(f.dataDir, dirMode)

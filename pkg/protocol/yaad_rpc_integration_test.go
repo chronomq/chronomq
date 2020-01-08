@@ -23,7 +23,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 	BeforeEach(func(done Done) {
 		defer close(done)
-		store, err := persistence.NewFS("")
+		store, err := persistence.NewFSStore("")
 		Expect(err).NotTo(HaveOccurred())
 		var opts = goyaad.HubOpts{
 			AttemptRestore: false,

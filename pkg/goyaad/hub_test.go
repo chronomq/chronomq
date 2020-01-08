@@ -20,7 +20,7 @@ var _ = Describe("Test hub", func() {
 	defer GinkgoRecover()
 
 	BeforeEach(func() {
-		storage, err := persistence.NewFS(dataDir)
+		storage, err := persistence.NewFSStore(dataDir)
 		Expect(err).To(BeNil())
 		persister = persistence.NewJournalPersister(storage)
 		Expect(persister.ResetDataDir()).To(BeNil())
@@ -157,7 +157,7 @@ var _ = Describe("Test hub", func() {
 	It("bootstraps a new hub from a golden peristence record", func(done Done) {
 		defer close(done)
 		wd, _ := os.Getwd()
-		store, err := persistence.NewFS(path.Join(wd, "../../testdata/persist_golden"))
+		store, err := persistence.NewFSStore(path.Join(wd, "../../testdata/persist_golden"))
 		Expect(err).To(BeNil())
 		persister := persistence.NewJournalPersister(store)
 		opts := &HubOpts{
