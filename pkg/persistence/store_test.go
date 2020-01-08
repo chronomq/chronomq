@@ -19,14 +19,14 @@ var _ = Describe("Test stores", func() {
 		testDir := path.Join(os.TempDir(), "goyaadtest_storefs")
 
 		BeforeEach(func() {
-			s, err := persistence.NewFS(testDir)
+			s, err := persistence.NewFSStore(testDir)
 			Expect(err).ToNot(HaveOccurred())
 			err = s.Reset()
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("stores data and reads it back", func() {
-			s, err := persistence.NewFS(testDir)
+			s, err := persistence.NewFSStore(testDir)
 			Expect(err).ToNot(HaveOccurred())
 
 			j := goyaad.NewJobAutoID(time.Now(), testBody)

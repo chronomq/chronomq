@@ -15,4 +15,7 @@ type Storage interface {
 	Reader() (io.ReadCloser, error)
 
 	fmt.Stringer
+
+	// verifyAccess to actual storage - better to check access at startup and fail rather than just before saving data
+	verifyAccess() error
 }
