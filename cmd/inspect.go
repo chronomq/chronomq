@@ -16,7 +16,7 @@ var outfile string
 func init() {
 	inspectCmd.Flags().IntVarP(&num, "num", "n", 1, "Max Number of jobs to inspect")
 	inspectCmd.Flags().StringVarP(&outfile, "out", "o", "", "Write output to outfile (default: stdout)")
-	inspectCmd.PersistentFlags().StringVar(&raddr, "raddr", raddr, "Set RPC server addr (host:port)")
+	// inspectCmd.PersistentFlags().StringVar(&server.RPCAddr, "raddr", raddr, "Set RPC server addr (host:port)")
 	rootCmd.AddCommand(inspectCmd)
 }
 
@@ -39,9 +39,9 @@ const delimiter = "-----------------------------------------"
 
 func inspect() error {
 	client := &protocol.RPCClient{}
-	log.Info().Str("address", raddr).Msg("Connecting to server")
+	log.Info().Str("address", server.RPCAddr).Msg("Connecting to server")
 	// This ensures all contexts get a running server
-	err := client.Connect(raddr)
+	err := client.Connect(server.RPCAddr)
 	if err != nil {
 		return err
 	}

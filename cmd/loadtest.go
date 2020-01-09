@@ -48,7 +48,6 @@ var loadTestCmd = &cobra.Command{
 	Use:   "loadtest",
 	Short: "Run a yaad loadtest",
 	Run: func(cmd *cobra.Command, args []string) {
-		setLogLevel()
 		fmt.Println("Running Yaad load test")
 
 		if !enqueueMode && !dequeueMode {
@@ -59,7 +58,7 @@ var loadTestCmd = &cobra.Command{
 }
 
 func runLoadTest() {
-	metrics.InitMetrics(statsAddr)
+	metrics.InitMetrics(server.StatsAddr)
 
 	log.Info().Int("MaxJobs", jobs).
 		Int("MaxConnections", connections).
@@ -67,7 +66,7 @@ func runLoadTest() {
 		Int("MinDelaySec", minDelaySec).
 		Bool("EnqueueMode", enqueueMode).
 		Bool("DequeueMode", dequeueMode).
-		Str("RPCAddr", raddr).
+		Str("RPCAddr", server.RPCAddr).
 		Msg("Setting up load test parameters")
 
 	enqWG := &sync.WaitGroup{}
@@ -80,7 +79,7 @@ func runLoadTest() {
 	clients := []*protocol.RPCClient{}
 	for c := 0; c < connections; c++ {
 		client := &protocol.RPCClient{}
-		err := client.Connect(raddr)
+		err := client.Connect(server.RPCAddr)
 		if err != nil {
 			log.Fatal().Int("WorkerID", c).Err(err).Msg("Failed to connect for worker")
 		}

@@ -9,16 +9,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// FSStoreConfig - configures the FS store
+type FSStoreConfig struct {
+	BaseDir string
+}
+
 // fs provides access to the local file-system as a storage layer for persistence
 type fs struct {
 	dataDir string
 }
 
 // NewFSStore creates a new file based storage
-func NewFSStore(loc string) (Storage, error) {
-	dataDir := path.Join(loc, "journal")
+func NewFSStore(cfg FSStoreConfig) (Storage, error) {
+	dataDir := path.Join(cfg.BaseDir, "journal")
 	log.Info().Msg("Store:fs Creating file store")
-	f := &fs{dataDir: dataDir}
+	f := &fs{dataDir}
 	log.Info().Msgf("store: %s", f)
 	return f, f.verifyAccess()
 }
