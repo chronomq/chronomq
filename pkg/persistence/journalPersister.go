@@ -25,7 +25,6 @@ func NewJournalPersister(s Storage) Persister {
 		writer:  nil,
 	}
 
-	log.Info().Msgf("Created Journal persister with store: %+v", s)
 	log.Info().Str("store", s.String()).Msg("Created Journal persister with store")
 	return lp
 }

@@ -69,7 +69,7 @@ var _ = Describe("Test jobs", func() {
 		It("use a persister to save a job", func() {
 			j := NewJobAutoID(time.Now(), []byte("This is a test job"))
 			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
-			store, err := persistence.NewFSStore(persistenceTestDir)
+			store, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: persistenceTestDir})
 			Expect(err).NotTo(HaveOccurred())
 			p := persistence.NewJournalPersister(store)
 			Expect(p.ResetDataDir()).To(BeNil())

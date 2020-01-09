@@ -22,7 +22,7 @@ var _ = Describe("Test persistence", func() {
 		var p persistence.Persister
 
 		BeforeEach(func() {
-			store, err := persistence.NewFSStore(persistenceTestDir)
+			store, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: persistenceTestDir})
 			Expect(err).ToNot(HaveOccurred())
 			p = persistence.NewJournalPersister(store)
 			Expect(p.ResetDataDir()).To(BeNil())

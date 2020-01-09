@@ -14,6 +14,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// S3StoreConfig - config for s3 backed storage
+type S3StoreConfig struct {
+	Bucket string
+	Prefix string
+}
+
 // s3 provides access to S3 as a storage layer for persistence
 type s3 struct {
 	key    string
@@ -21,7 +27,7 @@ type s3 struct {
 }
 
 // NewS3Store creates a new s3 backed store
-func NewS3Store(bucketName, prefix string) (Storage, error) {
+func NewS3Store(cfg S3StoreConfig) (Storage, error) {
 	s3util.SetLogger(log.Logger, "", stdlog.LstdFlags, true)
 	keys, err := s3util.EnvKeys()
 	if err != nil {
@@ -29,8 +35,9 @@ func NewS3Store(bucketName, prefix string) (Storage, error) {
 		return nil, err
 	}
 	s3u := s3util.New("", keys)
-	b := s3u.Bucket(bucketName)
-	key := path.Join(prefix, "journal", "jobs.snapshot")
+	b := s3u.Bucket(cfg.Bucket)
+
+	key := path.Join(cfg.Prefix, "journal", "jobs.snapshot")
 	s := &s3{key: key, bucket: b}
 	return s, s.verifyAccess()
 }
@@ -42,12 +49,12 @@ func (s *s3) Reset() error {
 
 // Writer creates a new io.Writer for the storage
 func (s *s3) Writer() (io.WriteCloser, error) {
+	log.Info().Msg("S3Store::Writer creating new writer")
 	return s.writer(s.key)
 }
 
 // writer creates a writer for the given key location
 func (s *s3) writer(key string) (io.WriteCloser, error) {
-	log.Info().Msg("s3store ::: creating writer for key " + key)
 	w, err := s.bucket.PutWriter(key, nil, nil)
 	if err != nil {
 		return nil, err
@@ -57,6 +64,7 @@ func (s *s3) writer(key string) (io.WriteCloser, error) {
 
 // Reader creates a new io.Reader for the storage
 func (s *s3) Reader() (io.ReadCloser, error) {
+	log.Info().Msg("S3Store::Reader creating new reader")
 	return s.reader(s.key)
 }
 
@@ -65,7 +73,7 @@ func (s *s3) reader(key string) (io.ReadCloser, error) {
 	// Ignore the headers
 	r, _, err := s.bucket.GetReader(key, nil)
 	if err != nil {
-		log.Error().Err(err).Msg("Store:s3:reader failed to create a reader")
+		log.Error().Err(err).Msg("S3Store:reader failed to create a reader")
 	}
 	return r, err
 }
@@ -73,6 +81,7 @@ func (s *s3) reader(key string) (io.ReadCloser, error) {
 // verifyAccess makes sure the store is wired correctly reachable
 // Detect access failures as early as possible rather than at shutdown much later
 func (s *s3) verifyAccess() error {
+	log.Info().Msg("verifying access for s3")
 	testKey := s.key + ".test"
 	testData := []byte(`access_check__` + time.Now().String())
 	// Write some test data
