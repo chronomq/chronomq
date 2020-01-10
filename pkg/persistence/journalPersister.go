@@ -15,6 +15,11 @@ type JournalPersister struct {
 	stream  chan gob.GobEncoder // Internal stream so that all writes are ordered
 	storage Storage
 	writer  *journal.Writer
+
+	// leveldb journal Writer sadly doesn't propage close to the underlying writer
+	// so we are keeping a reference here to close it on Finalize. We could probably
+	// move to using Gob streams directly on underlying storage
+	storeWriter io.Closer
 }
 
 // NewJournalPersister initializes a Journal backed persister
@@ -48,13 +53,16 @@ func (lp *JournalPersister) Finalize() {
 		}
 		err = lp.writer.Close()
 		if err != nil {
-			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing writer")
+			log.Error().Err(err).Msg("JournalPersister:Finalize error closing journal writer")
 		}
-		err = lp.writer.Close()
+	}
+
+	// close storage writer
+	if lp.storeWriter != nil {
+		err := lp.storeWriter.Close()
 		if err != nil {
-			log.Error().Err(err).Msg("JournalPersister:Finalize error finalizing store")
+			log.Error().Err(err).Msg("JournalPersister:Finalize error closing store writer")
 		}
-		log.Info().Msg("JournalPersister:Finalize closed writer db")
 	}
 	log.Info().Msg("JournalPersister:Finalize done")
 }
@@ -144,6 +152,7 @@ func (lp *JournalPersister) write(enc gob.GobEncoder) error {
 			log.Error().Err(err).Send()
 			return err
 		}
+		lp.storeWriter = sw
 		lp.writer = journal.NewWriter(sw)
 	}
 

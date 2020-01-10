@@ -22,7 +22,6 @@ type fs struct {
 // NewFSStore creates a new file based storage
 func NewFSStore(cfg FSStoreConfig) (Storage, error) {
 	dataDir := path.Join(cfg.BaseDir, "journal")
-	log.Info().Msg("Store:fs Creating file store")
 	f := &fs{dataDir}
 	log.Info().Msgf("store: %s", f)
 	return f, f.verifyAccess()
@@ -56,7 +55,6 @@ func (f *fs) Writer() (io.WriteCloser, error) {
 
 // Reader creates a new io.Reader for the storage
 func (f *fs) Reader() (io.ReadCloser, error) {
-	log.Info().Str("file", f.path()).Msg("Store:fs:reader setting up file store")
 	r, err := os.Open(f.path())
 	if err != nil {
 		err = errors.Wrap(err, "Store:fs:reader failed to open file")
