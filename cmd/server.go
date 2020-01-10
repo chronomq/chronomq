@@ -59,11 +59,6 @@ type server struct {
 func run(s *server) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		// Check for store args
-		switch s.storeCfg.Store {
-		case persistence.FileStore, persistence.S3Store:
-		default:
-			log.Fatal().Msg("Unknown persistence store option specified. Aborting")
-		}
 		log.Info().Int("PID", os.Getpid()).Msg("Starting Server")
 		s.serve()
 		log.Info().Msg("Shutdown ok")
