@@ -2,6 +2,7 @@ package goyaad_test
 
 import (
 	"math/rand"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -13,17 +14,20 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
-var dataDir = path.Join(os.TempDir(), "goyaadtest")
 var persister persistence.Persister
 
 var _ = Describe("Test hub", func() {
 	defer GinkgoRecover()
 
 	BeforeEach(func() {
-		storage, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: dataDir})
+		store, err := persistence.InMemStorage()
 		Expect(err).To(BeNil())
-		persister = persistence.NewJournalPersister(storage)
+		persister = persistence.NewJournalPersister(store)
 		Expect(persister.ResetDataDir()).To(BeNil())
+	})
+
+	AfterEach(func() {
+		persister.Finalize()
 	})
 
 	It("can create a hub", func() {
@@ -42,7 +46,6 @@ var _ = Describe("Test hub", func() {
 			j := NewJobAutoID(time.Now().Add(time.Millisecond*time.Duration(rand.Intn(999999))), nil)
 			h.AddJobLocked(j)
 			Expect(h.Stats().CurrentJobs).To(Equal(int64(1)))
-
 		}
 	})
 
@@ -158,14 +161,17 @@ var _ = Describe("Test hub", func() {
 		defer close(done)
 		wd, _ := os.Getwd()
 
-		store, err := persistence.NewFSStore(persistence.FSStoreConfig{
-			BaseDir: path.Join(wd, "../../testdata/persist_golden"),
-		})
+		store, err := persistence.StoreConfig{
+			Bucket: &url.URL{
+				Scheme: "file",
+				Path:   path.Join(wd, "../../testdata/persist_golden")},
+		}.Storage()
 		Expect(err).To(BeNil())
-		persister := persistence.NewJournalPersister(store)
+		p := persistence.NewJournalPersister(store)
+		defer p.Finalize()
 		opts := &HubOpts{
 			SpokeSpan:      time.Nanosecond * 3000,
-			Persister:      persister,
+			Persister:      p,
 			AttemptRestore: false}
 		h := NewHub(opts)
 		err = h.Restore()

@@ -3,8 +3,6 @@ package goyaad_test
 import (
 	"container/heap"
 	"math/rand"
-	"os"
-	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -167,9 +165,9 @@ var _ = Describe("Test spokes", func() {
 	Context("Spoke persistence", func() {
 		It("persists a spoke", func() {
 			s := NewSpokeFromNow(time.Minute * 100)
-			persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
-			store, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: persistenceTestDir})
+			store, err := persistence.InMemStorage()
 			p := persistence.NewJournalPersister(store)
+			defer p.Finalize()
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Expect(p.ResetDataDir()).To(BeNil())

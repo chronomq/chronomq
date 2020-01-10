@@ -117,6 +117,8 @@ func (lp *JournalPersister) Recover() (chan []byte, error) {
 	bufC := make(chan []byte)
 	go func() {
 		defer close(bufC)
+		// Close storage reader
+		defer sr.Close()
 
 		for {
 			j, err := r.Next()

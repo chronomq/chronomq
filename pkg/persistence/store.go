@@ -3,6 +3,7 @@ package persistence
 import (
 	"fmt"
 	"io"
+	"net/url"
 )
 
 // Storage provides the underlying data store used by the persister
@@ -23,4 +24,9 @@ type Storage interface {
 // Storage creates a new Storage based on the config
 func (cfg StoreConfig) Storage() (Storage, error) {
 	return NewBlobStore(cfg)
+}
+
+// InMemStorage for integration testing
+func InMemStorage() (Storage, error) {
+	return NewBlobStore(StoreConfig{Bucket: &url.URL{Scheme: "mem"}})
 }

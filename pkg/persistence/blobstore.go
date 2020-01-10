@@ -38,7 +38,7 @@ func NewBlobStore(cfg StoreConfig) (Storage, error) {
 		return nil, err
 	}
 	s := &blobStore{
-		bucket: b,
+		bucket: blob.PrefixedBucket(b, "journal/"),
 		cfg:    cfg,
 	}
 
@@ -58,6 +58,14 @@ func (b *blobStore) Reader() (io.ReadCloser, error) {
 }
 
 func (b *blobStore) Reset() error {
+	ok, err := b.bucket.Exists(context.Background(), dataKey)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	log.Error().Msg("Deleting bucket key: " + b.cfg.Bucket.String() + "/" + dataKey)
 	return b.bucket.Delete(context.Background(), dataKey)
 }
 
@@ -80,5 +88,5 @@ func (b *blobStore) verifyAccess() error {
 		log.Error().Err(err).Send()
 		return err
 	}
-	return nil
+	return b.bucket.Delete(context.Background(), verifyAccessKey)
 }
