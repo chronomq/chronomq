@@ -23,11 +23,12 @@ var _ = Describe("Test rpc protocol:", func() {
 
 	BeforeEach(func(done Done) {
 		defer close(done)
+		store, err := persistence.NewFSStore(persistence.FSStoreConfig{})
+		Expect(err).NotTo(HaveOccurred())
 		var opts = goyaad.HubOpts{
 			AttemptRestore: false,
-			Persister:      persistence.NewJournalPersister(""),
+			Persister:      persistence.NewJournalPersister(store),
 			SpokeSpan:      time.Second * 5}
-		var err error
 		hub = goyaad.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
 		srv, err = protocol.ServeRPC(hub, addr)

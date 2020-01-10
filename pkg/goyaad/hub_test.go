@@ -20,7 +20,9 @@ var _ = Describe("Test hub", func() {
 	defer GinkgoRecover()
 
 	BeforeEach(func() {
-		persister = persistence.NewJournalPersister(dataDir)
+		storage, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: dataDir})
+		Expect(err).To(BeNil())
+		persister = persistence.NewJournalPersister(storage)
 		Expect(persister.ResetDataDir()).To(BeNil())
 	})
 
@@ -155,13 +157,18 @@ var _ = Describe("Test hub", func() {
 	It("bootstraps a new hub from a golden peristence record", func(done Done) {
 		defer close(done)
 		wd, _ := os.Getwd()
-		persister := persistence.NewJournalPersister(path.Join(wd, "../../testdata/persist_golden"))
+
+		store, err := persistence.NewFSStore(persistence.FSStoreConfig{
+			BaseDir: path.Join(wd, "../../testdata/persist_golden"),
+		})
+		Expect(err).To(BeNil())
+		persister := persistence.NewJournalPersister(store)
 		opts := &HubOpts{
 			SpokeSpan:      time.Nanosecond * 3000,
 			Persister:      persister,
 			AttemptRestore: false}
 		h := NewHub(opts)
-		err := h.Restore()
+		err = h.Restore()
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(h.Stats().CurrentJobs).To(Equal(int64(1000)))
