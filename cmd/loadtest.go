@@ -15,17 +15,30 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
-var jobs = 1000
-var connections = 1000
-var maxDelaySec = 0
-var minDelaySec = 0
+var (
+	jobs        = 1000
+	connections = 1000
+	maxDelaySec = 0
+	minDelaySec = 0
 
-var enqueueMode = false
-var dequeueMode = false
-var nsTolerance int64 = 1000
-var enableTolerance = false
+	enqueueMode           = false
+	dequeueMode           = false
+	nsTolerance     int64 = 1000
+	enableTolerance       = false
+	sizeBytes             = 100
 
-var sizeBytes = 100
+	loadTestCmd = &cobra.Command{
+		Use:   "loadtest",
+		Short: "Run a yaad loadtest",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Running Yaad load test")
+			if !enqueueMode && !dequeueMode {
+				log.Fatal().Msg("One of enqueue mode or dequeue mode required. See --help.")
+			}
+			runLoadTest()
+		},
+	}
+)
 
 func init() {
 
@@ -42,19 +55,6 @@ func init() {
 	loadTestCmd.Flags().BoolVarP(&dequeueMode, "dequeueMode", "d", false, "Dequeue jobs")
 
 	rootCmd.AddCommand(loadTestCmd)
-}
-
-var loadTestCmd = &cobra.Command{
-	Use:   "loadtest",
-	Short: "Run a yaad loadtest",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Running Yaad load test")
-
-		if !enqueueMode && !dequeueMode {
-			log.Fatal().Msg("One of enqueue mode or dequeue mode required. See --help.")
-		}
-		runLoadTest()
-	},
 }
 
 func runLoadTest() {

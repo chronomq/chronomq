@@ -10,8 +10,23 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
-var num int
-var outfile string
+const delimiter = "-----------------------------------------"
+
+var (
+	num        int
+	outfile    string
+	inspectCmd = &cobra.Command{
+		Use:   "inspect",
+		Short: "Fetches upto num jobs from the server without consuming them",
+		Long: `Use this commmand carefully. If num is too large, it might cause the server
+		to slow down during the inspect operation as well as place memory pressure. For large
+		num, it will also put mem pressure on the client call`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Msg("inspecting")
+			return inspect()
+		},
+	}
+)
 
 func init() {
 	inspectCmd.Flags().IntVarP(&num, "num", "n", 1, "Max Number of jobs to inspect")
@@ -20,23 +35,6 @@ func init() {
 	inspectCmd.Flags().StringVar(&defaultAddrs.rpcAddr, "raddr", defaultAddrs.rpcAddr, "Set RPC server addr (host:port)")
 	rootCmd.AddCommand(inspectCmd)
 }
-
-var inspectCmd = &cobra.Command{
-	Use:   "inspect",
-	Short: "Fetches upto num jobs from the server without consuming them",
-	Long: `Use this commmand carefully. If num is too large, it might cause the server
-	to slow down during the inspect operation as well as place memory pressure. For large
-	num, it will also put mem pressure on the client call`,
-	Run: func(cmd *cobra.Command, args []string) {
-		log.Info().Msg("inspecting")
-		err := inspect()
-		if err != nil {
-			log.Fatal().Err(err).Send()
-		}
-	},
-}
-
-const delimiter = "-----------------------------------------"
 
 func inspect() error {
 	client := &protocol.RPCClient{}
