@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -54,6 +56,14 @@ func (b *blobStore) Writer() (io.WriteCloser, error) {
 }
 
 func (b *blobStore) Reader() (io.ReadCloser, error) {
+	exists, err := b.bucket.Exists(context.Background(), dataKey)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		log.Warn().Str("key", dataKey).Msg("Skipping restore - data key does not exist yet")
+		return ioutil.NopCloser(strings.NewReader("")), nil
+	}
 	return b.bucket.NewReader(context.Background(), dataKey, nil)
 }
 
