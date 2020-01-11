@@ -2,8 +2,7 @@ package persistence_test
 
 import (
 	"io/ioutil"
-	"os"
-	"path"
+	"net/url"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -16,21 +15,20 @@ import (
 var _ = Describe("Test stores", func() {
 
 	Context("Filesystem store", func() {
-		testDir := path.Join(os.TempDir(), "goyaadtest_storefs")
+		bucketURL := &url.URL{Scheme: "mem", Path: "test"}
+		var store persistence.Storage
 
 		BeforeEach(func() {
-			s, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: testDir})
+			var err error
+			store, err = persistence.StoreConfig{Bucket: bucketURL}.Storage()
 			Expect(err).ToNot(HaveOccurred())
-			err = s.Reset()
+			err = store.Reset()
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("stores data and reads it back", func() {
-			s, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: testDir})
-			Expect(err).ToNot(HaveOccurred())
-
 			j := goyaad.NewJobAutoID(time.Now(), testBody)
-			w, err := s.Writer()
+			w, err := store.Writer()
 			Expect(err).To(BeNil())
 
 			// write a job
@@ -45,8 +43,9 @@ var _ = Describe("Test stores", func() {
 			Expect(err).To(BeNil())
 
 			// read it back
-			r, err := s.Reader()
+			r, err := store.Reader()
 			Expect(err).To(BeNil())
+			defer r.Close()
 			rb, err := ioutil.ReadAll(r)
 			Expect(err).To(BeNil())
 			Expect(b).To(Equal(rb))

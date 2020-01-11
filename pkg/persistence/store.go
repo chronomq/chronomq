@@ -3,9 +3,7 @@ package persistence
 import (
 	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"net/url"
 )
 
 // Storage provides the underlying data store used by the persister
@@ -23,33 +21,12 @@ type Storage interface {
 	verifyAccess() error
 }
 
-// StoreType - named store implementations
-type StoreType = string
-
-const (
-	// FileStore selects a file system backed storage
-	FileStore StoreType = "FS"
-	// S3Store selects an s3 backed storage
-	S3Store StoreType = "S3"
-)
-
-// StoreConfig for storage
-type StoreConfig struct {
-	Store StoreType
-
-	S3Cfg S3StoreConfig
-	FSCfg FSStoreConfig
+// Storage creates a new Storage based on the config
+func (cfg StoreConfig) Storage() (Storage, error) {
+	return NewBlobStore(cfg)
 }
 
-// Storage creates a new Storage based on the config
-func (cfg *StoreConfig) Storage() (Storage, error) {
-	log.Info().Msg("Creating store: " + cfg.Store)
-	switch cfg.Store {
-	case FileStore:
-		return NewFSStore(cfg.FSCfg)
-	case S3Store:
-		return NewS3Store(cfg.S3Cfg)
-	default:
-		return nil, errors.New("Unknown store type option")
-	}
+// InMemStorage for integration testing
+func InMemStorage() (Storage, error) {
+	return NewBlobStore(StoreConfig{Bucket: &url.URL{Scheme: "mem"}})
 }

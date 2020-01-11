@@ -31,9 +31,16 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "INFO", "Set log level: INFO, DEBUG")
 	rootCmd.PersistentFlags().BoolVarP(&friendlyLog, "friendly-log", "L", false, "Use a human-friendly logging style")
 
-	rootCmd.PersistentFlags().StringVar(&defaultAddrs.rpcAddr, "raddr", defaultServer.addrs.rpcAddr, "Bind RPC listener to (host:port)")
-	rootCmd.PersistentFlags().StringVar(&defaultAddrs.grpcAddr, "gaddr", defaultServer.addrs.grpcAddr, "Bind GRPC listener to (host:port)")
+	rootCmd.PersistentFlags().StringVar(&defaultAddrs.rpcAddr, "raddr", defaultAddrs.rpcAddr, "Bind RPC listener to (host:port)")
+	rootCmd.PersistentFlags().StringVar(&defaultAddrs.grpcAddr, "gaddr", defaultAddrs.grpcAddr, "Bind GRPC listener to (host:port)")
 	rootCmd.PersistentFlags().StringVar(&defaultAddrs.statsAddr, "statsAddr", defaultAddrs.statsAddr, "Remote StatsD listener (host:port)")
+}
+
+// addrs - holds common net address configurations
+type addrs struct {
+	rpcAddr   string // RPC Listener Addr
+	grpcAddr  string // GRPC Listener Addr
+	statsAddr string // StatsD listener Addr
 }
 
 // Execute root cmd by default

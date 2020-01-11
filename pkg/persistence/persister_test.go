@@ -2,6 +2,7 @@ package persistence_test
 
 import (
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -18,11 +19,19 @@ var testBody = []byte("Hello world")
 var _ = Describe("Test persistence", func() {
 
 	Context("persister functions", func() {
-		persistenceTestDir := path.Join(os.TempDir(), "goyaadtest")
+		bucketDirPath := path.Join(os.TempDir(), "goyaadtest")
+		testDirPath := path.Join(bucketDirPath, "journal")
+		storeURL := &url.URL{Scheme: "file", Path: bucketDirPath}
+
 		var p persistence.Persister
 
+		BeforeSuite(func() {
+			err := os.MkdirAll(testDirPath, os.ModeDir|os.FileMode(0777))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		BeforeEach(func() {
-			store, err := persistence.NewFSStore(persistence.FSStoreConfig{BaseDir: persistenceTestDir})
+			store, err := persistence.StoreConfig{Bucket: storeURL}.Storage()
 			Expect(err).ToNot(HaveOccurred())
 			p = persistence.NewJournalPersister(store)
 			Expect(p.ResetDataDir()).To(BeNil())
@@ -36,11 +45,12 @@ var _ = Describe("Test persistence", func() {
 			p.Finalize()
 
 			// reset
-			Expect(p.ResetDataDir()).To(BeNil())
-
-			dir, err := ioutil.ReadDir(path.Join(persistenceTestDir, "journal"))
+			err = p.ResetDataDir()
 			Expect(err).To(BeNil())
-			Expect(len(dir)).To(Equal(0))
+
+			dir, err := ioutil.ReadDir(testDirPath)
+			Expect(err).To(BeNil(), testDirPath)
+			Expect(len(dir)).To(Equal(0), testDirPath)
 		})
 
 		It("persists a goyaad job and then recovers it", func(done Done) {
