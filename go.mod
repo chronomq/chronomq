@@ -9,7 +9,6 @@ require (
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3
 	github.com/pkg/errors v0.8.1
-	github.com/rlmcpherson/s3gof3r v0.5.0
 	github.com/rs/zerolog v1.15.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/seiflotfy/cuckoofilter v0.0.0-20190302225222-764cb5258d9b

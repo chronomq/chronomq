@@ -115,8 +115,6 @@ github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
-# github.com/rlmcpherson/s3gof3r v0.5.0
-github.com/rlmcpherson/s3gof3r
 # github.com/rs/zerolog v1.15.0
 github.com/rs/zerolog
 github.com/rs/zerolog/internal/cbor
