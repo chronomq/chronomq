@@ -65,7 +65,6 @@ func (b *blobStore) Reset() error {
 	if !ok {
 		return nil
 	}
-	log.Error().Msg("Deleting bucket key: " + b.cfg.Bucket.String() + "/" + dataKey)
 	return b.bucket.Delete(context.Background(), dataKey)
 }
 
