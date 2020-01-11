@@ -19,8 +19,9 @@ var testBody = []byte("Hello world")
 var _ = Describe("Test persistence", func() {
 
 	Context("persister functions", func() {
-		testDirPath := path.Join(os.TempDir(), "goyaadtest")
-		storeURL := &url.URL{Scheme: "file", Path: testDirPath}
+		bucketDirPath := path.Join(os.TempDir(), "goyaadtest")
+		testDirPath := path.Join(bucketDirPath, "journal")
+		storeURL := &url.URL{Scheme: "file", Path: bucketDirPath}
 
 		var p persistence.Persister
 
