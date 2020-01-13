@@ -1,4 +1,4 @@
-package goyaad
+package job
 
 import (
 	"sync/atomic"

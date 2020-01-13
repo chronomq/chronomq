@@ -1,4 +1,4 @@
-package goyaad
+package spoke
 
 import (
 	"container/heap"
@@ -10,15 +10,18 @@ import (
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/urjitbhatia/goyaad/internal/job"
+	"github.com/urjitbhatia/goyaad/internal/queue"
+	"github.com/urjitbhatia/goyaad/internal/temporal"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 // Spoke is a time bound chain of jobs
 type Spoke struct {
 	id uuid.UUID
-	SpokeBound
-	jobMap   map[string]bool // Provides quicker lookup of jobs owned by this spoke
-	jobQueue PriorityQueue   // Orders the jobs by trigger priority
+	temporal.Bound
+	jobMap   map[string]bool     // Provides quicker lookup of jobs owned by this spoke
+	jobQueue queue.PriorityQueue // Orders the jobs by trigger priority
 
 	lock *sync.Mutex
 }
@@ -38,13 +41,23 @@ func NewSpokeFromNow(duration time.Duration) *Spoke {
 
 // NewSpoke creates a new spoke to hold jobs
 func NewSpoke(start, end time.Time) *Spoke {
-	jq := PriorityQueue{}
+	jq := queue.PriorityQueue{}
 	heap.Init(&jq)
 	return &Spoke{id: uuid.NewV4(),
-		jobMap:     make(map[string]bool),
-		jobQueue:   jq,
-		SpokeBound: SpokeBound{start, end},
-		lock:       &sync.Mutex{}}
+		jobMap:   make(map[string]bool),
+		jobQueue: jq,
+		Bound:    temporal.NewBound(start, end),
+		lock:     &sync.Mutex{}}
+}
+
+// IsJobInBounds returns true if this job's trigger time is temporally bounded by this spoke
+func (s *Spoke) IsJobInBounds(j *job.Job) bool {
+	return s.ContainsTime(j.TriggerAt())
+}
+
+// JobAtIdx returns the job at index i stored by this spoke
+func (s *Spoke) JobAtIdx(i int) *job.Job {
+	return s.jobQueue.AtIdx(i).Value().(*job.Job)
 }
 
 // GetLocker returns the spoke as a sync.Locker interface
@@ -63,41 +76,40 @@ func (s *Spoke) Unlock() {
 }
 
 // AsTemporalState returns the spoke's temporal classification at the point in time
-func (s *Spoke) AsTemporalState() TemporalState {
-	now := time.Now()
+func (s *Spoke) AsTemporalState() temporal.State {
 	switch {
-	case s.end.Before(now):
-		return Past
-	case s.start.After(now):
-		return Future
+	case s.IsExpired():
+		return temporal.Past
+	case s.IsStarted():
+		return temporal.Current
 	default:
-		return Current
+		return temporal.Current
 	}
 }
 
 // AddJobLocked submits a job to the spoke. If the spoke cannot take responsibility
 // of this job, it will return it as it is, otherwise nil is returned
-func (s *Spoke) AddJobLocked(j *Job) error {
+func (s *Spoke) AddJobLocked(j *job.Job) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if !s.ContainsJob(j) {
+	if !s.IsJobInBounds(j) {
 		return ErrJobOutOfSpokeBounds
 	}
 	log.Debug().
-		Str("jobID", j.id).
-		Time("triggerAt", j.triggerAt).
+		Str("jobID", j.ID()).
+		Time("triggerAt", j.TriggerAt()).
 		Str("spokeID", s.id.String()).
-		Time("spokeStart", s.start).
-		Time("spokeEnd", s.end).
+		Time("spokeStart", s.Start()).
+		Time("spokeEnd", s.End()).
 		Msg("Accepting new job")
 
-	s.jobMap[j.id] = true
+	s.jobMap[j.ID()] = true
 	heap.Push(&s.jobQueue, j.AsPriorityItem())
 	return nil
 }
 
 // NextLocked returns the next ready job
-func (s *Spoke) NextLocked() *Job {
+func (s *Spoke) NextLocked() *job.Job {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -110,11 +122,11 @@ func (s *Spoke) NextLocked() *Job {
 		return nil
 	}
 
-	j := i.value.(*Job)
+	j := i.Value().(*job.Job)
 	switch j.AsTemporalState() {
-	case Past, Current:
+	case temporal.Past, temporal.Current:
 		// pop from queue
-		delete(s.jobMap, j.id)
+		delete(s.jobMap, j.ID())
 		heap.Pop(&s.jobQueue)
 		return j
 	default:
@@ -131,7 +143,7 @@ func (s *Spoke) CancelJobLocked(id string) error {
 		delete(s.jobMap, id)
 		// Also delete from pq
 		for i, j := range s.jobQueue {
-			if j.value.(*Job).id == id {
+			if j.Value().(*job.Job).ID() == id {
 				heap.Remove(&s.jobQueue, i)
 				return nil
 			}
@@ -160,8 +172,8 @@ func (s *Spoke) ID() uuid.UUID {
 }
 
 // AsPriorityItem returns a spoke as a prioritizable Item
-func (s *Spoke) AsPriorityItem() *Item {
-	return &Item{index: 0, priority: s.start, value: s}
+func (s *Spoke) AsPriorityItem() *queue.Item {
+	return queue.NewItem(s, s.Start())
 }
 
 // PersistLocked all jobs in this spoke
@@ -173,7 +185,7 @@ func (s *Spoke) PersistLocked(p persistence.Persister) chan error {
 		defer s.Unlock()
 		var i = 0
 		for i = 0; i < s.jobQueue.Len(); i++ {
-			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*Job))
+			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*job.Job))
 			if err != nil {
 				errC <- err
 				continue

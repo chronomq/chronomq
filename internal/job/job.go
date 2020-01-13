@@ -1,4 +1,4 @@
-package goyaad
+package job
 
 import (
 	"bytes"
@@ -9,6 +9,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
+	"github.com/urjitbhatia/goyaad/internal/queue"
+	"github.com/urjitbhatia/goyaad/internal/temporal"
 )
 
 // Job is the basic unit of work in yaad
@@ -42,15 +45,15 @@ func NewJobAutoID(triggerAt time.Time, b []byte) *Job {
 }
 
 // AsTemporalState returns the job's temporal classification at the point in time
-func (j *Job) AsTemporalState() TemporalState {
+func (j *Job) AsTemporalState() temporal.State {
 	now := time.Now()
 	switch {
 	case now.After(j.triggerAt):
-		return Past
+		return temporal.Past
 	case j.triggerAt.After(now):
-		return Future
+		return temporal.Future
 	default:
-		return Past
+		return temporal.Past
 	}
 }
 
@@ -80,17 +83,17 @@ func (j *Job) IsReady() bool {
 	return time.Now().After(j.triggerAt)
 }
 
-// AsBound returns spokeBound for a hypothetical spoke that should hold this job
-func (j *Job) AsBound(spokeSpan time.Duration) SpokeBound {
+// AsBound returns temporal.Bound for a hypothetical spoke that should hold this job
+func (j *Job) AsBound(spokeSpan time.Duration) temporal.Bound {
 	start := j.triggerAt.Truncate(spokeSpan)
 	end := start.Add(spokeSpan)
 
-	return SpokeBound{start: start, end: end}
+	return temporal.NewBound(start, end)
 }
 
 // AsPriorityItem returns this job as a prioritizable item
-func (j *Job) AsPriorityItem() *Item {
-	return &Item{index: 0, priority: j.triggerAt, value: j}
+func (j *Job) AsPriorityItem() *queue.Item {
+	return queue.NewItem(j, j.triggerAt)
 }
 
 // GobEncode encodes a job into a binary buffer

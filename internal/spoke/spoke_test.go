@@ -1,4 +1,4 @@
-package goyaad_test
+package spoke_test
 
 import (
 	"container/heap"
@@ -9,7 +9,9 @@ import (
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 
-	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
+	. "github.com/urjitbhatia/goyaad/internal/job"
+	. "github.com/urjitbhatia/goyaad/internal/queue"
+	. "github.com/urjitbhatia/goyaad/internal/spoke"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
@@ -20,17 +22,17 @@ var _ = Describe("Test spokes", func() {
 
 			// Starts in an hour, ends in 2 hours
 			s := NewSpoke(t.Add(time.Hour*1), t.Add(time.Hour*2))
-			Expect(s.IsReady()).To(BeFalse())
+			Expect(s.IsStarted()).To(BeFalse())
 			Expect(s.IsExpired()).To(BeFalse())
 
 			// Starts now, ends in 10 hours
 			s = NewSpokeFromNow(time.Hour * 10)
-			Expect(s.IsReady()).To(BeTrue())
+			Expect(s.IsStarted()).To(BeTrue())
 			Expect(s.IsExpired()).To(BeFalse())
 
 			// Ends in the past for the next tick
 			s = NewSpokeFromNow(0)
-			Expect(s.IsReady()).To(BeTrue())
+			Expect(s.IsStarted()).To(BeTrue())
 			Expect(s.IsExpired()).To(BeTrue())
 		})
 
@@ -39,7 +41,7 @@ var _ = Describe("Test spokes", func() {
 			j := NewJobAutoID(s.Start().Add(time.Second*20), nil)
 
 			// Accepts the job and returns nil
-			Expect(s.ContainsJob(j)).To(BeTrue())
+			Expect(s.IsJobInBounds(j)).To(BeTrue())
 			Expect(s.AddJobLocked(j)).To(BeNil())
 			Expect(s.PendingJobsLen()).To(Equal(1))
 			Expect(s.OwnsJobLocked(j.ID())).To(BeTrue())

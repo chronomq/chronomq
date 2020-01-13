@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	. "github.com/urjitbhatia/goyaad/internal/job"
 	. "github.com/urjitbhatia/goyaad/pkg/goyaad"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
