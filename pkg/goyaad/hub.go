@@ -427,29 +427,24 @@ func (h *Hub) StatusPrinter() {
 // PersistLocked locks the hub and starts persisting data to disk
 func (h *Hub) PersistLocked() chan error {
 	log.Warn().Msg("Starting disk offload")
-	wg := &sync.WaitGroup{}
 	ec := make(chan error)
 
 	h.lock.Lock()
 	go func() {
 		defer h.lock.Unlock()
+		defer close(ec)
 
 		log.Warn().
 			Int("totalSpokes", h.spokes.Len()).
 			Int64("pendingJobsCount", h.stats.Read().CurrentJobs).
 			Msg("About to persist")
-		wg.Add(h.spokes.Len())
-		defer close(ec)
 
 		for i := 0; i < h.spokes.Len(); i++ {
 			s := h.spokes.AtIdx(i).Value().(*spoke.Spoke)
-			func() {
-				defer wg.Done()
-				errC := s.PersistLocked(h.persister)
-				for e := range errC {
-					ec <- e
-				}
-			}()
+			errC := s.PersistLocked(h.persister)
+			for e := range errC {
+				ec <- e
+			}
 		}
 
 		// Save past spoke
@@ -466,7 +461,6 @@ func (h *Hub) PersistLocked() chan error {
 			}
 		}
 
-		wg.Wait()
 		h.persister.Finalize()
 	}()
 
