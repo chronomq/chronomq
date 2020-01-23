@@ -11,12 +11,12 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/seiflotfy/cuckoofilter"
 
-	"github.com/urjitbhatia/goyaad/internal/job"
+	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/internal/queue"
 	"github.com/urjitbhatia/goyaad/internal/spoke"
 	"github.com/urjitbhatia/goyaad/internal/stats"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
@@ -280,13 +280,6 @@ func (h *Hub) next() *job.Job {
 	log.Debug().Str("jobID", j.ID()).Msg("returning next job")
 	h.stats.DecrJob()
 	return j
-}
-
-func (h *Hub) mergeQueues(pq *queue.PriorityQueue) {
-	for pq.Len() > 0 {
-		i := heap.Pop(pq)
-		h.spokes.Push(i)
-	}
 }
 
 // Prune clears spokes which are expired and have no jobs

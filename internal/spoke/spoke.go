@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/urjitbhatia/goyaad/internal/job"
+	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/internal/queue"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
