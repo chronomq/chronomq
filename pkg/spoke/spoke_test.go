@@ -11,7 +11,7 @@ import (
 
 	. "github.com/urjitbhatia/goyaad/pkg/job"
 	. "github.com/urjitbhatia/goyaad/internal/queue"
-	. "github.com/urjitbhatia/goyaad/internal/spoke"
+	. "github.com/urjitbhatia/goyaad/pkg/spoke"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 

@@ -12,7 +12,7 @@ import (
 	"github.com/seiflotfy/cuckoofilter"
 
 	"github.com/urjitbhatia/goyaad/internal/queue"
-	"github.com/urjitbhatia/goyaad/internal/spoke"
+	"github.com/urjitbhatia/goyaad/pkg/spoke"
 	"github.com/urjitbhatia/goyaad/internal/stats"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
 	"github.com/urjitbhatia/goyaad/pkg/job"
