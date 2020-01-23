@@ -14,7 +14,7 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/protocol"
 )
 
-var opts = goyaad.HubOpts{
+var opts = hub.HubOpts{
 	AttemptRestore: false,
 	SpokeSpan:      time.Second * 5}
 
@@ -39,7 +39,7 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 func BenchmarkRPCJobPuts(b *testing.B) {
 	log.Logger = zerolog.New(ioutil.Discard)
 	go func() {
-		protocol.ServeRPC(goyaad.NewHub(&opts), ":8001")
+		protocol.ServeRPC(hub.NewHub(&opts), ":8001")
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start

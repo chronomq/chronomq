@@ -116,18 +116,18 @@ func startApp(cfg *config) {
 		log.Fatal().Err(err).Msg("Cannot initialize storage")
 	}
 
-	opts := &goyaad.HubOpts{
+	opts := &hub.HubOpts{
 		AttemptRestore: cfg.restore,
 		SpokeSpan:      cfg.spokeSpan,
 		Persister:      persistence.NewJournalPersister(storage),
-		MaxCFSize:      goyaad.DefaultMaxCFSize,
+		MaxCFSize:      hub.DefaultMaxCFSize,
 	}
 
-	hub := goyaad.NewHub(opts)
+	h := hub.NewHub(opts)
 	var rpcSRV io.Closer
 	wg := sync.WaitGroup{}
 	go func() {
-		rpcSRV, _ = protocol.ServeRPC(hub, cfg.addrs.rpcAddr)
+		rpcSRV, _ = protocol.ServeRPC(h, cfg.addrs.rpcAddr)
 	}()
 
 	sigc := make(chan os.Signal, 1)
@@ -140,7 +140,7 @@ func startApp(cfg *config) {
 		log.Info().Msg("Stopping rpc protocol server")
 		rpcSRV.Close()
 		log.Info().Msg("Stopping rpc protocol server - Done")
-		hub.Stop(true)
+		h.Stop(true)
 	}()
 
 	wg.Wait()

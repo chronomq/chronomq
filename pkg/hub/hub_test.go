@@ -1,4 +1,4 @@
-package goyaad_test
+package hub_test
 
 import (
 	"math/rand"
@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/urjitbhatia/goyaad/pkg/job"
 	. "github.com/urjitbhatia/goyaad/pkg/hub"
+	. "github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
