@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
@@ -27,7 +27,7 @@ var _ = Describe("Test stores", func() {
 		})
 
 		It("stores data and reads it back", func() {
-			j := goyaad.NewJobAutoID(time.Now(), testBody)
+			j := job.NewJobAutoID(time.Now(), testBody)
 			w, err := store.Writer()
 			Expect(err).To(BeNil())
 
@@ -51,7 +51,7 @@ var _ = Describe("Test stores", func() {
 			Expect(b).To(Equal(rb))
 
 			// convert back to job and compare
-			jj := &goyaad.Job{}
+			jj := &job.Job{}
 			err = jj.GobDecode(rb)
 			Expect(err).To(BeNil())
 

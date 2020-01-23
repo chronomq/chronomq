@@ -9,7 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/job"
+	"github.com/urjitbhatia/goyaad/pkg/hub"
 )
 
 // ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration
@@ -32,14 +33,14 @@ func newRPCServer(hub *goyaad.Hub) *RPCServer {
 }
 
 // PutWithID accepts a new job and stores it in a Hub, reply is ignored
-func (r *RPCServer) PutWithID(job RPCJob, id *string) error {
-	var j *goyaad.Job
-	if job.ID == "" {
+func (r *RPCServer) PutWithID(rpcJob RPCJob, id *string) error {
+	var j *job.Job
+	if rpcJob.ID == "" {
 		// need to generate an id
-		j = goyaad.NewJobAutoID(time.Now().Add(job.Delay), job.Body)
+		j = job.NewJobAutoID(time.Now().Add(rpcJob.Delay), rpcJob.Body)
 		*id = j.ID()
 	} else {
-		j = goyaad.NewJob(job.ID, time.Now().Add(job.Delay), job.Body)
+		j = job.NewJob(rpcJob.ID, time.Now().Add(rpcJob.Delay), rpcJob.Body)
 	}
 	return r.hub.AddJobLocked(j)
 }

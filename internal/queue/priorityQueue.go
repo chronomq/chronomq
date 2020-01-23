@@ -1,4 +1,4 @@
-package goyaad
+package queue
 
 import (
 	"time"
@@ -10,6 +10,11 @@ type Item struct {
 	priority time.Time   // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
+}
+
+// NewItem wraps a value in a Queue Item
+func NewItem(value interface{}, priority time.Time) *Item {
+	return &Item{value, priority, 0}
 }
 
 // Value pointed to by the item

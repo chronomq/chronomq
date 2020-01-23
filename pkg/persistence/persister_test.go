@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/urjitbhatia/goyaad/pkg/goyaad"
+	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
@@ -38,7 +38,7 @@ var _ = Describe("Test persistence", func() {
 		})
 
 		It("properly resets data dir", func() {
-			j := goyaad.NewJobAutoID(time.Now(), testBody)
+			j := job.NewJobAutoID(time.Now(), testBody)
 			err := p.Persist(j)
 			Expect(err).To(BeNil())
 
@@ -56,7 +56,7 @@ var _ = Describe("Test persistence", func() {
 		It("persists a goyaad job and then recovers it", func(done Done) {
 			defer close(done)
 
-			j := goyaad.NewJobAutoID(time.Now(), testBody)
+			j := job.NewJobAutoID(time.Now(), testBody)
 			err := p.Persist(j)
 			Expect(err).To(BeNil())
 
@@ -67,9 +67,9 @@ var _ = Describe("Test persistence", func() {
 			Expect(err).To(BeNil())
 
 			// Wait for entries chan to close
-			jobs := []goyaad.Job{}
+			jobs := []job.Job{}
 			for buf := range jobsChan {
-				j := goyaad.Job{}
+				j := job.Job{}
 				err = j.GobDecode(buf)
 				Expect(err).To(BeNil())
 				jobs = append(jobs, j)
