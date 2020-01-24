@@ -19,19 +19,19 @@ var _ = Describe("Test rpc protocol:", func() {
 	var client *protocol.RPCClient
 
 	var srv io.Closer
-	var hub *goyaad.Hub
+	var h *hub.Hub
 
 	BeforeEach(func(done Done) {
 		defer close(done)
 		store, err := persistence.InMemStorage()
 		Expect(err).NotTo(HaveOccurred())
-		var opts = goyaad.HubOpts{
+		var opts = hub.HubOpts{
 			AttemptRestore: false,
 			Persister:      persistence.NewJournalPersister(store),
 			SpokeSpan:      time.Second * 5}
-		hub = goyaad.NewHub(&opts)
+		h = hub.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
-		srv, err = protocol.ServeRPC(hub, addr)
+		srv, err = protocol.ServeRPC(h, addr)
 		Expect(err).NotTo(HaveOccurred())
 		port++
 
@@ -49,7 +49,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		err := srv.Close()
 		Expect(err).NotTo(HaveOccurred())
 		srv = nil
-		hub = nil
+		h = nil
 		client = nil
 	})
 

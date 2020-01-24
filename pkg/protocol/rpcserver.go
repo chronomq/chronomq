@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/hub"
+	"github.com/urjitbhatia/goyaad/pkg/job"
 )
 
 // ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration
@@ -18,7 +18,7 @@ var ErrTimeout = errors.New("No new jobs available in given timeout")
 
 // RPCServer exposes a Yaad hub backed RPC endpoint
 type RPCServer struct {
-	hub *goyaad.Hub
+	hub *hub.Hub
 }
 
 // RPCJob is a light wrapper struct representing job data on the wire without extra metadata that is stored internally
@@ -28,7 +28,7 @@ type RPCJob struct {
 	Delay time.Duration
 }
 
-func newRPCServer(hub *goyaad.Hub) *RPCServer {
+func newRPCServer(hub *hub.Hub) *RPCServer {
 	return &RPCServer{hub: hub}
 }
 
@@ -114,7 +114,7 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*RPCJob) error {
 }
 
 // ServeRPC starts serving hub over rpc
-func ServeRPC(hub *goyaad.Hub, addr string) (io.Closer, error) {
+func ServeRPC(hub *hub.Hub, addr string) (io.Closer, error) {
 	srv := newRPCServer(hub)
 	rpcSrv := rpc.NewServer()
 	rpcSrv.Register(srv)

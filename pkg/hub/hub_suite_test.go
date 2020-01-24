@@ -1,4 +1,4 @@
-package goyaad_test
+package hub_test
 
 import (
 	"testing"
