@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/urjitbhatia/goyaad/internal/queue"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
@@ -18,7 +17,7 @@ import (
 
 // Spoke is a time bound chain of jobs
 type Spoke struct {
-	id uuid.UUID
+	id uint64
 	temporal.Bound
 	jobMap   map[string]bool     // Provides quicker lookup of jobs owned by this spoke
 	jobQueue queue.PriorityQueue // Orders the jobs by trigger priority
@@ -43,7 +42,7 @@ func NewSpokeFromNow(duration time.Duration) *Spoke {
 func NewSpoke(start, end time.Time) *Spoke {
 	jq := queue.PriorityQueue{}
 	heap.Init(&jq)
-	return &Spoke{id: uuid.NewV4(),
+	return &Spoke{id: job.NextID(),
 		jobMap:   make(map[string]bool),
 		jobQueue: jq,
 		Bound:    temporal.NewBound(start, end),
@@ -98,7 +97,7 @@ func (s *Spoke) AddJobLocked(j *job.Job) error {
 	log.Debug().
 		Str("jobID", j.ID()).
 		Time("triggerAt", j.TriggerAt()).
-		Str("spokeID", s.id.String()).
+		Uint64("spokeID", s.id).
 		Time("spokeStart", s.Start()).
 		Time("spokeEnd", s.End()).
 		Msg("Accepting new job")
@@ -168,7 +167,7 @@ func (s *Spoke) PendingJobsLen() int {
 }
 
 // ID returns the id of this spoke
-func (s *Spoke) ID() uuid.UUID {
+func (s *Spoke) ID() uint64 {
 	return s.id
 }
 
@@ -194,7 +193,7 @@ func (s *Spoke) PersistLocked(p persistence.Persister) chan error {
 		}
 		log.Info().
 			Int("jobCount", i).
-			Str("spokeID", s.id.String()).
+			Uint64("spokeID", s.id).
 			Msg("Persisted jobs from spoke")
 	}()
 	return errC

@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	uuid "github.com/satori/go.uuid"
 
 	. "github.com/urjitbhatia/goyaad/internal/queue"
 	. "github.com/urjitbhatia/goyaad/pkg/job"
@@ -140,8 +139,8 @@ var _ = Describe("Test spokes", func() {
 		It("cancels job from spoke that doesnt exist does nothing", func() {
 			s := NewSpokeFromNow(time.Hour * 1)
 			Expect(s.PendingJobsLen()).To(Equal(0))
-			s.CancelJobLocked(uuid.NewV4().String())
-			s.CancelJobLocked(uuid.NewV4().String())
+			Expect(s.CancelJobLocked("asdasd")).ToNot(HaveOccurred())
+			Expect(s.CancelJobLocked("asdasd123")).ToNot(HaveOccurred())
 		})
 	})
 
