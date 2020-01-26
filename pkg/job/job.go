@@ -18,14 +18,13 @@ import (
 // cache fixed size overhead
 var sizeOverhead = uint64(unsafe.Sizeof(Job{}))
 
+var serializationVersion = 1
+
 // Job is the basic unit of work in yaad
 type Job struct {
 	id        string
 	triggerAt time.Time
 	body      []byte
-
-	pri int32
-	ttr time.Duration
 }
 
 // Impl Job
@@ -70,12 +69,6 @@ func (j *Job) AsTemporalState() temporal.State {
 	}
 }
 
-// SetOpts sets job options
-func (j *Job) SetOpts(pri int32, ttr time.Duration) {
-	j.pri = pri
-	j.ttr = ttr
-}
-
 // ID returns the id of the job
 func (j *Job) ID() string {
 	return j.id
@@ -115,23 +108,19 @@ func (j *Job) GobEncode() (data []byte, err error) {
 	buf := new(bytes.Buffer)
 	enc := gob.NewEncoder(buf)
 
+	// insert serializationVersion first
+	err = enc.Encode(serializationVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	// id
 	err = enc.Encode(j.id)
 	if err != nil {
 		return nil, err
 	}
-	//pri
-	err = enc.Encode(j.pri)
-	if err != nil {
-		return nil, err
-	}
 	//trigger at
 	err = enc.Encode(j.triggerAt.UnixNano())
-	if err != nil {
-		return nil, err
-	}
-	//ttr
-	err = enc.Encode(j.ttr)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +142,14 @@ func (j *Job) GobEncode() (data []byte, err error) {
 func (j *Job) GobDecode(data []byte) error {
 	dec := gob.NewDecoder(bytes.NewReader(data))
 
-	// id
-	err := dec.Decode(&j.id)
+	// extract serializationVersion first
+	var ver int
+	err := dec.Decode(&ver)
 	if err != nil {
 		return err
 	}
-	// pri
-	err = dec.Decode(&j.pri)
+	// id
+	err = dec.Decode(&j.id)
 	if err != nil {
 		return err
 	}
@@ -170,11 +160,6 @@ func (j *Job) GobDecode(data []byte) error {
 		return err
 	}
 	j.triggerAt = time.Unix(0, triggerAtUnixNano)
-	//ttr
-	err = dec.Decode(&j.ttr)
-	if err != nil {
-		return err
-	}
 	//body
 	err = dec.Decode(&j.body)
 	if err == io.EOF {
