@@ -6,6 +6,8 @@ cloud.google.com/go/internal/optional
 cloud.google.com/go/internal/trace
 cloud.google.com/go/internal/version
 cloud.google.com/go/storage
+# code.cloudfoundry.org/bytefmt v0.0.0-20200125003136-cc367df7c24e
+code.cloudfoundry.org/bytefmt
 # github.com/Azure/azure-pipeline-go v0.2.1
 github.com/Azure/azure-pipeline-go/pipeline
 # github.com/Azure/azure-storage-blob-go v0.8.0

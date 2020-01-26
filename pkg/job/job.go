@@ -11,20 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/urjitbhatia/goyaad/internal/monitor"
 	"github.com/urjitbhatia/goyaad/internal/queue"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
 )
 
-var memMonitor monitor.MemMonitor
-
 // cache fixed size overhead
-var sizeOverhead = unsafe.Sizeof(Job{})
-
-func init() {
-	// set MemMonitor for job size accounting
-	memMonitor = monitor.GetMemMonitor()
-}
+var sizeOverhead = uint64(unsafe.Sizeof(Job{}))
 
 // Job is the basic unit of work in yaad
 type Job struct {
@@ -45,7 +37,6 @@ func NewJob(id string, triggerAt time.Time, b []byte) *Job {
 		triggerAt: triggerAt,
 		body:      b,
 	}
-	memMonitor.Increment(j)
 	return j
 }
 
@@ -56,15 +47,14 @@ func NewJobAutoID(triggerAt time.Time, b []byte) *Job {
 		triggerAt: triggerAt,
 		body:      b,
 	}
-	memMonitor.Increment(j)
 	return j
 }
 
 // SizeOf returns the memory allocated for this job in bytes
 // including the size of the actual body payload + the fixed overhead costs
 // Implements monitor.MemAccountable interface
-func (j *Job) SizeOf() uintptr {
-	return sizeOverhead + uintptr(len(j.body)) + uintptr(len(j.id))
+func (j *Job) SizeOf() uint64 {
+	return sizeOverhead + uint64(len(j.body)+len(j.id))
 }
 
 // AsTemporalState returns the job's temporal classification at the point in time

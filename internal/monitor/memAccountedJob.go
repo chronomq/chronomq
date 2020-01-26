@@ -1,37 +1,39 @@
 package monitor
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/rs/zerolog/log"
 )
 
 // MemAccountable struct is one that wishes to enable mem accounting for itself
 type MemAccountable interface {
-	SizeOf() uintptr
+	SizeOf() uint64
 }
 
-// MemMonitor watches memory usages and provides alarms when usage breaches thresholds
+// MemMonitor watches memory usages and provides alarms when usage breaches watermark
 // Users of the monitor should call Fence() to stall operations while alarms are breached
-// Fence blocks till accounted memory usage falls below the recovery threshold which is lower
+// Fence blocks till accounted memory usage falls below the recovery watermark which is lower
 // than the actual threshold to enable some breathing room
 type MemMonitor interface {
+	// Increment adds the mem used by the given MemAccountable to the internal counter
+	// Call this when initializing a new instance of that MemAccountable
 	Increment(MemAccountable)
+	// Decrement subtracts the mem used by the given MemAccountable from the internal counter
+	// Call this when the last ref to that MemAccountable is given up
 	Decrement(MemAccountable)
 	Fence()
 }
 
-type noopMemMonitor struct{}
-
 type memMonitor struct {
-	current uintptr
+	current uint64 // currently accounted for memory usage
 
-	threshold         uintptr
-	recoveryThreshold uintptr
+	watermark         uint64 // alarm watermark
+	recoveryWatermark uint64 // alarm recovery watermark
 
 	breachCond *sync.Cond
 }
@@ -40,26 +42,25 @@ var memMonitorInstance MemMonitor
 
 func init() {
 	// configure mem manager
-	if _, ok := os.LookupEnv("MEM_MAN_DISABLED"); ok {
+	t, ok := os.LookupEnv("MEM_HIGH_WATERMARK")
+	if !ok {
 		UseNoopMemMonitor()
 		return
 	}
 
-	var threshold uint64
-	if t, ok := os.LookupEnv("MEM_MAN_SIZE"); ok {
-		var err error
-		threshold, err = strconv.ParseUint(t, 10, 64)
-		if err != nil {
-			log.Info().Msgf("Unparseable mem alarm size specified: %s Should be specified as number of bytes", t)
-		}
-		if threshold == 0 {
-			UseNoopMemMonitor()
-			return
-		}
-		configureMemMonitor(uintptr(threshold))
+	// If only number, treat as bytes
+	watermark, err := strconv.ParseUint(t, 10, 64)
+	if err == nil {
+		configureMemMonitor(watermark)
 		return
 	}
-	UseNoopMemMonitor()
+
+	// try to parse with units
+	watermark, err = bytefmt.ToBytes(t)
+	if err != nil {
+		log.Fatal().Msgf("Unparseable mem alarm size specified: %s Should be specified as number of bytes", t)
+	}
+	configureMemMonitor(watermark)
 }
 
 // GetMemMonitor returns a ready mem monitor - Call ConfigureMemMonitor before this
@@ -71,18 +72,23 @@ func GetMemMonitor() MemMonitor {
 	return memMonitorInstance
 }
 
-// configureMemMonitor sets a threshold value on a mem monitor.
+// configureMemMonitor sets a watermark value on a mem monitor.
 // Call this before GetMemMonitor and before allocating the observed structs.
-func configureMemMonitor(threshold uintptr) MemMonitor {
+func configureMemMonitor(watermark uint64) MemMonitor {
+	if watermark == 0 {
+		UseNoopMemMonitor()
+		return memMonitorInstance
+	}
+
 	if memMonitorInstance == nil {
 		mm := &memMonitor{
-			threshold:         threshold,
-			recoveryThreshold: threshold - 4*(threshold>>10),
+			watermark:         watermark,
+			recoveryWatermark: watermark - 10*(watermark>>10),
 			breachCond:        sync.NewCond(&sync.Mutex{}),
 		}
 		log.Info().
-			Str("AlarmThreshold", fmt.Sprintf("%d", mm.threshold)).
-			Str("AlarmRecoveryThreshold", fmt.Sprintf("%d", mm.recoveryThreshold)).
+			Str("Alarmwatermark", bytefmt.ByteSize(mm.watermark)).
+			Str("AlarmRecoverywatermark", bytefmt.ByteSize(mm.recoveryWatermark)).
 			Msg("Initialized new memory monitor")
 		memMonitorInstance = mm
 	}
@@ -90,28 +96,28 @@ func configureMemMonitor(threshold uintptr) MemMonitor {
 }
 
 func (mm *memMonitor) Increment(a MemAccountable) {
-	atomic.AddUintptr(&mm.current, a.SizeOf())
-	if atomic.LoadUintptr(&mm.current) >= mm.threshold {
-		log.Warn().Msg("MemManager: breached mem threshold")
-	}
+	atomic.AddUint64(&mm.current, a.SizeOf())
 }
 
 func (mm *memMonitor) Decrement(a MemAccountable) {
-	if atomic.AddUintptr(&mm.current, ^(a.SizeOf()-1)) < mm.recoveryThreshold {
+	if atomic.AddUint64(&mm.current, ^(a.SizeOf()-1)) < mm.recoveryWatermark {
 		mm.breachCond.L.Lock()
-		log.Warn().Msg("MemManager: recovered mem threshold")
 		mm.breachCond.Broadcast()
 		mm.breachCond.L.Unlock()
 	}
 }
+
 func (mm *memMonitor) Fence() {
-	// Fence blocks if above threshold
+	// Fence blocks if above watermark
 	mm.breachCond.L.Lock()
-	for atomic.LoadUintptr(&mm.current) >= mm.threshold {
+	for atomic.LoadUint64(&mm.current) >= mm.watermark {
 		mm.breachCond.Wait()
 	}
 	mm.breachCond.L.Unlock()
 }
+
+// ############ NOOP Mem Monitor ################
+type noopMemMonitor struct{}
 
 // UseNoopMemMonitor creates a noop implementation of mem-monitor if we want to fully disable it
 // with minimal penalty
