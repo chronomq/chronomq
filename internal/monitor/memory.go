@@ -99,9 +99,9 @@ func configureMemMonitor(watermark uint64) MemMonitor {
 			Str("AlarmRecoveryWatermark", bytefmt.ByteSize(mm.recoveryWatermark)).
 			Msg("Initialized new memory monitor")
 		memMonitorInstance = mm
-		go func()  {
+		go func() {
 			// sent metrics
-			for range time.NewTicker(time.Second*1).C {	
+			for range time.NewTicker(time.Second * 1).C {
 				metrics.Gauge("memmanager.watermark", float64(mm.watermark))
 				metrics.Gauge("memmanager.current", float64(atomic.LoadUint64(&mm.current)))
 			}
