@@ -10,9 +10,9 @@ import (
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/internal/queue"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
+	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
@@ -135,7 +135,7 @@ func (s *Spoke) NextLocked() *job.Job {
 }
 
 // CancelJobLocked will try to delete a job that hasn't been consumed yet
-func (s *Spoke) CancelJobLocked(id string) error {
+func (s *Spoke) CancelJobLocked(id string) (*job.Job, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -143,13 +143,14 @@ func (s *Spoke) CancelJobLocked(id string) error {
 		delete(s.jobMap, id)
 		// Also delete from pq
 		for i, j := range s.jobQueue {
-			if j.Value().(*job.Job).ID() == id {
+			cancelledJob := j.Value().(*job.Job)
+			if cancelledJob.ID() == id {
 				heap.Remove(&s.jobQueue, i)
-				return nil
+				return cancelledJob, nil
 			}
 		}
 	}
-	return fmt.Errorf("Cannot find job to cancel")
+	return nil, fmt.Errorf("Cannot find job to cancel")
 }
 
 // OwnsJobLocked returns true if a job by given id is owned by this spoke

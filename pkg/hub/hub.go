@@ -12,12 +12,12 @@ import (
 	"github.com/seiflotfy/cuckoofilter"
 
 	"github.com/urjitbhatia/goyaad/internal/queue"
-	"github.com/urjitbhatia/goyaad/pkg/spoke"
 	"github.com/urjitbhatia/goyaad/internal/stats"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
 	"github.com/urjitbhatia/goyaad/pkg/job"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	"github.com/urjitbhatia/goyaad/pkg/spoke"
 )
 
 const (
@@ -118,7 +118,7 @@ func (h *Hub) Stats() stats.Snapshot {
 }
 
 // CancelJobLocked cancels a job if found. Calls are noop for unknown jobs
-func (h *Hub) CancelJobLocked(jobID string) error {
+func (h *Hub) CancelJobLocked(jobID string) (*job.Job, error) {
 	go metrics.Incr("hub.cancel.req")
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -126,31 +126,31 @@ func (h *Hub) CancelJobLocked(jobID string) error {
 	if !h.jobFilter.Lookup(id) {
 		// no such job
 		go metrics.Incr("hub.cancel.ok")
-		return nil
+		return nil, nil
 	}
-	err := h.cancelJob(jobID)
+	j, err := h.cancelJob(jobID)
 	if err != nil {
 		h.jobFilter.Delete(id)
 	}
-	return err
+	return j, err
 }
 
-func (h *Hub) cancelJob(jobID string) error {
+func (h *Hub) cancelJob(jobID string) (*job.Job, error) {
 	log.Debug().Str("jobID", jobID).Msg("canceling job")
 
 	s, err := h.findOwnerSpoke(jobID)
 	if err != nil {
 		log.Debug().Str("jobID", jobID).Msg("cancel found no owner spoke")
 		// return nil - cancel if job not found is idempotent
-		return nil
+		return nil, nil
 	}
 	log.Debug().Str("jobID", jobID).Msg("cancel found owner spoke")
-	err = s.CancelJobLocked(jobID)
+	j, err := s.CancelJobLocked(jobID)
 	if err == nil {
 		h.stats.DecrJob()
 		go metrics.Incr("hub.cancel.ok")
 	}
-	return err
+	return j, err
 }
 
 // findOwnerSpoke returns the spoke that owns this job. Lock the hub before calling this

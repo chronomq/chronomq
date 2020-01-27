@@ -9,12 +9,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
+	"github.com/urjitbhatia/goyaad/internal/monitor"
 	"github.com/urjitbhatia/goyaad/pkg/hub"
 	"github.com/urjitbhatia/goyaad/pkg/job"
 )
 
 // ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration
 var ErrTimeout = errors.New("No new jobs available in given timeout")
+var memMonitor monitor.MemMonitor
 
 // RPCServer exposes a Yaad hub backed RPC endpoint
 type RPCServer struct {
@@ -29,11 +31,14 @@ type RPCJob struct {
 }
 
 func newRPCServer(hub *hub.Hub) *RPCServer {
+	memMonitor = monitor.GetMemMonitor()
 	return &RPCServer{hub: hub}
 }
 
 // PutWithID accepts a new job and stores it in a Hub, reply is ignored
 func (r *RPCServer) PutWithID(rpcJob RPCJob, id *string) error {
+	memMonitor.Fence()
+
 	var j *job.Job
 	if rpcJob.ID == "" {
 		// need to generate an id
@@ -42,13 +47,18 @@ func (r *RPCServer) PutWithID(rpcJob RPCJob, id *string) error {
 	} else {
 		j = job.NewJob(rpcJob.ID, time.Now().Add(rpcJob.Delay), rpcJob.Body)
 	}
+	defer memMonitor.Increment(j)
 	return r.hub.AddJobLocked(j)
 }
 
 // Cancel deletes the job pointed to by the id, reply is ignored
 // If the job doesn't exist, no error is returned so calls to Cancel are idempotent
 func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
-	return r.hub.CancelJobLocked(id)
+	j, err := r.hub.CancelJobLocked(id)
+	if j != nil {
+		defer memMonitor.Decrement(j)
+	}
+	return err
 }
 
 // Next sets the reply (job) to a valid job if a job is ready to be triggered
@@ -57,6 +67,7 @@ func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
 func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 	// try once
 	if j := r.hub.NextLocked(); j != nil {
+		defer memMonitor.Decrement(j)
 		job.Body = j.Body()
 		job.ID = j.ID()
 		return nil
@@ -75,6 +86,7 @@ func (r *RPCServer) Next(timeout time.Duration, job *RPCJob) error {
 		Msg("waiting for reserve")
 	for waitTill.After(time.Now()) {
 		if j := r.hub.NextLocked(); j != nil {
+			defer memMonitor.Decrement(j)
 			job.Body = j.Body()
 			job.ID = j.ID()
 			return nil

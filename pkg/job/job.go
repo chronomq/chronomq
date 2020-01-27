@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"time"
+	"unsafe"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -13,6 +14,9 @@ import (
 	"github.com/urjitbhatia/goyaad/internal/queue"
 	"github.com/urjitbhatia/goyaad/internal/temporal"
 )
+
+// cache fixed size overhead
+var sizeOverhead = uint64(unsafe.Sizeof(Job{}))
 
 // Job is the basic unit of work in yaad
 type Job struct {
@@ -28,20 +32,29 @@ type Job struct {
 
 //NewJob creates a new yaad job
 func NewJob(id string, triggerAt time.Time, b []byte) *Job {
-	return &Job{
+	j := &Job{
 		id:        id,
 		triggerAt: triggerAt,
 		body:      b,
 	}
+	return j
 }
 
 // NewJobAutoID creates a job a job id assigned automatically
 func NewJobAutoID(triggerAt time.Time, b []byte) *Job {
-	return &Job{
+	j := &Job{
 		id:        fmt.Sprintf("%d", NextID()),
 		triggerAt: triggerAt,
 		body:      b,
 	}
+	return j
+}
+
+// SizeOf returns the memory allocated for this job in bytes
+// including the size of the actual body payload + the fixed overhead costs
+// Implements monitor.Sizeable interface
+func (j *Job) SizeOf() uint64 {
+	return sizeOverhead + uint64(len(j.body)+len(j.id))
 }
 
 // AsTemporalState returns the job's temporal classification at the point in time
