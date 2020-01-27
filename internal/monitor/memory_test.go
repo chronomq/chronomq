@@ -46,5 +46,9 @@ var _ = Describe("Test memory monitor", func() {
 		mm.Decrement(&testSizeable{80})            // current 20 - unfenced
 		Expect(mm.current).To(BeEquivalentTo(20))  // current 20
 		Eventually(unfenced).Should(Receive())
+		Expect(func() {
+			mm.Decrement(&testSizeable{80})
+		}).Should(Panic()) // current underflow should panic
+		Expect(mm.current).To(BeEquivalentTo(0)) // current 0 - reset after panic
 	})
 })

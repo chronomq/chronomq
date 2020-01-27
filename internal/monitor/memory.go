@@ -114,8 +114,15 @@ func (mm *memMonitor) Increment(a Sizeable) {
 	atomic.AddUint64(&mm.current, a.SizeOf())
 }
 
+const tebibyte = uint64(1 << 40)
+
 func (mm *memMonitor) Decrement(a Sizeable) {
-	if atomic.AddUint64(&mm.current, ^(a.SizeOf()-1)) < mm.recoveryWatermark {
+	current := atomic.AddUint64(&mm.current, ^(a.SizeOf() - 1))
+	if current > tebibyte { // hack to detect underflow - it will fire if we are decrementing more than incrementing
+		atomic.StoreUint64(&mm.current, 0) // if someone recovers from the panic - we reset to 0
+		log.Panic().Msg("MemMonitor underflow detected - cannot decrement without a matching increment")
+	}
+	if atomic.LoadUint64(&mm.current) < mm.recoveryWatermark {
 		mm.breachCond.L.Lock()
 		mm.breachCond.Broadcast()
 		mm.breachCond.L.Unlock()
