@@ -5,9 +5,12 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/rs/zerolog/log"
+
+	"github.com/urjitbhatia/goyaad/pkg/metrics"
 )
 
 // MemAccountable struct is one that wishes to enable mem accounting for itself
@@ -96,6 +99,13 @@ func configureMemMonitor(watermark uint64) MemMonitor {
 			Str("AlarmRecoveryWatermark", bytefmt.ByteSize(mm.recoveryWatermark)).
 			Msg("Initialized new memory monitor")
 		memMonitorInstance = mm
+		go func()  {
+			// sent metrics
+			for range time.NewTicker(time.Second*1).C {	
+				metrics.Gauge("memmanager.watermark", float64(mm.watermark))
+				metrics.Gauge("memmanager.current", float64(atomic.LoadUint64(&mm.current)))
+			}
+		}()
 	}
 	return memMonitorInstance
 }
@@ -116,8 +126,10 @@ func (mm *memMonitor) Fence() {
 	// Fence blocks if above watermark
 	mm.breachCond.L.Lock()
 	for atomic.LoadUint64(&mm.current) >= mm.watermark {
+		metrics.GaugeInt("memmanager.breached", 1)
 		mm.breachCond.Wait()
 	}
+	defer metrics.GaugeInt("memmanager.breached", 0)
 	mm.breachCond.L.Unlock()
 }
 
