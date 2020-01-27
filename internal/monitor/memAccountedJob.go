@@ -19,6 +19,7 @@ type MemAccountable interface {
 // Users of the monitor should call Fence() to stall operations while alarms are breached
 // Fence blocks till accounted memory usage falls below the recovery watermark which is lower
 // than the actual threshold to enable some breathing room
+// It is safe to call methods on MemMonitor from multiple goroutines
 type MemMonitor interface {
 	// Increment adds the mem used by the given MemAccountable to the internal counter
 	// Call this when initializing a new instance of that MemAccountable
@@ -26,7 +27,11 @@ type MemMonitor interface {
 	// Decrement subtracts the mem used by the given MemAccountable from the internal counter
 	// Call this when the last ref to that MemAccountable is given up
 	Decrement(MemAccountable)
+	// Fence blocks while mem usage accounted by MemManager is above the watermark
+	// Multiple goroutines can call and be blocked by Fence
 	Fence()
+	// Breached returns true if mem usage is currently above the watermark and hasn't gone below recoveryWatermark yet
+	Breached() bool
 }
 
 type memMonitor struct {
@@ -87,8 +92,8 @@ func configureMemMonitor(watermark uint64) MemMonitor {
 			breachCond:        sync.NewCond(&sync.Mutex{}),
 		}
 		log.Info().
-			Str("Alarmwatermark", bytefmt.ByteSize(mm.watermark)).
-			Str("AlarmRecoverywatermark", bytefmt.ByteSize(mm.recoveryWatermark)).
+			Str("AlarmWatermark", bytefmt.ByteSize(mm.watermark)).
+			Str("AlarmRecoveryWatermark", bytefmt.ByteSize(mm.recoveryWatermark)).
 			Msg("Initialized new memory monitor")
 		memMonitorInstance = mm
 	}
@@ -116,6 +121,10 @@ func (mm *memMonitor) Fence() {
 	mm.breachCond.L.Unlock()
 }
 
+func (mm *memMonitor) Breached() bool {
+	return atomic.LoadUint64(&mm.current) >= mm.watermark
+}
+
 // ############ NOOP Mem Monitor ################
 type noopMemMonitor struct{}
 
@@ -129,3 +138,4 @@ func UseNoopMemMonitor() {
 func (n *noopMemMonitor) Increment(a MemAccountable) {}
 func (n *noopMemMonitor) Decrement(a MemAccountable) {}
 func (n *noopMemMonitor) Fence()                     {}
+func (n *noopMemMonitor) Breached() bool             { return false }
