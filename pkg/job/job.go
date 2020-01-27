@@ -52,7 +52,7 @@ func NewJobAutoID(triggerAt time.Time, b []byte) *Job {
 
 // SizeOf returns the memory allocated for this job in bytes
 // including the size of the actual body payload + the fixed overhead costs
-// Implements monitor.MemAccountable interface
+// Implements monitor.Sizeable interface
 func (j *Job) SizeOf() uint64 {
 	return sizeOverhead + uint64(len(j.body)+len(j.id))
 }

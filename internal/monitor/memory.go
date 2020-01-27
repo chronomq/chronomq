@@ -13,8 +13,8 @@ import (
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
 )
 
-// MemAccountable struct is one that wishes to enable mem accounting for itself
-type MemAccountable interface {
+// Sizeable struct is one that wishes to enable mem accounting for itself
+type Sizeable interface {
 	SizeOf() uint64
 }
 
@@ -26,10 +26,10 @@ type MemAccountable interface {
 type MemMonitor interface {
 	// Increment adds the mem used by the given MemAccountable to the internal counter
 	// Call this when initializing a new instance of that MemAccountable
-	Increment(MemAccountable)
+	Increment(Sizeable)
 	// Decrement subtracts the mem used by the given MemAccountable from the internal counter
 	// Call this when the last ref to that MemAccountable is given up
-	Decrement(MemAccountable)
+	Decrement(Sizeable)
 	// Fence blocks while mem usage accounted by MemManager is above the watermark
 	// Multiple goroutines can call and be blocked by Fence
 	Fence()
@@ -110,11 +110,11 @@ func configureMemMonitor(watermark uint64) MemMonitor {
 	return memMonitorInstance
 }
 
-func (mm *memMonitor) Increment(a MemAccountable) {
+func (mm *memMonitor) Increment(a Sizeable) {
 	atomic.AddUint64(&mm.current, a.SizeOf())
 }
 
-func (mm *memMonitor) Decrement(a MemAccountable) {
+func (mm *memMonitor) Decrement(a Sizeable) {
 	if atomic.AddUint64(&mm.current, ^(a.SizeOf()-1)) < mm.recoveryWatermark {
 		mm.breachCond.L.Lock()
 		mm.breachCond.Broadcast()
@@ -147,7 +147,7 @@ func UseNoopMemMonitor() {
 	log.Info().Msg("Using NOOP memory monitor")
 }
 
-func (n *noopMemMonitor) Increment(a MemAccountable) {}
-func (n *noopMemMonitor) Decrement(a MemAccountable) {}
-func (n *noopMemMonitor) Fence()                     {}
-func (n *noopMemMonitor) Breached() bool             { return false }
+func (n *noopMemMonitor) Increment(a Sizeable) {}
+func (n *noopMemMonitor) Decrement(a Sizeable) {}
+func (n *noopMemMonitor) Fence()               {}
+func (n *noopMemMonitor) Breached() bool       { return false }
