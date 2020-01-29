@@ -8,39 +8,73 @@ Yaad is a high-throughput scheduleable-job queue. Jobs with different trigger ti
 
 - [What is Yaad?](#what-is-yaad)
 - [Quickstart](#quickstart)
+  - [Docker](#docker)
+  - [Pre-built Binary](#pre-built-binary)
+  - [Running built-in load test](#running-built-in-load-test)
 - [Configuration](#configuration)
 - [Related work and inspiration](#Related-work-and-inspiration)
 
 ## What is Yaad
 
+Yaad is a job queue (like rabbitMQ) but for jobs that trigger at some time. You add jobs to it with a specific date/time trigger and they are made available to come off the queue at that time.
+
 In it's simplest form, Yaad is an in-memory queue.
-Producers can enqueue jobs onto Yaad with a `trigger` time and will internally order them by their `trigger` time. Jobs with `trigger` time closest to `now` are dequeued before jobs with later `trigger` times.
+Producers can enqueue jobs onto Yaad with a `trigger` time and Yaad will internally order them by their `trigger` time. Jobs with `trigger` time closest to `now` are dequeued before jobs with later `trigger` times.
 In other words, Yaad orders a stream of jobs by their `trigger` time.
+
+### Use cases
+
+- Scheduled Emails/SMSs - send messages some time after an event occurs
+- Abandoned shopping cart reminders
+- Deadman switches - perform pre-set action if job isn't canceled before expiry
+- Streaming Time-sorted messages - enqueue jobs in a window and consume a sorted stream
+- Asynchronous work queue - rnn time-consuming tasks asynchronously
 
 ## Quickstart
 
-1. Install Yaad
+### Docker
 
-   1. Via docker: `docker pull urjitbhatia/goyaad:latest`
-   1. Using pre-built releases : `https://github.com/urjitbhatia/goyaad/releases`
-   1. Installing via the `go get` : `go get github.com/urjitbhatia/yaad`
+1. Pull latest image docker: `docker pull urjitbhatia/goyaad:latest`
+1. Run server: `docker run --rm --name goyaad -p 11301:11301 urjitbhatia/goyaad:latest -L server`
+1. Interact using the cli:
 
-1. Start an instance
+   ```bash
+   docker run --rm urjitbhatia/goyaad:latest put --id "j1" --body "I should be ready second" --delay 45s
+   docker run --rm urjitbhatia/goyaad:latest put --id "j2" --body "I should be ready first" --delay 2s
+   docker run --rm urjitbhatia/goyaad:latest put --id "j3" --body "Cancel me" --delay 20m
+   docker run --rm urjitbhatia/goyaad:latest next --timeout 20s
+   docker run --rm urjitbhatia/goyaad:latest next --timeout 50s
+   docker run --rm urjitbhatia/goyaad:latest cancel --id "j3"
+   ```
 
-   1. Using Docker: `docker run --rm --name goyaad -p 11301:11301 urjitbhatia/goyaad:latest -L server`
-   1. Using a binary Docker: `goyaad -L server`
+### Pre-built binary
 
-1. Run a load test
+1. Fetch binary
+   1. Github releases `https://github.com/urjitbhatia/goyaad/releases`
+   1. Or via `go get`: `go get github.com/urjitbhatia/yaad`
+1. Run server: `goyaad -L server`
+1. Interact using the cli:
 
-   1. Using Docker
+   ```bash
+   goyaad put --id "j1" --body "I should be ready second" --delay 45s
+   goyaad put --id "j2" --body "I should be ready first" --delay 2s
+   goyaad put --id "j3" --body "Cancel me" --delay 20m
+   goyaad next --timeout 20s
+   goyaad next --timeout 50s
+   goyaad cancel --id "j3"
+   ```
 
-      ```bash
+#### Running built-in load test
+
+1. Docker:
+
+   ```bash
       docker run --rm --name loadtest urjitbhatia/goyaad:latest \
-          -L loadtest -e -d \
-          --raddr $(docker inspect goyaad -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'):11301
-      ```
+         -L loadtest -e -d \
+         --raddr \$(docker inspect goyaad -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'):11301
+   ```
 
-   1. Using a binary: `goyaad -L loadtest -e -d`
+1. Run a load test: `goyaad -L loadtest -e -d`
 
 ## Configuration
 
