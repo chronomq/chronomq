@@ -75,7 +75,8 @@ var (
 			}
 			return err
 		},
-		SilenceUsage: true,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 )
 
@@ -124,6 +125,34 @@ var (
 	}
 )
 
+type cancelArgs struct {
+	id string
+}
+
+var (
+	cancelCmdArgs = cancelArgs{}
+	cancelCmd     = &cobra.Command{
+		Use:   "cancel",
+		Short: "Cancel a job",
+		Long:  `Cancels the job with the given id. Cancel is ignore is no job matches the id`,
+		Run: func(cmd *cobra.Command, args []string) {
+			client := &protocol.RPCClient{}
+			err := client.Connect(defaultAddrs.rpcAddr)
+			if err != nil {
+				log.Error().Err(err).Send()
+				return
+			}
+			err = client.Cancel(cancelCmdArgs.id)
+			if err != nil {
+				log.Error().Err(err).Send()
+				return
+			}
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+)
+
 func init() {
 	putCmd.PersistentFlags().StringVarP(&putCmdArgs.id, "id", "i", "", "ID for the job")
 	putCmd.PersistentFlags().DurationVarP(&putCmdArgs.delay, "delay", "d", 0, "Job trigger delay relative to now (golang duration string format)")
@@ -132,6 +161,10 @@ func init() {
 	nextCmd.PersistentFlags().DurationVarP(&nextCmdArgs.timeout, "timeout", "t", 0, "Wait at most timeout duration for a job to be available")
 	nextCmd.PersistentFlags().BoolVarP(&nextCmdArgs.json, "json", "j", false, "Print job response in json format")
 
+	cancelCmd.PersistentFlags().StringVarP(&cancelCmdArgs.id, "id", "i", "", "ID for the job")
+	cancelCmd.MarkPersistentFlagRequired("id")
+
 	rootCmd.AddCommand(putCmd)
 	rootCmd.AddCommand(nextCmd)
+	rootCmd.AddCommand(cancelCmd)
 }
