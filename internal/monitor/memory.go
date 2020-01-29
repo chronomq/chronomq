@@ -151,7 +151,6 @@ type noopMemMonitor struct{}
 // with minimal penalty
 func UseNoopMemMonitor() {
 	memMonitorInstance = &noopMemMonitor{}
-	log.Info().Msg("Using NOOP memory monitor")
 }
 
 func (n *noopMemMonitor) Increment(a Sizeable) {}
