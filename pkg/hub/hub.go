@@ -120,17 +120,19 @@ func (h *Hub) Stats() stats.Snapshot {
 // CancelJobLocked cancels a job if found. Calls are noop for unknown jobs
 func (h *Hub) CancelJobLocked(jobID string) (*job.Job, error) {
 	go metrics.Incr("hub.cancel.req")
+	id := []byte(jobID)
+
 	h.lock.Lock()
 	defer h.lock.Unlock()
-	id := []byte(jobID)
 	if !h.jobFilter.Lookup(id) {
 		// no such job
 		go metrics.Incr("hub.cancel.ok")
 		return nil, nil
 	}
 	j, err := h.cancelJob(jobID)
-	if err != nil {
-		h.jobFilter.Delete(id)
+	if err == nil {
+		if !h.jobFilter.Delete(id) {
+		}
 	}
 	return j, err
 }
