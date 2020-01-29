@@ -28,7 +28,7 @@ In other words, Yaad orders a stream of jobs by their `trigger` time.
 - Abandoned shopping cart reminders
 - Deadman switches - perform pre-set action if job isn't canceled before expiry
 - Streaming Time-sorted messages - enqueue jobs in a window and consume a sorted stream
-- Asynchronous work queue - rnn time-consuming tasks asynchronously
+- Asynchronous work queue - run time-consuming tasks asynchronously
 
 ## Quickstart
 
