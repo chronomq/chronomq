@@ -14,6 +14,8 @@ github.com/Azure/azure-pipeline-go/pipeline
 github.com/Azure/azure-storage-blob-go/azblob
 # github.com/DataDog/datadog-go v2.2.0+incompatible
 github.com/DataDog/datadog-go/statsd
+# github.com/NYTimes/gziphandler v1.1.1
+github.com/NYTimes/gziphandler
 # github.com/aws/aws-sdk-go v1.19.45
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
