@@ -8,11 +8,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestYaad(t *testing.T) {
+func TestChronomq(t *testing.T) {
 	defer GinkgoRecover()
 
 	log.Logger = log.Output(GinkgoWriter)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GoYaad Suite")
+	RunSpecs(t, "Chronomq Suite")
 }

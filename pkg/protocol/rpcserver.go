@@ -18,7 +18,7 @@ import (
 var ErrTimeout = errors.New("No new jobs available in given timeout")
 var memMonitor monitor.MemMonitor
 
-// RPCServer exposes a Yaad hub backed RPC endpoint
+// RPCServer exposes a Chronomq hub backed RPC endpoint
 type RPCServer struct {
 	hub *hub.Hub
 }

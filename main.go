@@ -1,7 +1,7 @@
 /*
 chronomq is a cancelable job/message scheduler.
 
-There are two main primitives that Gochronomq provides
+There are two main primitives that Chronomq provides
 	- Time ordered scheduleable jobs
 	- Cancelation of scheduled jobs
 

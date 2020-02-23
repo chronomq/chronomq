@@ -1,6 +1,6 @@
 /*
-Package pkg contains the main implementation of the Gochronomq library code.
+Package pkg contains the main implementation of the Chronomq library code.
 
-Gochronomq can be used as an embedded scheduler by embedding the Hub.
+Chronomq can be used as an embedded scheduler by embedding the Hub.
 */
 package pkg

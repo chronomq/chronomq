@@ -109,7 +109,7 @@ func startApp(cfg *config) {
 		}
 	}()
 
-	log.Info().Msg("Starting Gochronomq")
+	log.Info().Msg("Starting Chronomq")
 
 	storage, err := cfg.storeCfg.Storage()
 	if err != nil {

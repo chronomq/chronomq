@@ -1,12 +1,12 @@
-# Yaad
+# Chronomq
 
-Yaad is a high-throughput scheduleable-job queue. Jobs with different trigger times go in - jobs ordered by trigger by time come out.
+Chronomq is a high-throughput scheduleable-job queue. Jobs with different trigger times go in - jobs ordered by trigger by time come out.
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/chronomq/chronomq)](https://goreportcard.com/report/github.com/chronomq/chronomq)
 [![Build Status](https://travis-ci.com/chronomq/chronomq.svg?branch=master)](https://travis-ci.com/chronomq/chronomq)
 [![GoDoc](https://godoc.org/github.com/chronomq/chronomq/pkg?status.svg)](https://godoc.org/github.com/chronomq/chronomq/pkg)
 
-- [What is Yaad?](#what-is-chronomq)
+- [What is Chronomq?](#what-is-chronomq)
 - [Quickstart](#quickstart)
   - [Docker](#docker)
   - [Pre-built Binary](#pre-built-binary)
@@ -14,13 +14,13 @@ Yaad is a high-throughput scheduleable-job queue. Jobs with different trigger ti
 - [Configuration](#configuration)
 - [Related work and inspiration](#Related-work-and-inspiration)
 
-## What is Yaad
+## What is Chronomq
 
-Yaad is a job queue (like rabbitMQ) but for jobs that trigger at some time. You add jobs to it with a specific date/time trigger and they are made available to come off the queue at that time.
+Chronomq is a job queue (like rabbitMQ) but for jobs that trigger at some time. You add jobs to it with a specific date/time trigger and they are made available to come off the queue at that time.
 
-In it's simplest form, Yaad is an in-memory queue.
-Producers can enqueue jobs onto Yaad with a `trigger` time and Yaad will internally order them by their `trigger` time. Jobs with `trigger` time closest to `now` are dequeued before jobs with later `trigger` times.
-In other words, Yaad orders a stream of jobs by their `trigger` time.
+In it's simplest form, Chronomq is an in-memory queue.
+Producers can enqueue jobs onto Chronomq with a `trigger` time and Chronomq will internally order them by their `trigger` time. Jobs with `trigger` time closest to `now` are dequeued before jobs with later `trigger` times.
+In other words, Chronomq orders a stream of jobs by their `trigger` time.
 
 ### Use cases
 
@@ -89,7 +89,7 @@ In other words, Yaad orders a stream of jobs by their `trigger` time.
 
 ### Operation Mode: Server
 
-Runs Yaad queue server. If `restore` is used, the server first attempts to restore jobs from the give snapshot location and then starts serving the queue. If the server receives a `SIGUSR1`, it exits gracefully by creating a new snapshot with any jobs that were held in memory at shutdown time.
+Runs Chronomq queue server. If `restore` is used, the server first attempts to restore jobs from the give snapshot location and then starts serving the queue. If the server receives a `SIGUSR1`, it exits gracefully by creating a new snapshot with any jobs that were held in memory at shutdown time.
 The snapshots can be copied to different machines and supplied to new server instances.
 
 1. Restore jobs from a snapshot `--restore`

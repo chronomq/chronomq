@@ -9,11 +9,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestYaad(t *testing.T) {
+func TestChronomq(t *testing.T) {
 	defer GinkgoRecover()
 	log.Logger = zerolog.New(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GoYaad Protocol Suite")
+	RunSpecs(t, "Chronomq Protocol Suite")
 }
 
 func ExpectNoErr(err error) {

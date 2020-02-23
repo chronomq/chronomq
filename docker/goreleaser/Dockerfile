@@ -10,7 +10,7 @@ COPY chronomq /
 FROM alpine:edge
 LABEL maintainer Urjit Singh Bhatia<(urjitsinghbhatia@gmail.com> (github: @chronomq)
 
-ARG GOYAAD_VERSION=0.1.0
+ARG CHRONOMQ_VERSION=0.1.0
 
 WORKDIR /usr/local/bin/
 

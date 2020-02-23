@@ -31,7 +31,7 @@ var (
 		Use:   "loadtest",
 		Short: "Run a chronomq loadtest",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Running Yaad load test")
+			fmt.Println("Running Chronomq load test")
 			if !enqueueMode && !dequeueMode {
 				log.Fatal().Msg("One of enqueue mode or dequeue mode required. See --help.")
 			}

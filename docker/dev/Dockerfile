@@ -7,7 +7,7 @@
 FROM alpine:edge
 LABEL maintainer Urjit Singh Bhatia<(urjitsinghbhatia@gmail.com> (github: @chronomq)
 
-ARG GOYAAD_VERSION=0.1.0
+ARG CHRONOMQ_VERSION=0.1.0
 
 WORKDIR /usr/local/bin/
 
@@ -20,7 +20,7 @@ RUN buildDeps=' \
     set -x \
     && apk --no-cache add $buildDeps \
     # Enable this to target a public release
-    # && wget -O chronomq https://github.com/chronomq/chronomq/releases/download/v${GOYAAD_VERSION}/chronomq_${GOYAAD_VERSION}_Linux_x86_64.tar.gz \
+    # && wget -O chronomq https://github.com/chronomq/chronomq/releases/download/v${CHRONOMQ_VERSION}/chronomq_${CHRONOMQ_VERSION}_Linux_x86_64.tar.gz \
     # && chmod +x /usr/local/bin/chronomq \
     && apk del $buildDeps \
     && echo "Build complete."

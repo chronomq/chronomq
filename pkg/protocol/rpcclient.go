@@ -11,12 +11,12 @@ import (
 // ErrClientDisconnected means a client was used while it was disconnected from the remote server
 var ErrClientDisconnected = errors.New("Client is not connected to the server")
 
-// RPCClient communicates with the Yaad RPC server
+// RPCClient communicates with the Chronomq RPC server
 type RPCClient struct {
 	client *rpc.Client
 }
 
-// Connect to a Yaad RCP Server and return a connected client
+// Connect to a Chronomq RCP Server and return a connected client
 // Once connected, a client may be used by multiple goroutines simultaneously.
 func (c *RPCClient) Connect(addr string) error {
 	client, err := rpc.Dial("tcp", addr)
@@ -29,7 +29,7 @@ func (c *RPCClient) Connect(addr string) error {
 	return nil
 }
 
-// PutWithID saves a job with Yaad against a given id.
+// PutWithID saves a job with Chronomq against a given id.
 func (c *RPCClient) PutWithID(id string, body []byte, delay time.Duration) error {
 	if c.client == nil {
 		return ErrClientDisconnected
@@ -38,7 +38,7 @@ func (c *RPCClient) PutWithID(id string, body []byte, delay time.Duration) error
 	return c.client.Call("RPCServer.PutWithID", job, &id)
 }
 
-// Put saves a job with Yaad and returns the auto-generated job id
+// Put saves a job with Chronomq and returns the auto-generated job id
 func (c *RPCClient) Put(body []byte, delay time.Duration) (string, error) {
 	if c.client == nil {
 		return "", ErrClientDisconnected
@@ -58,7 +58,7 @@ func (c *RPCClient) Cancel(id string) error {
 	return c.client.Call("RPCServer.Cancel", id, &ignoredReply)
 }
 
-// Next wait at-most timeout duration to return a ready job body from Yaad
+// Next wait at-most timeout duration to return a ready job body from Chronomq
 // If no job is available within the timeout, ErrTimeout is returned and clients should try again later
 func (c *RPCClient) Next(timeout time.Duration) (string, []byte, error) {
 	if c.client == nil {

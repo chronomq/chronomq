@@ -9,7 +9,7 @@ For a load generation machine with the specs:
 Intel Broadwell
 ```
 
-it was able to generate load with at a rate of about 40,000 RPS sent over the wire to a running Yaad instance over the network - this server was configured to short-circuit and drop the job withouth returning any errors.
+it was able to generate load with at a rate of about 40,000 RPS sent over the wire to a running Chronomq instance over the network - this server was configured to short-circuit and drop the job withouth returning any errors.
 
 The actual loadtest was able to enqueue jobs at a rate of 27,000 RPS with 10 concurrent client-connections and dequeue at a rate of 16,340 RPS for a machine with the following specs:
 
