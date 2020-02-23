@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
+	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 const delimiter = "-----------------------------------------"

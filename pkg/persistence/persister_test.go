@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/urjitbhatia/goyaad/pkg/job"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	"github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/persistence"
 )
 
 var testBody = []byte("Hello world")
@@ -19,7 +19,7 @@ var testBody = []byte("Hello world")
 var _ = Describe("Test persistence", func() {
 
 	Context("persister functions", func() {
-		bucketDirPath := path.Join(os.TempDir(), "goyaadtest")
+		bucketDirPath := path.Join(os.TempDir(), "chronomqtest")
 		testDirPath := path.Join(bucketDirPath, "journal")
 		storeURL := &url.URL{Scheme: "file", Path: bucketDirPath}
 
@@ -53,7 +53,7 @@ var _ = Describe("Test persistence", func() {
 			Expect(len(dir)).To(Equal(0), testDirPath)
 		})
 
-		It("persists a goyaad job and then recovers it", func(done Done) {
+		It("persists a chronomq job and then recovers it", func(done Done) {
 			defer close(done)
 
 			j := job.NewJobAutoID(time.Now(), testBody)

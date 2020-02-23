@@ -11,13 +11,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/seiflotfy/cuckoofilter"
 
-	"github.com/urjitbhatia/goyaad/internal/queue"
-	"github.com/urjitbhatia/goyaad/internal/stats"
-	"github.com/urjitbhatia/goyaad/internal/temporal"
-	"github.com/urjitbhatia/goyaad/pkg/job"
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
-	"github.com/urjitbhatia/goyaad/pkg/spoke"
+	"github.com/chronomq/chronomq/internal/queue"
+	"github.com/chronomq/chronomq/internal/stats"
+	"github.com/chronomq/chronomq/internal/temporal"
+	"github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/metrics"
+	"github.com/chronomq/chronomq/pkg/persistence"
+	"github.com/chronomq/chronomq/pkg/spoke"
 )
 
 const (

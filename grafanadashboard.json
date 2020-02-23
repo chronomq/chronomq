@@ -83,11 +83,11 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.counters.goyaadhub.addjob.count"
+              "target": "stats.counters.chronomqhub.addjob.count"
             },
             {
               "refId": "B",
-              "target": "stats.counters.goyaadhub.cancel.req.count"
+              "target": "stats.counters.chronomqhub.cancel.req.count"
             }
           ],
           "thresholds": [],
@@ -184,7 +184,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.timers.goyaadhub.job.add.duration.mean"
+              "target": "stats.timers.chronomqhub.job.add.duration.mean"
             }
           ],
           "thresholds": "0.01,0.02,0.1",
@@ -258,7 +258,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.timers.goyaadhub.job.add.duration.upper"
+              "target": "stats.timers.chronomqhub.job.add.duration.upper"
             }
           ],
           "thresholds": "10,20,50",
@@ -332,7 +332,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.timers.goyaadhub.next.search.duration.mean"
+              "target": "stats.timers.chronomqhub.next.search.duration.mean"
             }
           ],
           "thresholds": "0.01,0.05,0.1",
@@ -405,7 +405,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.timers.goyaadhub.next.search.*.upper"
+              "target": "stats.timers.chronomqhub.next.search.*.upper"
             }
           ],
           "thresholds": "10,20,50",
@@ -466,7 +466,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.gauges.goyaadhub.spoke.count"
+              "target": "stats.gauges.chronomqhub.spoke.count"
             }
           ],
           "thresholds": [],
@@ -538,7 +538,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.gauges.goyaadhub.job.count"
+              "target": "stats.gauges.chronomqhub.job.count"
             }
           ],
           "thresholds": [],
@@ -610,16 +610,16 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.timers.goyaadhub.*.*.*.mean"
+              "target": "stats.timers.chronomqhub.*.*.*.mean"
             },
             {
               "refId": "B",
-              "target": "stats.timers.goyaadhub.*.*.*.upper"
+              "target": "stats.timers.chronomqhub.*.*.*.upper"
             },
             {
               "hide": true,
               "refId": "C",
-              "target": "stats.timers.goyaadhub.*.*.*.median"
+              "target": "stats.timers.chronomqhub.*.*.*.median"
             }
           ],
           "thresholds": [],
@@ -703,7 +703,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.counters.goyaadloadtest.*.count"
+              "target": "stats.counters.chronomqloadtest.*.count"
             }
           ],
           "thresholds": [],
@@ -769,7 +769,7 @@
           "renderer": "flot",
           "seriesOverrides": [
             {
-              "alias": "stats.gauges.goyaadhub.job.size",
+              "alias": "stats.gauges.chronomqhub.job.size",
               "yaxis": 2
             }
           ],
@@ -781,23 +781,23 @@
             {
               "hide": false,
               "refId": "A",
-              "target": "stats.counters.goyaadloadtest.*.rate"
+              "target": "stats.counters.chronomqloadtest.*.rate"
             },
             {
               "refId": "D",
-              "target": "stats.counters.goyaadhub.*.rate"
+              "target": "stats.counters.chronomqhub.*.rate"
             },
             {
               "refId": "C",
-              "target": "stats.counters.goyaadhub.cancel.req.rate"
+              "target": "stats.counters.chronomqhub.cancel.req.rate"
             },
             {
               "refId": "B",
-              "target": "stats.counters.goyaadhub.cancel.ok.rate"
+              "target": "stats.counters.chronomqhub.cancel.ok.rate"
             },
             {
               "refId": "E",
-              "target": "perSecond(stats.timers.goyaadhub.next.search.duration.count)"
+              "target": "perSecond(stats.timers.chronomqhub.next.search.duration.count)"
             }
           ],
           "thresholds": [],
@@ -869,7 +869,7 @@
           "targets": [
             {
               "refId": "A",
-              "target": "stats.gauges.goyaadhub.job.size"
+              "target": "stats.gauges.chronomqhub.job.size"
             }
           ],
           "thresholds": [],

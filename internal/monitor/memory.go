@@ -10,7 +10,7 @@ import (
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/rs/zerolog/log"
 
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/chronomq/chronomq/pkg/metrics"
 )
 
 // Sizeable struct is one that wishes to enable mem accounting for itself

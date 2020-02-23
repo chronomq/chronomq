@@ -11,8 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
+	"github.com/chronomq/chronomq/pkg/metrics"
+	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 
 	loadTestCmd = &cobra.Command{
 		Use:   "loadtest",
-		Short: "Run a yaad loadtest",
+		Short: "Run a chronomq loadtest",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Running Yaad load test")
 			if !enqueueMode && !dequeueMode {

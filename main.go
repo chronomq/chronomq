@@ -1,20 +1,20 @@
 /*
-Goyaad is a cancelable job scheduler.
+chronomq is a cancelable job/message scheduler.
 
-There are two main primitives that Goyaad provides
+There are two main primitives that Gochronomq provides
 	- Time ordered scheduleable jobs
 	- Cancelation of scheduled jobs
 
 Installation:
-	- go get github.com/urjitbhatia/goyaad
-	- Docker image: https://hub.docker.com/r/urjitbhatia/goyaad
+	- go get github.com/chronomq/chronomq
+	- Docker image: https://hub.docker.com/r/chronomq/chronomq
 */
 package main
 
 import (
 	_ "net/http/pprof"
 
-	"github.com/urjitbhatia/goyaad/cmd"
+	"github.com/chronomq/chronomq/cmd"
 )
 
 // Set by gorelease during binary

@@ -16,9 +16,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/pkg/hub"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
+	"github.com/chronomq/chronomq/pkg/hub"
+	"github.com/chronomq/chronomq/pkg/persistence"
+	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var (
@@ -109,7 +109,7 @@ func startApp(cfg *config) {
 		}
 	}()
 
-	log.Info().Msg("Starting Goyaad")
+	log.Info().Msg("Starting Gochronomq")
 
 	storage, err := cfg.storeCfg.Storage()
 	if err != nil {

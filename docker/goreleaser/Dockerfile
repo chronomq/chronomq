@@ -1,14 +1,14 @@
-# Goyaad is a job-queue that orders jobs by their trigger time.
+# Chronomq is a job-queue that orders jobs by their trigger time.
 #
 # docker run --rm -it \
-# 			 --name goyaad \
-#				 urjitbhatia/goyaad
+# 			 --name chronomq \
+#				 chronomq/chronomq
 
 FROM scratch as binBase
-COPY goyaad /
+COPY chronomq /
 
 FROM alpine:edge
-LABEL maintainer Urjit Singh Bhatia<(urjitsinghbhatia@gmail.com> (github: @urjitbhatia)
+LABEL maintainer Urjit Singh Bhatia<(urjitsinghbhatia@gmail.com> (github: @chronomq)
 
 ARG GOYAAD_VERSION=0.1.0
 
@@ -25,5 +25,5 @@ RUN buildDeps=' \
     && apk del $buildDeps \
     && echo "Build complete."
 
-COPY --from=binBase /goyaad /usr/local/bin/goyaad
-ENTRYPOINT [ "goyaad" ]
+COPY --from=binBase /chronomq /usr/local/bin/chronomq
+ENTRYPOINT [ "chronomq" ]

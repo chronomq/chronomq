@@ -10,10 +10,10 @@ import (
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/urjitbhatia/goyaad/internal/queue"
-	"github.com/urjitbhatia/goyaad/internal/temporal"
-	"github.com/urjitbhatia/goyaad/pkg/job"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	"github.com/chronomq/chronomq/internal/queue"
+	"github.com/chronomq/chronomq/internal/temporal"
+	"github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/persistence"
 )
 
 // Spoke is a time bound chain of jobs

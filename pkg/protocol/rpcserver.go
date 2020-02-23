@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/urjitbhatia/goyaad/internal/monitor"
-	"github.com/urjitbhatia/goyaad/pkg/hub"
-	"github.com/urjitbhatia/goyaad/pkg/job"
+	"github.com/chronomq/chronomq/internal/monitor"
+	"github.com/chronomq/chronomq/pkg/hub"
+	"github.com/chronomq/chronomq/pkg/job"
 )
 
 // ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration

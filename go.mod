@@ -1,4 +1,4 @@
-module github.com/urjitbhatia/goyaad
+module github.com/chronomq/chronomq
 
 go 1.13
 

@@ -10,9 +10,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/urjitbhatia/goyaad/pkg/hub"
-	. "github.com/urjitbhatia/goyaad/pkg/job"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
+	. "github.com/chronomq/chronomq/pkg/hub"
+	. "github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/persistence"
 )
 
 var persister persistence.Persister

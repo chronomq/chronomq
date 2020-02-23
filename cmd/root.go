@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/chronomq/chronomq/pkg/metrics"
 )
 
 var (

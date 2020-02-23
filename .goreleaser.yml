@@ -28,12 +28,12 @@ dockers:
     goos: linux
     goarch: amd64
     # Name of the built binary that should be used.
-    # binary: goyaad
+    # binary: chronomq
     # Templates of the Docker image names.
     image_templates:
-    - "urjitbhatia/goyaad:latest"
-    - "urjitbhatia/goyaad:v{{ .Major }}"
-    - "urjitbhatia/goyaad:{{ .Tag }}"
+    - "chronomq/chronomq:latest"
+    - "chronomq/chronomq:v{{ .Major }}"
+    - "chronomq/chronomq:{{ .Tag }}"
 
     # Skips the docker push. Could be useful if you also do draft releases.
     # Defaults to false.
@@ -45,7 +45,7 @@ dockers:
     # Template of the docker build flags.
     build_flag_templates:
     - "--label=version={{.Version}}"
-    - "--build-arg=GOYAAD_VERSION={{.Version}}"
+    - "--build-arg=CHRONOMQ_VERSION={{.Version}}"
     # If Dockerfile copies files other than the binary itself,
     # you should list them here as well.
     # extra_files:

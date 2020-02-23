@@ -2,11 +2,11 @@
 
 Yaad is a high-throughput scheduleable-job queue. Jobs with different trigger times go in - jobs ordered by trigger by time come out.
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/urjitbhatia/goyaad)](https://goreportcard.com/report/github.com/urjitbhatia/goyaad)
-[![Build Status](https://travis-ci.com/urjitbhatia/goyaad.svg?branch=master)](https://travis-ci.com/urjitbhatia/goyaad)
-[![GoDoc](https://godoc.org/github.com/urjitbhatia/goyaad/pkg?status.svg)](https://godoc.org/github.com/urjitbhatia/goyaad/pkg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/chronomq/chronomq)](https://goreportcard.com/report/github.com/chronomq/chronomq)
+[![Build Status](https://travis-ci.com/chronomq/chronomq.svg?branch=master)](https://travis-ci.com/chronomq/chronomq)
+[![GoDoc](https://godoc.org/github.com/chronomq/chronomq/pkg?status.svg)](https://godoc.org/github.com/chronomq/chronomq/pkg)
 
-- [What is Yaad?](#what-is-yaad)
+- [What is Yaad?](#what-is-chronomq)
 - [Quickstart](#quickstart)
   - [Docker](#docker)
   - [Pre-built Binary](#pre-built-binary)
@@ -34,34 +34,34 @@ In other words, Yaad orders a stream of jobs by their `trigger` time.
 
 ### Docker
 
-1. Pull latest image docker: `docker pull urjitbhatia/goyaad:latest`
-1. Run server: `docker run --rm --name goyaad -p 11301:11301 urjitbhatia/goyaad:latest -L server`
+1. Pull latest image docker: `docker pull chronomq/chronomq:latest`
+1. Run server: `docker run --rm --name chronomq -p 11301:11301 chronomq/chronomq:latest -L server`
 1. Interact using the cli:
 
    ```bash
-   docker run --rm urjitbhatia/goyaad:latest put --id "j1" --body "I should be ready second" --delay 45s
-   docker run --rm urjitbhatia/goyaad:latest put --id "j2" --body "I should be ready first" --delay 2s
-   docker run --rm urjitbhatia/goyaad:latest put --id "j3" --body "Cancel me" --delay 20m
-   docker run --rm urjitbhatia/goyaad:latest next --timeout 20s
-   docker run --rm urjitbhatia/goyaad:latest next --timeout 50s
-   docker run --rm urjitbhatia/goyaad:latest cancel --id "j3"
+   docker run --rm chronomq/chronomq:latest put --id "j1" --body "I should be ready second" --delay 45s
+   docker run --rm chronomq/chronomq:latest put --id "j2" --body "I should be ready first" --delay 2s
+   docker run --rm chronomq/chronomq:latest put --id "j3" --body "Cancel me" --delay 20m
+   docker run --rm chronomq/chronomq:latest next --timeout 20s
+   docker run --rm chronomq/chronomq:latest next --timeout 50s
+   docker run --rm chronomq/chronomq:latest cancel --id "j3"
    ```
 
 ### Pre-built binary
 
 1. Fetch binary
-   1. Github releases `https://github.com/urjitbhatia/goyaad/releases`
-   1. Or via `go get`: `go get github.com/urjitbhatia/yaad`
-1. Run server: `goyaad -L server`
+   1. Github releases `https://github.com/chronomq/chronomq/releases`
+   1. Or via `go get`: `go get github.com/chronomq/chronomq`
+1. Run server: `chronomq -L server`
 1. Interact using the cli:
 
    ```bash
-   goyaad put --id "j1" --body "I should be ready second" --delay 45s
-   goyaad put --id "j2" --body "I should be ready first" --delay 2s
-   goyaad put --id "j3" --body "Cancel me" --delay 20m
-   goyaad next --timeout 20s
-   goyaad next --timeout 50s
-   goyaad cancel --id "j3"
+   chronomq put --id "j1" --body "I should be ready second" --delay 45s
+   chronomq put --id "j2" --body "I should be ready first" --delay 2s
+   chronomq put --id "j3" --body "Cancel me" --delay 20m
+   chronomq next --timeout 20s
+   chronomq next --timeout 50s
+   chronomq cancel --id "j3"
    ```
 
 #### Running built-in load test
@@ -69,12 +69,12 @@ In other words, Yaad orders a stream of jobs by their `trigger` time.
 1. Docker:
 
    ```bash
-      docker run --rm --name loadtest urjitbhatia/goyaad:latest \
+      docker run --rm --name loadtest chronomq/chronomq:latest \
          -L loadtest -e -d \
-         --raddr \$(docker inspect goyaad -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'):11301
+         --raddr \$(docker inspect chronomq -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'):11301
    ```
 
-1. Run a load test: `goyaad -L loadtest -e -d`
+1. Run a load test: `chronomq -L loadtest -e -d`
 
 ## Configuration
 

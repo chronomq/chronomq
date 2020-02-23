@@ -11,14 +11,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/urjitbhatia/goyaad/internal/queue"
-	"github.com/urjitbhatia/goyaad/internal/temporal"
+	"github.com/chronomq/chronomq/internal/queue"
+	"github.com/chronomq/chronomq/internal/temporal"
 )
 
 // cache fixed size overhead
 var sizeOverhead = uint64(unsafe.Sizeof(Job{}))
 
-// Job is the basic unit of work in yaad
+// Job is the basic unit of work in chronomq
 type Job struct {
 	id        string
 	triggerAt time.Time
@@ -30,7 +30,7 @@ type Job struct {
 
 // Impl Job
 
-//NewJob creates a new yaad job
+//NewJob creates a new chronomq job
 func NewJob(id string, triggerAt time.Time, b []byte) *Job {
 	j := &Job{
 		id:        id,

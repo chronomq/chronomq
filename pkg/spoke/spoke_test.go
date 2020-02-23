@@ -9,10 +9,10 @@ import (
 	. "github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 
-	. "github.com/urjitbhatia/goyaad/internal/queue"
-	. "github.com/urjitbhatia/goyaad/pkg/job"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
-	. "github.com/urjitbhatia/goyaad/pkg/spoke"
+	. "github.com/chronomq/chronomq/internal/queue"
+	. "github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/persistence"
+	. "github.com/chronomq/chronomq/pkg/spoke"
 )
 
 var _ = Describe("Test spokes", func() {

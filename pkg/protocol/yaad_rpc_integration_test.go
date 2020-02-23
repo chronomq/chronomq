@@ -8,9 +8,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/urjitbhatia/goyaad/pkg/hub"
-	"github.com/urjitbhatia/goyaad/pkg/persistence"
-	"github.com/urjitbhatia/goyaad/pkg/protocol"
+	"github.com/chronomq/chronomq/pkg/hub"
+	"github.com/chronomq/chronomq/pkg/persistence"
+	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var _ = Describe("Test rpc protocol:", func() {
