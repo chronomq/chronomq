@@ -1,4 +1,4 @@
-package protocol
+package chronomq
 
 import (
 	"errors"
@@ -14,6 +14,13 @@ var ErrClientDisconnected = errors.New("Client is not connected to the server")
 // RPCClient communicates with the Chronomq RPC server
 type RPCClient struct {
 	client *rpc.Client
+}
+
+// RPCJob is a light wrapper struct representing job data on the wire without extra metadata that is stored internally
+type RPCJob struct {
+	Body  []byte
+	ID    string
+	Delay time.Duration
 }
 
 // Connect to a Chronomq RCP Server and return a connected client

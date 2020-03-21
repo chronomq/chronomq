@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/chronomq/chronomq/api/rpc/chronomq"
 	"github.com/chronomq/chronomq/pkg/hub"
 	"github.com/chronomq/chronomq/pkg/protocol"
 )
@@ -43,7 +44,7 @@ func BenchmarkRPCJobPuts(b *testing.B) {
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start
-	client := &protocol.RPCClient{}
+	client := &chronomq.RPCClient{}
 	err := client.Connect(":8001")
 	if err != nil {
 		b.Error(err)
