@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/chronomq/chronomq/pkg/protocol"
+	"github.com/chronomq/chronomq/api/rpc/chronomq"
 )
 
 type putArgs struct {
@@ -45,7 +45,7 @@ var (
 		Long: `Enqueues a job. Errors if another job with the same id already exists.
 		If no id is specific, the command will auto-generate a random id and return it.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := &protocol.RPCClient{}
+			client := &chronomq.RPCClient{}
 			err := client.Connect(defaultAddrs.rpcAddr)
 			if err != nil {
 				return err
@@ -96,7 +96,7 @@ var (
 		Short: "Get next ready job",
 		Long:  `Gets the next job that is ready to trigger`,
 		Run: func(cmd *cobra.Command, args []string) {
-			client := &protocol.RPCClient{}
+			client := &chronomq.RPCClient{}
 			err := client.Connect(defaultAddrs.rpcAddr)
 			if err != nil {
 				log.Error().Err(err).Send()
@@ -136,7 +136,7 @@ var (
 		Short: "Cancel a job",
 		Long:  `Cancels the job with the given id. Cancel is ignore is no job matches the id`,
 		Run: func(cmd *cobra.Command, args []string) {
-			client := &protocol.RPCClient{}
+			client := &chronomq.RPCClient{}
 			err := client.Connect(defaultAddrs.rpcAddr)
 			if err != nil {
 				log.Error().Err(err).Send()

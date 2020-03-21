@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/chronomq/chronomq/api/rpc/chronomq"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-
-	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 const delimiter = "-----------------------------------------"
@@ -37,7 +36,7 @@ func init() {
 }
 
 func inspect() error {
-	client := &protocol.RPCClient{}
+	client := &chronomq.RPCClient{}
 	log.Info().Str("address", defaultAddrs.rpcAddr).Msg("Connecting to server")
 	// This ensures all contexts get a running server
 	err := client.Connect(defaultAddrs.rpcAddr)
@@ -53,7 +52,7 @@ func inspect() error {
 		}
 	}
 
-	jobs := []*protocol.RPCJob{}
+	jobs := []*chronomq.RPCJob{}
 	err = client.InspectN(num, &jobs)
 	if err != nil {
 		return err
