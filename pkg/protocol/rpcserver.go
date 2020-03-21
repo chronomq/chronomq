@@ -1,18 +1,17 @@
 package protocol
 
 import (
+	"errors"
 	"io"
 	"net"
 	"net/rpc"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/chronomq/chronomq/api/rpc/chronomq"
+	api "github.com/chronomq/chronomq/api/rpc/chronomq"
 	"github.com/chronomq/chronomq/internal/monitor"
-	"github.com/chronomq/chronomq/pkg/hub"
-	"github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/chronomq"
 )
 
 // ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration
@@ -21,25 +20,25 @@ var memMonitor monitor.MemMonitor
 
 // RPCServer exposes a Chronomq hub backed RPC endpoint
 type RPCServer struct {
-	hub *hub.Hub
+	hub *chronomq.Hub
 }
 
-func newRPCServer(hub *hub.Hub) *RPCServer {
+func newRPCServer(hub *chronomq.Hub) *RPCServer {
 	memMonitor = monitor.GetMemMonitor()
 	return &RPCServer{hub: hub}
 }
 
 // PutWithID accepts a new job and stores it in a Hub, reply is ignored
-func (r *RPCServer) PutWithID(rpcJob chronomq.RPCJob, id *string) error {
+func (r *RPCServer) PutWithID(rpcJob api.RPCJob, id *string) error {
 	memMonitor.Fence()
 
-	var j *job.Job
+	var j *chronomq.Job
 	if rpcJob.ID == "" {
 		// need to generate an id
-		j = job.NewJobAutoID(time.Now().Add(rpcJob.Delay), rpcJob.Body)
+		j = chronomq.NewJobAutoID(time.Now().Add(rpcJob.Delay), rpcJob.Body)
 		*id = j.ID()
 	} else {
-		j = job.NewJob(rpcJob.ID, time.Now().Add(rpcJob.Delay), rpcJob.Body)
+		j = chronomq.NewJob(rpcJob.ID, time.Now().Add(rpcJob.Delay), rpcJob.Body)
 	}
 	defer memMonitor.Increment(j)
 	return r.hub.AddJobLocked(j)
@@ -58,7 +57,7 @@ func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
 // Next sets the reply (job) to a valid job if a job is ready to be triggered
 // If not job is ready yet, this call will wait (block) for the given duration and keep searching
 // for ready jobs. If no job is ready by the end of the timeout, ErrTimeout is returned
-func (r *RPCServer) Next(timeout time.Duration, job *chronomq.RPCJob) error {
+func (r *RPCServer) Next(timeout time.Duration, job *api.RPCJob) error {
 	// try once
 	if j := r.hub.NextLocked(); j != nil {
 		defer memMonitor.Decrement(j)
@@ -101,7 +100,7 @@ func (r *RPCServer) Ping(ignore int8, pong *string) error {
 }
 
 // InspectN returns n jobs without removing them for ad-hoc inspection
-func (r *RPCServer) InspectN(n int, rpcJobs *[]*chronomq.RPCJob) error {
+func (r *RPCServer) InspectN(n int, rpcJobs *[]*api.RPCJob) error {
 	if n == 0 {
 		return nil
 	}
@@ -109,7 +108,7 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*chronomq.RPCJob) error {
 	jobs := r.hub.GetNJobs(n)
 
 	for j := range jobs {
-		rpcJob := &chronomq.RPCJob{
+		rpcJob := &api.RPCJob{
 			Body:  j.Body(),
 			ID:    j.ID(),
 			Delay: j.TriggerAt().Sub(time.Now()),
@@ -120,7 +119,7 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*chronomq.RPCJob) error {
 }
 
 // ServeRPC starts serving hub over rpc
-func ServeRPC(hub *hub.Hub, addr string) (io.Closer, error) {
+func ServeRPC(hub *chronomq.Hub, addr string) (io.Closer, error) {
 	srv := newRPCServer(hub)
 	rpcSrv := rpc.NewServer()
 	rpcSrv.Register(srv)

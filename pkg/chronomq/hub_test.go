@@ -1,4 +1,4 @@
-package hub_test
+package chronomq_test
 
 import (
 	"math/rand"
@@ -10,8 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	. "github.com/chronomq/chronomq/pkg/hub"
-	. "github.com/chronomq/chronomq/pkg/job"
+	. "github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
 )
 

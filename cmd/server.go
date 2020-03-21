@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/chronomq/chronomq/pkg/hub"
+	"github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
 	"github.com/chronomq/chronomq/pkg/protocol"
 )
@@ -116,14 +116,14 @@ func startApp(cfg *config) {
 		log.Fatal().Err(err).Msg("Cannot initialize storage")
 	}
 
-	opts := &hub.HubOpts{
+	opts := &chronomq.HubOpts{
 		AttemptRestore: cfg.restore,
 		SpokeSpan:      cfg.spokeSpan,
 		Persister:      persistence.NewJournalPersister(storage),
-		MaxCFSize:      hub.DefaultMaxCFSize,
+		MaxCFSize:      chronomq.DefaultMaxCFSize,
 	}
 
-	h := hub.NewHub(opts)
+	h := chronomq.NewHub(opts)
 	var rpcSRV io.Closer
 	wg := sync.WaitGroup{}
 	go func() {

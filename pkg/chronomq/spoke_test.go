@@ -1,4 +1,4 @@
-package spoke_test
+package chronomq_test
 
 import (
 	"container/heap"
@@ -10,9 +10,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	. "github.com/chronomq/chronomq/internal/queue"
-	. "github.com/chronomq/chronomq/pkg/job"
+	. "github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
-	. "github.com/chronomq/chronomq/pkg/spoke"
 )
 
 var _ = Describe("Test spokes", func() {
