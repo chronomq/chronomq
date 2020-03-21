@@ -202,12 +202,12 @@ func (h *Hub) NextLocked() *Job {
 func (h *Hub) next() *Job {
 
 	// since we have the lock, send some metrics
-	go metrics.GaugeInt("hub.count", int(h.stats.Read().CurrentJobs))
-	go metrics.GaugeInt("hub.count", h.spokes.Len())
+	go metrics.GaugeInt("hub.job.count", int(h.stats.Read().CurrentJobs))
+	go metrics.GaugeInt("hub.spoke.count", h.spokes.Len())
 
 	// Lock Past spoke lock in func scope
 	if j := func() *Job {
-		go metrics.GaugeInt("hub.pastcount", h.pastSpoke.PendingJobsLen())
+		go metrics.GaugeInt("hub.job.past.count", h.pastSpoke.PendingJobsLen())
 
 		// Find a job in past spoke
 		j := h.pastSpoke.NextLocked()
@@ -268,7 +268,7 @@ func (h *Hub) next() *Job {
 		log.Panic().Msg("Unreachable state :: hub has a nil spoke after candidate search")
 	}
 
-	go metrics.GaugeInt("hub.currentcount", h.currentSpoke.PendingJobsLen())
+	go metrics.GaugeInt("hub.job.current.count", h.currentSpoke.PendingJobsLen())
 
 	j := h.currentSpoke.NextLocked()
 	if j == nil {
@@ -297,8 +297,8 @@ func (h *Hub) Prune() int {
 
 // AddJobLocked to this hub. Hub should never reject a job - this method will panic if that happens
 func (h *Hub) AddJobLocked(j *Job) error {
-	defer metrics.Time("hub.add.duration", time.Now())
-	go metrics.GaugeInt("hub.size", len(j.Body()))
+	defer metrics.Time("hub.job.add.duration", time.Now())
+	go metrics.GaugeInt("hub.job.size", len(j.Body()))
 
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -308,7 +308,7 @@ func (h *Hub) AddJobLocked(j *Job) error {
 	if h.jobFilter.Lookup(id) {
 		// filter can give us false positives, do a full scan
 		if spoke, _ := h.findOwnerSpoke(j.ID()); spoke != nil {
-			return fmt.Errorf("Rejecting  Job with ID: %s already exists", j.ID())
+			return fmt.Errorf("Rejecting new job. Job with ID: %s already exists", j.ID())
 		}
 	}
 
@@ -332,7 +332,7 @@ func (h *Hub) addJob(j *Job) error {
 			log.Error().Err(err).Msg("Past spoke rejected  This should never happen")
 			return err
 		}
-		go metrics.Incr("hub.addpast")
+		go metrics.Incr("hub.addjob.past")
 		return nil
 	case temporal.Future:
 		log.Debug().Str("jobID", j.ID()).Msg("Adding job to future spoke")
@@ -341,7 +341,7 @@ func (h *Hub) addJob(j *Job) error {
 			if h.currentSpoke.IsJobInBounds(j) {
 				err := h.currentSpoke.AddJobLocked(j)
 				if err != nil {
-					log.Error().Err(err).Msg("Current spoke rejected  This should never happen")
+					log.Error().Err(err).Msg("Current spoke rejected job. This should never happen")
 					return err
 				}
 				return nil
@@ -356,7 +356,7 @@ func (h *Hub) addJob(j *Job) error {
 			log.Debug().Str("jobID", j.ID()).Msg("Adding job to candidate spoke")
 			err := candidateSpoke.AddJobLocked(j)
 			if err != nil {
-				log.Error().Err(err).Msg("Hub should always accept a  No spoke accepted ")
+				log.Error().Err(err).Msg("Hub should always accept a job. No spoke accepted. This should never happen")
 				return err
 			}
 			// Accepted, all done...
@@ -368,7 +368,7 @@ func (h *Hub) addJob(j *Job) error {
 		s := NewSpoke(jobBound.Start(), jobBound.End())
 		err := s.AddJobLocked(j)
 		if err != nil {
-			log.Error().Err(err).Msg("Hub should always accept a  No spoke accepted ")
+			log.Error().Err(err).Msg("Hub should always accept a job. No spoke accepted. This should never happen")
 			return err
 		}
 		// h is still locked here so it's ok
@@ -376,7 +376,7 @@ func (h *Hub) addJob(j *Job) error {
 		return nil
 	}
 
-	err := errors.Errorf("Unable to find a spoke for  This should never happen")
+	err := errors.Errorf("Unable to find a spoke for job. This should never happen")
 	log.Error().Err(err).Msg("Cant add job to hub")
 	return err
 }
@@ -387,24 +387,24 @@ func (h *Hub) StatusLocked() {
 
 	hubStats := h.stats.Read()
 	log.Info().Int64("spokesCount", hubStats.CurrentSpokes).Send()
-	go metrics.GaugeInt("hub.count", int(hubStats.CurrentSpokes))
+	go metrics.GaugeInt("hub.spoke.count", int(hubStats.CurrentSpokes))
 
 	log.Info().Int64("pendingJobsCount", hubStats.CurrentJobs).Send()
-	go metrics.GaugeInt("hub.count", int(hubStats.CurrentJobs))
+	go metrics.GaugeInt("hub.job.count", int(hubStats.CurrentJobs))
 
 	log.Info().Int64("removedJobsCount", hubStats.RemovedJobs).Send()
-	go metrics.GaugeInt("hub.removed.count", int(hubStats.RemovedJobs))
+	go metrics.GaugeInt("hub.job.removed.count", int(hubStats.RemovedJobs))
 
 	// lock only for this bit - current spoke can be replaced while running...
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	log.Info().Int("pastSpokePendingJobsCount", h.pastSpoke.PendingJobsLen()).Send()
 	log.Info().Uint("jobFilterCount", h.jobFilter.Count()).Send()
-	go metrics.GaugeInt("hub.pastcount", h.pastSpoke.PendingJobsLen())
+	go metrics.GaugeInt("hub.job.past.count", h.pastSpoke.PendingJobsLen())
 
 	if h.currentSpoke != nil {
 		log.Info().Int("currentSpokePendingJobsCount", h.currentSpoke.PendingJobsLen()).Send()
-		go metrics.GaugeInt("hub.currentcount", h.currentSpoke.PendingJobsLen())
+		go metrics.GaugeInt("hub.job.current.count", h.currentSpoke.PendingJobsLen())
 	}
 	log.Info().Msg("-------------------------------------------------------------")
 }
