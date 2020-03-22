@@ -1,7 +1,6 @@
-package protocol
+package rpc
 
 import (
-	"errors"
 	"io"
 	"net"
 	"net/rpc"
@@ -14,22 +13,20 @@ import (
 	"github.com/chronomq/chronomq/pkg/chronomq"
 )
 
-// ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration
-var ErrTimeout = errors.New("No new jobs available in given timeout")
 var memMonitor monitor.MemMonitor
 
-// RPCServer exposes a Chronomq hub backed RPC endpoint
-type RPCServer struct {
+// Server exposes a Chronomq hub backed RPC endpoint
+type Server struct {
 	hub *chronomq.Hub
 }
 
-func newRPCServer(hub *chronomq.Hub) *RPCServer {
+func newServer(hub *chronomq.Hub) *Server {
 	memMonitor = monitor.GetMemMonitor()
-	return &RPCServer{hub: hub}
+	return &Server{hub: hub}
 }
 
 // PutWithID accepts a new job and stores it in a Hub, reply is ignored
-func (r *RPCServer) PutWithID(rpcJob api.Job, id *string) error {
+func (r *Server) PutWithID(rpcJob api.Job, id *string) error {
 	memMonitor.Fence()
 
 	var j *chronomq.Job
@@ -46,7 +43,7 @@ func (r *RPCServer) PutWithID(rpcJob api.Job, id *string) error {
 
 // Cancel deletes the job pointed to by the id, reply is ignored
 // If the job doesn't exist, no error is returned so calls to Cancel are idempotent
-func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
+func (r *Server) Cancel(id string, ignoredReply *int8) error {
 	j, err := r.hub.CancelJobLocked(id)
 	if j != nil {
 		defer memMonitor.Decrement(j)
@@ -57,7 +54,7 @@ func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
 // Next sets the reply (job) to a valid job if a job is ready to be triggered
 // If not job is ready yet, this call will wait (block) for the given duration and keep searching
 // for ready jobs. If no job is ready by the end of the timeout, ErrTimeout is returned
-func (r *RPCServer) Next(timeout time.Duration, job *api.Job) error {
+func (r *Server) Next(timeout time.Duration, job *api.Job) error {
 	// try once
 	if j := r.hub.NextLocked(); j != nil {
 		defer memMonitor.Decrement(j)
@@ -67,7 +64,7 @@ func (r *RPCServer) Next(timeout time.Duration, job *api.Job) error {
 	}
 	// if we couldn't find a ready job and timeout was set to 0
 	if timeout.Seconds() == 0 {
-		return ErrTimeout
+		return api.ErrTimeout
 	}
 
 	waitTill := time.Now().Add(timeout)
@@ -88,19 +85,19 @@ func (r *RPCServer) Next(timeout time.Duration, job *api.Job) error {
 		log.Debug().Dur("timeout", timeout).Msg("waiting for reserve finished sleep duration")
 	}
 
-	return ErrTimeout
+	return api.ErrTimeout
 }
 
 // Ping the server, sets "pong" as the reply
 // useful for basic connectivity/liveness check
-func (r *RPCServer) Ping(ignore int8, pong *string) error {
+func (r *Server) Ping(ignore int8, pong *string) error {
 	log.Debug().Msg("Received ping from client")
 	*pong = "pong"
 	return nil
 }
 
 // InspectN returns n jobs without removing them for ad-hoc inspection
-func (r *RPCServer) InspectN(n int, rpcJobs *[]*api.Job) error {
+func (r *Server) InspectN(n int, rpcJobs *[]*api.Job) error {
 	if n == 0 {
 		return nil
 	}
@@ -120,7 +117,7 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*api.Job) error {
 
 // ServeRPC starts serving hub over rpc
 func ServeRPC(hub *chronomq.Hub, addr string) (io.Closer, error) {
-	srv := newRPCServer(hub)
+	srv := newServer(hub)
 	rpcSrv := rpc.NewServer()
 	rpcSrv.Register(srv)
 	l, e := net.Listen("tcp", addr)

@@ -1,4 +1,4 @@
-package protocol_test
+package rpc_test
 
 import (
 	"fmt"
@@ -11,8 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	api "github.com/chronomq/chronomq/api/rpc/chronomq"
+	"github.com/chronomq/chronomq/internal/api/rpc"
 	"github.com/chronomq/chronomq/pkg/chronomq"
-	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var opts = chronomq.HubOpts{
@@ -40,7 +40,7 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 func BenchmarkRPCJobPuts(b *testing.B) {
 	log.Logger = zerolog.New(ioutil.Discard)
 	go func() {
-		protocol.ServeRPC(chronomq.NewHub(&opts), ":8001")
+		rpc.ServeRPC(chronomq.NewHub(&opts), ":8001")
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start

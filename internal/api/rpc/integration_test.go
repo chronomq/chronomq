@@ -1,4 +1,4 @@
-package protocol_test
+package rpc_test
 
 import (
 	"fmt"
@@ -9,9 +9,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	api "github.com/chronomq/chronomq/api/rpc/chronomq"
+	"github.com/chronomq/chronomq/internal/api/rpc"
 	"github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
-	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var _ = Describe("Test rpc protocol:", func() {
@@ -32,7 +32,7 @@ var _ = Describe("Test rpc protocol:", func() {
 			SpokeSpan:      time.Second * 5}
 		h = chronomq.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
-		srv, err = protocol.ServeRPC(h, addr)
+		srv, err = rpc.ServeRPC(h, addr)
 		Expect(err).NotTo(HaveOccurred())
 		port++
 

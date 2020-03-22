@@ -16,16 +16,17 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	"github.com/chronomq/chronomq/internal/api/grpc"
+	"github.com/chronomq/chronomq/internal/api/rpc"
 	"github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
-	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var (
 	// defaultAddrs holds the various endpoints we need to configure
 	defaultAddrs = &addrs{
 		rpcAddr:   ":11301",
-		grpcAddr:  ":9999",
+		grpcAddr:  ":11302",
 		statsAddr: ":8125",
 	}
 	// appCfg - wires in the application and configuration
@@ -124,10 +125,30 @@ func startApp(cfg *config) {
 	}
 
 	h := chronomq.NewHub(opts)
-	var rpcSRV io.Closer
 	wg := sync.WaitGroup{}
+
+	// start rpc server
+	var rpcSRV io.Closer
 	go func() {
-		rpcSRV, _ = protocol.ServeRPC(h, cfg.addrs.rpcAddr)
+		rpcSRV, err = rpc.ServeRPC(h, cfg.addrs.rpcAddr)
+		if err != nil {
+			log.Panic().Err(err).Send()
+		}
+	}()
+
+	// start grpc server
+	var grpcSRV io.Closer
+	var grpcHTTPProxySRV io.Closer
+	go func() {
+		grpcSRV, err = grpc.ServeGRPC(h, cfg.addrs.grpcAddr)
+		if err != nil {
+			log.Panic().Err(err).Send()
+		}
+		// start grpc-http proxy server
+		grpcHTTPProxySRV, err = grpcSRV.(*grpc.Server).ServeHTTP(":11303", ":11302")
+		if err != nil {
+			log.Panic().Err(err).Send()
+		}
 	}()
 
 	sigc := make(chan os.Signal, 1)
@@ -137,9 +158,15 @@ func startApp(cfg *config) {
 	go func() {
 		defer wg.Done()
 		<-sigc
+
 		log.Info().Msg("Stopping rpc protocol server")
 		rpcSRV.Close()
 		log.Info().Msg("Stopping rpc protocol server - Done")
+
+		log.Info().Msg("Stopping grpc protocol server")
+		grpcSRV.Close()
+		grpcHTTPProxySRV.Close()
+		log.Info().Msg("Stopping grpc protocol server - Done")
 		h.Stop(true)
 	}()
 
