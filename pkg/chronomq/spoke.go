@@ -1,4 +1,4 @@
-package spoke
+package chronomq
 
 import (
 	"container/heap"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/chronomq/chronomq/internal/queue"
 	"github.com/chronomq/chronomq/internal/temporal"
-	"github.com/chronomq/chronomq/pkg/job"
 	"github.com/chronomq/chronomq/pkg/persistence"
 )
 
@@ -51,13 +50,13 @@ func NewSpoke(start, end time.Time) *Spoke {
 }
 
 // IsJobInBounds returns true if this job's trigger time is temporally bounded by this spoke
-func (s *Spoke) IsJobInBounds(j *job.Job) bool {
+func (s *Spoke) IsJobInBounds(j *Job) bool {
 	return s.ContainsTime(j.TriggerAt())
 }
 
 // JobAtIdx returns the job at index i stored by this spoke
-func (s *Spoke) JobAtIdx(i int) *job.Job {
-	return s.jobQueue.AtIdx(i).Value().(*job.Job)
+func (s *Spoke) JobAtIdx(i int) *Job {
+	return s.jobQueue.AtIdx(i).Value().(*Job)
 }
 
 // GetLocker returns the spoke as a sync.Locker interface
@@ -89,7 +88,7 @@ func (s *Spoke) AsTemporalState() temporal.State {
 
 // AddJobLocked submits a job to the spoke. If the spoke cannot take responsibility
 // of this job, it will return it as it is, otherwise nil is returned
-func (s *Spoke) AddJobLocked(j *job.Job) error {
+func (s *Spoke) AddJobLocked(j *Job) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if !s.IsJobInBounds(j) {
@@ -109,7 +108,7 @@ func (s *Spoke) AddJobLocked(j *job.Job) error {
 }
 
 // NextLocked returns the next ready job
-func (s *Spoke) NextLocked() *job.Job {
+func (s *Spoke) NextLocked() *Job {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -122,7 +121,7 @@ func (s *Spoke) NextLocked() *job.Job {
 		return nil
 	}
 
-	j := i.Value().(*job.Job)
+	j := i.Value().(*Job)
 	switch j.AsTemporalState() {
 	case temporal.Past, temporal.Current:
 		// pop from queue
@@ -135,7 +134,7 @@ func (s *Spoke) NextLocked() *job.Job {
 }
 
 // CancelJobLocked will try to delete a job that hasn't been consumed yet
-func (s *Spoke) CancelJobLocked(id string) (*job.Job, error) {
+func (s *Spoke) CancelJobLocked(id string) (*Job, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -143,7 +142,7 @@ func (s *Spoke) CancelJobLocked(id string) (*job.Job, error) {
 		delete(s.jobMap, id)
 		// Also delete from pq
 		for i, j := range s.jobQueue {
-			cancelledJob := j.Value().(*job.Job)
+			cancelledJob := j.Value().(*Job)
 			if cancelledJob.ID() == id {
 				heap.Remove(&s.jobQueue, i)
 				return cancelledJob, nil
@@ -186,7 +185,7 @@ func (s *Spoke) PersistLocked(p persistence.Persister) chan error {
 		defer s.Unlock()
 		var i = 0
 		for i = 0; i < s.jobQueue.Len(); i++ {
-			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*job.Job))
+			err := p.Persist(s.jobQueue.AtIdx(i).Value().(*Job))
 			if err != nil {
 				errC <- err
 				continue

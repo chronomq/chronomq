@@ -11,6 +11,7 @@ release-snapshot:
 	goreleaser --snapshot --rm-dist
 
 test:
+	go vet
 	ginkgo -r --race --randomizeAllSpecs
 
 build-dev-dockerfile:

@@ -10,11 +10,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/chronomq/chronomq/pkg/hub"
+	api "github.com/chronomq/chronomq/api/rpc/chronomq"
+	"github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
-var opts = hub.HubOpts{
+var opts = chronomq.HubOpts{
 	AttemptRestore: false,
 	SpokeSpan:      time.Second * 5}
 
@@ -39,12 +40,11 @@ func benchPut(b *testing.B, bodySize int, putter jobPutter) {
 func BenchmarkRPCJobPuts(b *testing.B) {
 	log.Logger = zerolog.New(ioutil.Discard)
 	go func() {
-		protocol.ServeRPC(hub.NewHub(&opts), ":8001")
+		protocol.ServeRPC(chronomq.NewHub(&opts), ":8001")
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start
-	client := &protocol.RPCClient{}
-	err := client.Connect(":8001")
+	client, err := api.NewClient(":8001")
 	if err != nil {
 		b.Error(err)
 	}

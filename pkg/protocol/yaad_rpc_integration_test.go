@@ -8,7 +8,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/chronomq/chronomq/pkg/hub"
+	api "github.com/chronomq/chronomq/api/rpc/chronomq"
+	"github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
 	"github.com/chronomq/chronomq/pkg/protocol"
 )
@@ -16,30 +17,28 @@ import (
 var _ = Describe("Test rpc protocol:", func() {
 	defer GinkgoRecover()
 	var port = 9001
-	var client *protocol.RPCClient
+	var client *api.Client
 
 	var srv io.Closer
-	var h *hub.Hub
+	var h *chronomq.Hub
 
 	BeforeEach(func(done Done) {
 		defer close(done)
 		store, err := persistence.InMemStorage()
 		Expect(err).NotTo(HaveOccurred())
-		var opts = hub.HubOpts{
+		var opts = chronomq.HubOpts{
 			AttemptRestore: false,
 			Persister:      persistence.NewJournalPersister(store),
 			SpokeSpan:      time.Second * 5}
-		h = hub.NewHub(&opts)
+		h = chronomq.NewHub(&opts)
 		addr := fmt.Sprintf(":%d", port)
 		srv, err = protocol.ServeRPC(h, addr)
 		Expect(err).NotTo(HaveOccurred())
 		port++
 
-		client = &protocol.RPCClient{}
-
 		// This ensures all contexts get a running server
 		Eventually(func() error {
-			err := client.Connect(addr)
+			client, err = api.NewClient(addr)
 			return err
 		}, "1s").Should(BeNil())
 	}, 0.5)
@@ -93,7 +92,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		ExpectNoErr(err)
 
 		// We can inspect without consuming too
-		rpcJobs := []*protocol.RPCJob{}
+		rpcJobs := []*api.Job{}
 		err = client.InspectN(2, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(1))
@@ -121,7 +120,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 		// InspectN < n
 		inspectN := 5
-		rpcJobs := []*protocol.RPCJob{}
+		rpcJobs := []*api.Job{}
 		err := client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
@@ -131,7 +130,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		}
 		// InspectN == n
 		inspectN = n
-		rpcJobs = []*protocol.RPCJob{}
+		rpcJobs = []*api.Job{}
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
@@ -142,7 +141,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 		// InspectN > n
 		inspectN = n + 3
-		rpcJobs = []*protocol.RPCJob{}
+		rpcJobs = []*api.Job{}
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(n))

@@ -1,4 +1,4 @@
-package hub_test
+package chronomq_test
 
 import (
 	"testing"
@@ -8,11 +8,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestChronomq(t *testing.T) {
+func init() {
+	log.Logger = log.Output(GinkgoWriter)
+}
+
+func TestJob(t *testing.T) {
 	defer GinkgoRecover()
 
-	log.Logger = log.Output(GinkgoWriter)
-
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Chronomq Suite")
+	RunSpecs(t, "Job Suite")
 }

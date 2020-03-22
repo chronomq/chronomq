@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/chronomq/chronomq/pkg/job"
+	"github.com/chronomq/chronomq/pkg/chronomq"
 	"github.com/chronomq/chronomq/pkg/persistence"
 )
 
@@ -38,7 +38,7 @@ var _ = Describe("Test persistence", func() {
 		})
 
 		It("properly resets data dir", func() {
-			j := job.NewJobAutoID(time.Now(), testBody)
+			j := chronomq.NewJobAutoID(time.Now(), testBody)
 			err := p.Persist(j)
 			Expect(err).To(BeNil())
 
@@ -56,7 +56,7 @@ var _ = Describe("Test persistence", func() {
 		It("persists a chronomq job and then recovers it", func(done Done) {
 			defer close(done)
 
-			j := job.NewJobAutoID(time.Now(), testBody)
+			j := chronomq.NewJobAutoID(time.Now(), testBody)
 			err := p.Persist(j)
 			Expect(err).To(BeNil())
 
@@ -67,9 +67,9 @@ var _ = Describe("Test persistence", func() {
 			Expect(err).To(BeNil())
 
 			// Wait for entries chan to close
-			jobs := []job.Job{}
+			jobs := []chronomq.Job{}
 			for buf := range jobsChan {
-				j := job.Job{}
+				j := chronomq.Job{}
 				err = j.GobDecode(buf)
 				Expect(err).To(BeNil())
 				jobs = append(jobs, j)

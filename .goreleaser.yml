@@ -7,22 +7,24 @@ builds:
   - CGO_ENABLED=0
   ldflags: -s -w -X main.version=v{{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
-archive:
-  replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    386: i386
-    amd64: x86_64
-checksum:
-  name_template: 'checksums.txt'
 snapshot:
   name_template: "{{ .Tag }}-next"
+
+archives:
+  -
+    replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
 changelog:
   filters:
     exclude:
-    - '^docs:'
-    - '^test:'
+      - '^docs:'
+      - '^test:'
+checksum:
+  name_template: 'checksums.txt'
 dockers:
   -
     goos: linux

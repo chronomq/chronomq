@@ -1,4 +1,4 @@
-package spoke_test
+package chronomq_test
 
 import (
 	"testing"
@@ -8,9 +8,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func init() {
+	log.Logger = log.Output(GinkgoWriter)
+}
+
 func TestSpoke(t *testing.T) {
 	defer GinkgoRecover()
-	log.Logger = log.Output(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Spoke Suite")
 }
