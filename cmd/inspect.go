@@ -36,13 +36,14 @@ func init() {
 }
 
 func inspect() error {
-	client := &chronomq.RPCClient{}
+	client := &chronomq.Client{}
 	log.Info().Str("address", defaultAddrs.rpcAddr).Msg("Connecting to server")
 	// This ensures all contexts get a running server
-	err := client.Connect(defaultAddrs.rpcAddr)
+	client, err := chronomq.NewClient(defaultAddrs.rpcAddr)
 	if err != nil {
 		return err
 	}
+
 	output := os.Stdout
 	if outfile != "" {
 		log.Warn().Str("outfile", outfile).Msg("Writing to file")
@@ -52,7 +53,7 @@ func inspect() error {
 		}
 	}
 
-	jobs := []*chronomq.RPCJob{}
+	jobs := []*chronomq.Job{}
 	err = client.InspectN(num, &jobs)
 	if err != nil {
 		return err

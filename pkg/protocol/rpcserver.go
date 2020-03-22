@@ -29,7 +29,7 @@ func newRPCServer(hub *chronomq.Hub) *RPCServer {
 }
 
 // PutWithID accepts a new job and stores it in a Hub, reply is ignored
-func (r *RPCServer) PutWithID(rpcJob api.RPCJob, id *string) error {
+func (r *RPCServer) PutWithID(rpcJob api.Job, id *string) error {
 	memMonitor.Fence()
 
 	var j *chronomq.Job
@@ -57,7 +57,7 @@ func (r *RPCServer) Cancel(id string, ignoredReply *int8) error {
 // Next sets the reply (job) to a valid job if a job is ready to be triggered
 // If not job is ready yet, this call will wait (block) for the given duration and keep searching
 // for ready jobs. If no job is ready by the end of the timeout, ErrTimeout is returned
-func (r *RPCServer) Next(timeout time.Duration, job *api.RPCJob) error {
+func (r *RPCServer) Next(timeout time.Duration, job *api.Job) error {
 	// try once
 	if j := r.hub.NextLocked(); j != nil {
 		defer memMonitor.Decrement(j)
@@ -100,7 +100,7 @@ func (r *RPCServer) Ping(ignore int8, pong *string) error {
 }
 
 // InspectN returns n jobs without removing them for ad-hoc inspection
-func (r *RPCServer) InspectN(n int, rpcJobs *[]*api.RPCJob) error {
+func (r *RPCServer) InspectN(n int, rpcJobs *[]*api.Job) error {
 	if n == 0 {
 		return nil
 	}
@@ -108,7 +108,7 @@ func (r *RPCServer) InspectN(n int, rpcJobs *[]*api.RPCJob) error {
 	jobs := r.hub.GetNJobs(n)
 
 	for j := range jobs {
-		rpcJob := &api.RPCJob{
+		rpcJob := &api.Job{
 			Body:  j.Body(),
 			ID:    j.ID(),
 			Delay: j.TriggerAt().Sub(time.Now()),

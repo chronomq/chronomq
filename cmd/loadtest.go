@@ -77,10 +77,9 @@ func runLoadTest() {
 	deqJobs := make(chan struct{})
 	data := randStringBytes(sizeBytes)
 
-	clients := []*chronomq.RPCClient{}
+	clients := []*chronomq.Client{}
 	for c := 0; c < connections; c++ {
-		client := &chronomq.RPCClient{}
-		err := client.Connect(defaultAddrs.rpcAddr)
+		client, err := chronomq.NewClient(defaultAddrs.rpcAddr)
 		if err != nil {
 			log.Fatal().Int("WorkerID", c).Err(err).Msg("Failed to connect for worker")
 		}
@@ -137,7 +136,7 @@ func runLoadTest() {
 	deqWG.Wait()
 }
 
-func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *chronomq.RPCClient, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
+func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *chronomq.Client, deqJobs chan struct{}, stopDeq chan struct{}, data []byte) {
 	go func() {
 		var prevTriggerAt int64
 		for {
@@ -209,7 +208,7 @@ func validateJob(testData []byte, body []byte, prevTriggerAt int64, workerID int
 	}
 }
 
-func enqueueRPC(wg *sync.WaitGroup, workerID int, client *chronomq.RPCClient, jobs chan *testJob) {
+func enqueueRPC(wg *sync.WaitGroup, workerID int, client *chronomq.Client, jobs chan *testJob) {
 	defer wg.Done()
 	for j := range jobs {
 		var err error

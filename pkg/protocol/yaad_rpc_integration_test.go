@@ -17,7 +17,7 @@ import (
 var _ = Describe("Test rpc protocol:", func() {
 	defer GinkgoRecover()
 	var port = 9001
-	var client *api.RPCClient
+	var client *api.Client
 
 	var srv io.Closer
 	var h *chronomq.Hub
@@ -36,11 +36,9 @@ var _ = Describe("Test rpc protocol:", func() {
 		Expect(err).NotTo(HaveOccurred())
 		port++
 
-		client = &api.RPCClient{}
-
 		// This ensures all contexts get a running server
 		Eventually(func() error {
-			err := client.Connect(addr)
+			client, err = api.NewClient(addr)
 			return err
 		}, "1s").Should(BeNil())
 	}, 0.5)
@@ -94,7 +92,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		ExpectNoErr(err)
 
 		// We can inspect without consuming too
-		rpcJobs := []*api.RPCJob{}
+		rpcJobs := []*api.Job{}
 		err = client.InspectN(2, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(1))
@@ -122,7 +120,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 		// InspectN < n
 		inspectN := 5
-		rpcJobs := []*api.RPCJob{}
+		rpcJobs := []*api.Job{}
 		err := client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
@@ -132,7 +130,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		}
 		// InspectN == n
 		inspectN = n
-		rpcJobs = []*api.RPCJob{}
+		rpcJobs = []*api.Job{}
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
@@ -143,7 +141,7 @@ var _ = Describe("Test rpc protocol:", func() {
 
 		// InspectN > n
 		inspectN = n + 3
-		rpcJobs = []*api.RPCJob{}
+		rpcJobs = []*api.Job{}
 		err = client.InspectN(inspectN, &rpcJobs)
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(n))

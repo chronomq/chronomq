@@ -44,8 +44,7 @@ func BenchmarkRPCJobPuts(b *testing.B) {
 	}()
 
 	time.Sleep(15 * time.Millisecond) // wait for server to start
-	client := &api.RPCClient{}
-	err := client.Connect(":8001")
+	client, err := api.NewClient(":8001")
 	if err != nil {
 		b.Error(err)
 	}
