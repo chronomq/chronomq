@@ -41,9 +41,7 @@ func (s *Server) Put(ctx context.Context, pr *api.PutRequest) (*api.PutResponse,
 		return nil, err
 	}
 
-	log.Info().Msgf("Seconds: %d Nanos: %d", delay.Seconds, delay.Nanos)
-	d := time.Second*time.Duration(delay.GetSeconds()) + time.Duration(delay.Nanos)
-	log.Info().Msgf("duration: Sec: %d nanos: %d", d.Seconds, d.Nanoseconds)
+	d := time.Second*time.Duration(delay.GetSeconds()) + time.Duration(delay.GetNanos())
 
 	if pr.GetJob().GetId() == "" {
 		err := errors.New("PutRequest cannot have an empty Job ID")
