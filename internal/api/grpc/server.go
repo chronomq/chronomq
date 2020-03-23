@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/rs/zerolog/log"
@@ -39,14 +40,20 @@ func (s *Server) Put(ctx context.Context, pr *api.PutRequest) (*api.PutResponse,
 	log.Debug().Msgf("GRPC: Putting new job : %v", pr)
 
 	// Validate input
-	delay := pr.GetJob().GetDelay()
-	if delay == nil {
+	if pr.GetJob().GetDelay() == nil {
 		err := errors.New("PutRequest cannot have a nil delay")
 		log.Error().Err(err)
 		return nil, err
 	}
+	delay, err := ptypes.Duration(pr.GetJob().GetDelay())
+	if err != nil {
+		err := errors.New("Cannot parse put request delay")
+		log.Error().Err(err)
+		return nil, err
+	}
 
-	d := time.Second*time.Duration(delay.GetSeconds()) + time.Duration(delay.GetNanos())
+	// Add job to hub
+	triggerAt := time.Now().Add(delay)
 
 	if pr.GetJob().GetId() == "" {
 		err := errors.New("PutRequest cannot have an empty Job ID")
@@ -54,10 +61,8 @@ func (s *Server) Put(ctx context.Context, pr *api.PutRequest) (*api.PutResponse,
 		return nil, err
 	}
 
-	// Add job to hub
-	triggerAt := time.Now().Add(d)
 	j := chronomq.NewJob(pr.GetJob().GetId(), triggerAt, pr.GetJob().GetBody())
-	err := s.hub.AddJobLocked(j)
+	err = s.hub.AddJobLocked(j)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +106,12 @@ func (s *Server) Next(ctx context.Context, nr *api.NextRequest) (*api.NextRespon
 			Msgf("Responding with job with id and body")
 		return asNextResponse(job), nil
 	}
-	timeout := time.Duration(nr.GetTimeout().GetSeconds())*time.Second + time.Duration(nr.GetTimeout().GetNanos())
+
+	timeout, err := ptypes.Duration(nr.GetTimeout())
+	if err != nil {
+		log.Error().Err(err).Msg("Cannot parse next request timeout")
+		return nil, err
+	}
 
 	waitTill := time.Now().Add(timeout)
 	// wait for timeout and keep trying
@@ -110,6 +120,7 @@ func (s *Server) Next(ctx context.Context, nr *api.NextRequest) (*api.NextRespon
 		Time("now", time.Now()).
 		Time("waitTill", waitTill).
 		Msg("waiting for reserve")
+
 	for waitTill.After(time.Now()) {
 		if job = s.hub.NextLocked(); job != nil {
 			defer monitor.GetMemMonitor().Decrement(job)
@@ -124,13 +135,13 @@ func (s *Server) Next(ctx context.Context, nr *api.NextRequest) (*api.NextRespon
 
 // Inspect returns upto N jobs. Can return none
 func (s *Server) Inspect(req *api.InspectRequest, srv api.Chronomq_InspectServer) error {
-	log.Info().Int32("count", req.GetCount()).Msg("Returning jobs for inspection")
 	jobs := s.hub.GetNJobs(int(req.GetCount()))
+	log.Info().Int32("count", req.GetCount()).Int("joblen", len(jobs)).Msg("Returning jobs for inspection")
 
 	for j := range jobs {
 		grpcJob := &api.Job{
 			Id:    j.ID(),
-			Delay: &duration.Duration{Seconds: int64(j.TriggerAt().Sub(time.Now()).Seconds())},
+			Delay: ptypes.DurationProto(j.TriggerAt().Sub(time.Now())),
 			Body:  j.Body(),
 		}
 		err := srv.SendMsg(&api.InspectResponse{
