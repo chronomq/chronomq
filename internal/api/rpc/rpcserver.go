@@ -45,7 +45,7 @@ func (r *Server) PutWithID(rpcJob api.Job, id *string) error {
 // If the job doesn't exist, no error is returned so calls to Cancel are idempotent
 func (r *Server) Cancel(id string, ignoredReply *int8) error {
 	j, err := r.hub.CancelJobLocked(id)
-	if j != nil {
+	if err == nil && j != nil {
 		defer memMonitor.Decrement(j)
 	}
 	return err

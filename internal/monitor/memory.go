@@ -1,5 +1,13 @@
 package monitor
 
+/*
+Implement something similar to RabbitMQ for a general mem watermark of some kind which
+can put back-pressure on producers
+
+https://go-review.googlesource.com/c/go/+/46751/17/src/runtime/debug/garbage.go
+https://github.com/golang/go/issues/29696
+*/
+
 import (
 	"os"
 	"strconv"

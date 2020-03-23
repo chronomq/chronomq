@@ -20,8 +20,11 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	api "github.com/chronomq/chronomq/api/grpc/chronomq"
+	"github.com/chronomq/chronomq/internal/monitor"
 	"github.com/chronomq/chronomq/pkg/chronomq"
 )
+
+var memMonitor monitor.MemMonitor
 
 // Server is used to implement Chronomq GRPCServer
 type Server struct {
@@ -31,6 +34,8 @@ type Server struct {
 
 // Put saves a new job. It can error if another job with the ID already exists in the system
 func (s *Server) Put(ctx context.Context, pr *api.PutRequest) (*api.PutResponse, error) {
+	memMonitor.Fence()
+
 	log.Debug().Msgf("GRPC: Putting new job : %v", pr)
 
 	// Validate input
@@ -56,6 +61,7 @@ func (s *Server) Put(ctx context.Context, pr *api.PutRequest) (*api.PutResponse,
 	if err != nil {
 		return nil, err
 	}
+	defer memMonitor.Increment(j)
 	return &api.PutResponse{}, nil
 }
 
@@ -63,30 +69,57 @@ func (s *Server) Put(ctx context.Context, pr *api.PutRequest) (*api.PutResponse,
 func (s *Server) Cancel(ctx context.Context, cr *api.CancelRequest) (*api.CancelResponse, error) {
 	var err error
 	if cr.GetId() != "" {
-		_, err = s.hub.CancelJobLocked(cr.GetId())
+		job, err := s.hub.CancelJobLocked(cr.GetId())
+		if err == nil && job != nil {
+			defer memMonitor.Decrement(job)
+		}
 	}
 	return &api.CancelResponse{}, err
 }
 
-// Next returns the next job that is ready to be consumed. If no job is ready, response is empty
-func (s *Server) Next(ctx context.Context, nr *api.NextRequest) (*api.NextResponse, error) {
-	log.Info().Msg("Got a next request for grpc server")
-	job := s.hub.NextLocked()
-
-	// TODO: Implement timeout wait loop
-
-	if job == nil {
-		return &api.NextResponse{}, nil
-	}
-	log.Info().
-		Str("jobID", job.ID()).
-		Bytes("jobBody", job.Body()).
-		Msgf("Responding with job with id and body")
+func asNextResponse(job *chronomq.Job) *api.NextResponse {
 	return &api.NextResponse{
 		Next: &api.NextResponse_Job{
-			Job: &api.Job{Id: job.ID(),
+			Job: &api.Job{
+				Id:    job.ID(),
 				Delay: &duration.Duration{Seconds: int64(job.TriggerAt().Sub(time.Now()).Seconds())},
-				Body:  job.Body()}}}, nil
+				Body:  job.Body(),
+			},
+		},
+	}
+}
+
+// Next returns the next job that is ready to be consumed. If no job is ready, response is empty
+func (s *Server) Next(ctx context.Context, nr *api.NextRequest) (*api.NextResponse, error) {
+	job := s.hub.NextLocked()
+	if job != nil {
+		memMonitor.Decrement(job)
+
+		log.Debug().
+			Str("jobID", job.ID()).
+			Bytes("jobBody", job.Body()).
+			Msgf("Responding with job with id and body")
+		return asNextResponse(job), nil
+	}
+	timeout := time.Duration(nr.GetTimeout().GetSeconds())*time.Second + time.Duration(nr.GetTimeout().GetNanos())
+
+	waitTill := time.Now().Add(timeout)
+	// wait for timeout and keep trying
+	log.Debug().
+		Dur("timeout", timeout).
+		Time("now", time.Now()).
+		Time("waitTill", waitTill).
+		Msg("waiting for reserve")
+	for waitTill.After(time.Now()) {
+		if job = s.hub.NextLocked(); job != nil {
+			defer monitor.GetMemMonitor().Decrement(job)
+			return asNextResponse(job), nil
+		}
+		time.Sleep(time.Millisecond * 200)
+		log.Debug().Dur("timeout", timeout).Msg("waiting for reserve finished sleep duration")
+	}
+
+	return &api.NextResponse{}, nil
 }
 
 // Inspect returns upto N jobs. Can return none
@@ -148,7 +181,9 @@ func (s *Server) ServeHTTP(hAddr, gAddr string) (io.Closer, error) {
 // ServeGRPC creates a new GRPC capable server backed by a yaad hub &
 // and starts accepting connections on its GRPC listener
 func ServeGRPC(hub *chronomq.Hub, addr string) (io.Closer, error) {
+	memMonitor = monitor.GetMemMonitor()
 	s := &Server{hub: hub, Server: grpc.NewServer()}
+
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
