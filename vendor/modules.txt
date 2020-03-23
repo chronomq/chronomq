@@ -172,11 +172,9 @@ github.com/seiflotfy/cuckoofilter
 # github.com/spf13/cobra v0.0.3
 ## explicit
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.3
+# github.com/spf13/pflag v1.0.5
 ## explicit
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.4.0
-## explicit
 # github.com/syndtr/goleveldb v0.0.0-20181128100959-b001fa50d6b2
 ## explicit
 github.com/syndtr/goleveldb/leveldb/errors
@@ -219,10 +217,7 @@ gocloud.dev/internal/oc
 gocloud.dev/internal/openurl
 gocloud.dev/internal/retry
 gocloud.dev/internal/useragent
-# golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
-## explicit
-# golang.org/x/net v0.0.0-20200320220750-118fecf932d8
-## explicit
+# golang.org/x/net v0.0.0-20190619014844-b5b0513f8c1b
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -241,10 +236,7 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-## explicit
-# golang.org/x/sys v0.0.0-20200321134203-328b4cd54aae
-## explicit
+# golang.org/x/sys v0.0.0-20190620070143-6f217b454f45
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
@@ -269,8 +261,7 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
-## explicit
+# golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # google.golang.org/api v0.6.0
@@ -350,5 +341,5 @@ google.golang.org/grpc/tap
 gopkg.in/fsnotify.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
-# gopkg.in/yaml.v2 v2.2.2
+# gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2
