@@ -9,3 +9,7 @@ before_install:
 script:
   - golint pkg/... cmd/...
   - go test ./...
+install: true
+env:
+  global:
+    - GO111MODULE=on
