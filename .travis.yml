@@ -20,7 +20,9 @@ install: true
 # We can download and extract the golangci-lint binary in one (long) command.
 before_script:
   # binary will be $(go env GOPATH)/bin/golangci-lint
-  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
+  # - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
+  - go mod tidy
+  - go mod vendor
   - mkdir ../protoc
   - |
     echo "Installing Protobuf compiler"
