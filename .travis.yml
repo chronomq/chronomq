@@ -4,7 +4,6 @@ go:
   - 1.13.x
   - 1.12.x
   - master
-env: GO111MODULE="" GOPROXY="direct" GOFLAGS='-mod vendor' GOARCH=amd64
 
 # Skip the install step. Don't `go get` dependencies. Only build with the code
 # in vendor/
@@ -23,3 +22,10 @@ script:
   - golangci-lint run       # run a bunch of code checkers/linters in parallel
   - go generate ./...
   - go test -v -race ./...  # Run all the tests with the race detector enabled
+
+env:
+  global:
+    GO111MODULE=""
+    GOPROXY="direct"
+    GOFLAGS='-mod vendor'
+    GOARCH=amd64
