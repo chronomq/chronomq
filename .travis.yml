@@ -13,7 +13,8 @@ install: true
 # build and immediately stop. It's sorta like having set -e enabled in bash.
 # We can download and extract the golangci-lint binary in one (long) command.
 before_script:
-  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $GOPATH/bin v1.23.1
+  # binary will be $(go env GOPATH)/bin/golangci-lint
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
 
 # script always runs to completion (set +e). If we have linter issues AND a
 # failing test, we want to see both. Configure golangci-lint with a
@@ -25,7 +26,4 @@ script:
 
 env:
   global:
-    GO111MODULE=""
-    GOPROXY="direct"
-    GOFLAGS='-mod vendor'
     GOARCH=amd64
