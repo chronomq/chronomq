@@ -4,7 +4,7 @@ go:
   - 1.13.x
   - 1.12.x
   - master
-env: GO111MODULE=on GOFLAGS='-mod vendor' GOARCH=amd64
+env: GO111MODULE="" GOPROXY="direct" GOFLAGS='-mod vendor' GOARCH=amd64
 
 # Skip the install step. Don't `go get` dependencies. Only build with the code
 # in vendor/
