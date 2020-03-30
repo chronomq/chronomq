@@ -54,27 +54,16 @@ github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/s3/s3iface
 github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/service/sts
-# github.com/ckaznocha/protoc-gen-lint v0.2.1
-## explicit
-github.com/ckaznocha/protoc-gen-lint
-github.com/ckaznocha/protoc-gen-lint/linter
 # github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc
 ## explicit
 github.com/dgryski/go-metro
-# github.com/ghodss/yaml v1.0.0
-github.com/ghodss/yaml
-# github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-github.com/golang/glog
 # github.com/golang/protobuf v1.3.5
 ## explicit
-github.com/golang/protobuf/descriptor
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/protoc-gen-go/generator
 github.com/golang/protobuf/protoc-gen-go/generator/internal/remap
-github.com/golang/protobuf/protoc-gen-go/grpc
 github.com/golang/protobuf/protoc-gen-go/plugin
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -93,16 +82,7 @@ github.com/googleapis/gax-go
 github.com/googleapis/gax-go/v2
 # github.com/grpc-ecosystem/grpc-gateway v1.9.2
 ## explicit
-github.com/grpc-ecosystem/grpc-gateway/codegenerator
 github.com/grpc-ecosystem/grpc-gateway/internal
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/generator
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/gengateway
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/httprule
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/genswagger
-github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
 # github.com/hashicorp/golang-lru v0.5.1

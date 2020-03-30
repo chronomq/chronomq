@@ -1,8 +1,10 @@
 package grpc
 
-//go:generate go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
-//go:generate go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
-//go:generate go install github.com/ckaznocha/protoc-gen-lint
+//go:generate go get github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+//go:generate go get github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+//go:generate go get github.com/grpc-ecosystem/grpc-gateway/runtime
+//go:generate go get github.com/golang/protobuf/protoc-gen-go
+//go:generate go get github.com/ckaznocha/protoc-gen-lint
 //go:generate protoc -I../../../api/grpc/chronomq -I./thirdparty -I$GOPATH/bin --lint_out=. --go_out=plugins=grpc:../../../api/grpc/chronomq/ --grpc-gateway_out=logtostderr=true:../../../api/grpc/chronomq/ --swagger_out=logtostderr=true:../../../api/grpc/chronomq/ service.proto
 
 import (
