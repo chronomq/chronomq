@@ -7,7 +7,7 @@ require (
 	github.com/DataDog/datadog-go v2.2.0+incompatible
 	github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc // indirect
 	github.com/golang/protobuf v1.3.5
-	github.com/grpc-ecosystem/grpc-gateway v1.9.2
+	github.com/grpc-ecosystem/grpc-gateway v1.14.3
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.4.3
