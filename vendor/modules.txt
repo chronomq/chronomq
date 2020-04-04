@@ -1,4 +1,5 @@
 # cloud.google.com/go v0.39.0
+## explicit
 cloud.google.com/go/compute/metadata
 cloud.google.com/go/iam
 cloud.google.com/go/internal
@@ -10,13 +11,16 @@ cloud.google.com/go/storage
 ## explicit
 code.cloudfoundry.org/bytefmt
 # github.com/Azure/azure-pipeline-go v0.2.1
+## explicit
 github.com/Azure/azure-pipeline-go/pipeline
 # github.com/Azure/azure-storage-blob-go v0.8.0
+## explicit
 github.com/Azure/azure-storage-blob-go/azblob
 # github.com/DataDog/datadog-go v2.2.0+incompatible
 ## explicit
 github.com/DataDog/datadog-go/statsd
 # github.com/aws/aws-sdk-go v1.19.45
+## explicit
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -62,8 +66,10 @@ github.com/ckaznocha/protoc-gen-lint/linter
 ## explicit
 github.com/dgryski/go-metro
 # github.com/ghodss/yaml v1.0.0
+## explicit
 github.com/ghodss/yaml
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+## explicit
 github.com/golang/glog
 # github.com/golang/protobuf v1.3.5
 ## explicit
@@ -84,12 +90,16 @@ github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
 # github.com/google/uuid v1.1.1
+## explicit
 github.com/google/uuid
 # github.com/google/wire v0.3.0
+## explicit
 github.com/google/wire
 # github.com/googleapis/gax-go v2.0.2+incompatible
+## explicit
 github.com/googleapis/gax-go
 # github.com/googleapis/gax-go/v2 v2.0.4
+## explicit
 github.com/googleapis/gax-go/v2
 # github.com/grpc-ecosystem/grpc-gateway v1.14.3
 ## explicit
@@ -108,6 +118,7 @@ github.com/grpc-ecosystem/grpc-gateway/utilities
 # github.com/hashicorp/golang-lru v0.5.1
 github.com/hashicorp/golang-lru/simplelru
 # github.com/hpcloud/tail v1.0.0
+## explicit
 github.com/hpcloud/tail
 github.com/hpcloud/tail/ratelimiter
 github.com/hpcloud/tail/util
@@ -117,8 +128,10 @@ github.com/hpcloud/tail/winfile
 ## explicit
 github.com/inconshreveable/mousetrap
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
+## explicit
 github.com/jmespath/go-jmespath
 # github.com/mattn/go-ieproxy v0.0.0-20190610004146-91bb50d98149
+## explicit
 github.com/mattn/go-ieproxy
 # github.com/onsi/ginkgo v1.7.0
 ## explicit
@@ -182,6 +195,7 @@ github.com/syndtr/goleveldb/leveldb/journal
 github.com/syndtr/goleveldb/leveldb/storage
 github.com/syndtr/goleveldb/leveldb/util
 # go.opencensus.io v0.22.0
+## explicit
 go.opencensus.io
 go.opencensus.io/internal
 go.opencensus.io/internal/tagencoding
@@ -218,6 +232,7 @@ gocloud.dev/internal/openurl
 gocloud.dev/internal/retry
 gocloud.dev/internal/useragent
 # golang.org/x/net v0.0.0-20191002035440-2ec189313ef0
+## explicit
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -231,16 +246,19 @@ golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
 # golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+## explicit
 golang.org/x/oauth2
 golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sys v0.0.0-20190620070143-6f217b454f45
+## explicit
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 # golang.org/x/text v0.3.2
+## explicit
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -262,9 +280,11 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 # golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
+## explicit
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # google.golang.org/api v0.6.0
+## explicit
 google.golang.org/api/gensupport
 google.golang.org/api/googleapi
 google.golang.org/api/googleapi/internal/uritemplates
@@ -276,6 +296,7 @@ google.golang.org/api/storage/v1
 google.golang.org/api/transport/http
 google.golang.org/api/transport/http/internal/propagation
 # google.golang.org/appengine v1.6.1
+## explicit
 google.golang.org/appengine
 google.golang.org/appengine/internal
 google.golang.org/appengine/internal/app_identity
@@ -338,8 +359,11 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 # gopkg.in/fsnotify.v1 v1.4.7 => gopkg.in/fsnotify/fsnotify.v1 v1.4.7
+## explicit
 gopkg.in/fsnotify.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
+## explicit
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.3
+## explicit
 gopkg.in/yaml.v2
