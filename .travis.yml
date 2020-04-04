@@ -17,8 +17,9 @@ install: true
 
 before_script:
   - sudo apt update && sudo apt install protobuf-compiler -y
-  - go mod vendor
   - go generate ./...
+  - GO111MODULE=on go mod tidy
+  - GO111MODULE=on go mod vendor
 
 script:
   - go test -v -race ./...  # Run all the tests with the race detector enabled
@@ -26,4 +27,3 @@ script:
 env:
   global:
     GOARCH=amd64
-    GO111MODULE=on
