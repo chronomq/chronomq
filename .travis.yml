@@ -15,37 +15,14 @@ cache:
 # in vendor/
 install: true
 
-# Anything in before_script that returns a nonzero exit code will flunk the
-# build and immediately stop. It's sorta like having set -e enabled in bash.
-# We can download and extract the golangci-lint binary in one (long) command.
 before_script:
-  # binary will be $(go env GOPATH)/bin/golangci-lint
-  # - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
-  - go mod tidy
-  - go mod vendor
-  - mkdir ../protoc
-  - |
-    echo "Installing Protobuf compiler"
-    (
-      set -e
-      cd ../protoc
-      wget "https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip"
-      unzip "protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip"
-    )
-  - export PATH="$(pwd)/../protoc/bin:$PATH"
-  - go install github.com/golang/protobuf/proto
-  - go install github.com/golang/protobuf/protoc-gen-go
-  - go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+  - sudo apt update && apt install protobuf-compiler -y
   - go generate ./...
 
-# script always runs to completion (set +e). If we have linter issues AND a
-# failing test, we want to see both. Configure golangci-lint with a
-# .golangci.yml file at the top level of your repo.
 script:
-  # - golangci-lint run       # run a bunch of code checkers/linters in parallel
-  - go generate ./...
   - go test -v -race ./...  # Run all the tests with the race detector enabled
 
 env:
   global:
     GOARCH=amd64
+    GO111MODULE=on
