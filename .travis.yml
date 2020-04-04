@@ -17,6 +17,7 @@ install: true
 
 before_script:
   - sudo apt update && sudo apt install protobuf-compiler -y
+  - go mod vendor
   - go generate ./...
 
 script:
