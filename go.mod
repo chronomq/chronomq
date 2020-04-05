@@ -5,7 +5,6 @@ go 1.14
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200125003136-cc367df7c24e
 	github.com/DataDog/datadog-go v2.2.0+incompatible
-	github.com/ckaznocha/protoc-gen-lint v0.2.1
 	github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc // indirect
 	github.com/golang/protobuf v1.3.5
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3
