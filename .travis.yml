@@ -26,6 +26,7 @@ before_script:
     sudo rm -rf $BASE/include/google/protobuf/ &&
     sudo cp protoc/bin/protoc $BASE/bin &&
     sudo cp -R protoc/include/* $BASE/include
+  - cd $TRAVIS_BUILD_DIR
   - go generate ./...
   - go mod tidy
   - go mod vendor
