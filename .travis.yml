@@ -16,7 +16,6 @@ cache:
 install: true
 
 before_script:
-  - export GO111MODULE=off
   - >
     mkdir $HOME/protocdl &&
     cd $HOME/protocdl &&
@@ -38,4 +37,3 @@ script:
 env:
   global:
     GOARCH=amd64
-    GO111MODULE=off
