@@ -16,10 +16,19 @@ cache:
 install: true
 
 before_script:
-  - sudo apt update && sudo apt install protobuf-compiler -y
+  - >
+    mkdir $HOME/protocdl &&
+    cd $HOME/protocdl &&
+    wget https://github.com/protocolbuffers/protobuf/releases/download/v3.11.4/protoc-3.11.4-linux-x86_64.zip &&
+    unzip protoc-3.11.4-linux-x86_64.zip -d protoc &&
+    chmod 755 -R protoc &&
+    BASE=/usr &&
+    sudo rm -rf $BASE/include/google/protobuf/ &&
+    sudo cp protoc/bin/protoc $BASE/bin &&
+    sudo cp -R protoc/include/* $BASE/include
   - go generate ./...
-  - GO111MODULE=on go mod tidy
-  - GO111MODULE=on go mod vendor
+  - go mod tidy
+  - go mod vendor
 
 script:
   - go test -v -race ./...  # Run all the tests with the race detector enabled
