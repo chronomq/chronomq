@@ -19,8 +19,8 @@ import (
 type Spoke struct {
 	id uuid.UUID
 	temporal.Bound
-	jobMap   map[string]bool     // Provides quicker lookup of jobs owned by this spoke
-	jobQueue queue.PriorityQueue // Orders the jobs by trigger priority
+	jobMap   map[string]*queue.Item // Provides quicker lookup of jobs owned by this spoke
+	jobQueue queue.PriorityQueue    // Orders the jobs by trigger priority
 
 	lock *sync.Mutex
 }
@@ -43,7 +43,7 @@ func NewSpoke(start, end time.Time) *Spoke {
 	jq := queue.PriorityQueue{}
 	heap.Init(&jq)
 	return &Spoke{id: uuid.NewV4(),
-		jobMap:   make(map[string]bool),
+		jobMap:   make(map[string]*queue.Item),
 		jobQueue: jq,
 		Bound:    temporal.NewBound(start, end),
 		lock:     &sync.Mutex{}}
@@ -94,16 +94,10 @@ func (s *Spoke) AddJobLocked(j *Job) error {
 	if !s.IsJobInBounds(j) {
 		return ErrJobOutOfSpokeBounds
 	}
-	log.Debug().
-		Str("jobID", j.ID()).
-		Time("triggerAt", j.TriggerAt()).
-		Str("spokeID", s.id.String()).
-		Time("spokeStart", s.Start()).
-		Time("spokeEnd", s.End()).
-		Msg("Accepting new job")
 
-	s.jobMap[j.ID()] = true
-	heap.Push(&s.jobQueue, j.AsPriorityItem())
+	item := j.AsPriorityItem()
+	s.jobMap[j.ID()] = item
+	heap.Push(&s.jobQueue, item)
 	return nil
 }
 
@@ -138,18 +132,13 @@ func (s *Spoke) CancelJobLocked(id string) (*Job, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if _, ok := s.jobMap[id]; ok {
+	if item, ok := s.jobMap[id]; ok {
 		delete(s.jobMap, id)
-		// Also delete from pq
-		for i, j := range s.jobQueue {
-			cancelledJob := j.Value().(*Job)
-			if cancelledJob.ID() == id {
-				heap.Remove(&s.jobQueue, i)
-				return cancelledJob, nil
-			}
-		}
+		heap.Remove(&s.jobQueue, item.Index())
+		return item.Value().(*Job), nil
 	}
-	return nil, fmt.Errorf("Cannot find job to cancel")
+
+	return nil, fmt.Errorf("Cannot find job")
 }
 
 // OwnsJobLocked returns true if a job by given id is owned by this spoke

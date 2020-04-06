@@ -27,6 +27,11 @@ func (i *Item) Priority() time.Time {
 	return i.priority
 }
 
+// Index of the item
+func (i *Item) Index() int {
+	return i.index
+}
+
 // A PriorityQueue implements heap.Interface and holds Items.
 type PriorityQueue []*Item
 
