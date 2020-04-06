@@ -1,0 +1,24 @@
+name                             old time/op    new time/op    delta
+SpokeCancels/CancelJob_500-16       556µs ± 5%      18µs ± 1%  -96.71%  (p=0.029 n=4+4)
+SpokeCancels/CancelJob_1000-16     2.39ms ± 3%    0.04ms ± 1%  -98.47%  (p=0.029 n=4+4)
+SpokeCancels/CancelJob_5000-16     84.9ms ± 2%     0.2ms ± 5%  -99.77%  (p=0.029 n=4+4)
+SpokeCancels/CancelJob_10000-16     372ms ± 5%       0ms ± 4%  -99.89%  (p=0.029 n=4+4)
+SpokeCancels/CancelJob_20000-16     1.31s ± 4%     0.00s ± 6%  -99.92%  (p=0.029 n=4+4)
+SpokeCancels/CancelJob_40000-16     2.71s ± 3%     0.00s ±16%  -99.92%  (p=0.029 n=4+4)
+[Geo mean]                         72.8ms          0.2ms       -99.69%
+
+name                             old alloc/op   new alloc/op   delta
+SpokeCancels/CancelJob_500-16       0.00B          0.00B          ~     (all equal)
+SpokeCancels/CancelJob_1000-16      0.00B          0.00B          ~     (all equal)
+SpokeCancels/CancelJob_5000-16      0.00B          0.00B          ~     (all equal)
+SpokeCancels/CancelJob_10000-16     0.00B          0.00B          ~     (all equal)
+SpokeCancels/CancelJob_20000-16     0.00B          0.00B          ~     (all equal)
+SpokeCancels/CancelJob_40000-16     0.00B          0.00B          ~     (all equal)
+
+name                             old allocs/op  new allocs/op  delta
+SpokeCancels/CancelJob_500-16        0.00           0.00          ~     (all equal)
+SpokeCancels/CancelJob_1000-16       0.00           0.00          ~     (all equal)
+SpokeCancels/CancelJob_5000-16       0.00           0.00          ~     (all equal)
+SpokeCancels/CancelJob_10000-16      0.00           0.00          ~     (all equal)
+SpokeCancels/CancelJob_20000-16      0.00           0.00          ~     (all equal)
+SpokeCancels/CancelJob_40000-16      0.00           0.00          ~     (all equal)
