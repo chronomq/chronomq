@@ -13,7 +13,6 @@ import (
 
 	"github.com/chronomq/chronomq/api/rpc/chronomq"
 	"github.com/chronomq/chronomq/pkg/metrics"
-	"github.com/chronomq/chronomq/pkg/protocol"
 )
 
 var (
@@ -142,7 +141,7 @@ func dequeueRPC(deqWG *sync.WaitGroup, workerID int, rpcClient *chronomq.Client,
 		for {
 			id, body, err := rpcClient.Next(time.Second * 1)
 			if err != nil {
-				if err.Error() == protocol.ErrTimeout.Error() {
+				if err.Error() == chronomq.ErrTimeout.Error() {
 					continue
 				}
 				// legit error

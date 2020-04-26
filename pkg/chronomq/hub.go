@@ -411,7 +411,7 @@ func (h *Hub) StatusLocked() {
 
 // StatusPrinter starts a status printer that prints hub stats over some time interval
 func (h *Hub) StatusPrinter() {
-	t := time.NewTicker(time.Second * 10)
+	t := time.NewTicker(time.Second * 30)
 	for range t.C {
 		h.StatusLocked()
 	}

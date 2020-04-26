@@ -11,6 +11,9 @@ import (
 // ErrClientDisconnected means a client was used while it was disconnected from the remote server
 var ErrClientDisconnected = errors.New("Client is not connected to the server")
 
+// ErrTimeout indicates that no new jobs were ready to be consumed within the given timeout duration
+var ErrTimeout = errors.New("No new jobs available in given timeout")
+
 // Client communicates with the Chronomq RPC server
 type Client struct {
 	client *rpc.Client
@@ -49,7 +52,7 @@ func (c *Client) PutWithID(id string, body []byte, delay time.Duration) error {
 		return ErrClientDisconnected
 	}
 	job := &Job{ID: id, Body: body, Delay: delay}
-	return c.client.Call("RPCServer.PutWithID", job, &id)
+	return c.client.Call("Server.PutWithID", job, &id)
 }
 
 // Put saves a job with Chronomq and returns the auto-generated job id
@@ -59,7 +62,7 @@ func (c *Client) Put(body []byte, delay time.Duration) (string, error) {
 	}
 	job := &Job{ID: "", Body: body, Delay: delay}
 	var id string
-	err := c.client.Call("RPCServer.PutWithID", job, &id)
+	err := c.client.Call("Server.PutWithID", job, &id)
 	return id, err
 }
 
@@ -69,7 +72,7 @@ func (c *Client) Cancel(id string) error {
 		return ErrClientDisconnected
 	}
 	var ignoredReply int8
-	return c.client.Call("RPCServer.Cancel", id, &ignoredReply)
+	return c.client.Call("Server.Cancel", id, &ignoredReply)
 }
 
 // Next wait at-most timeout duration to return a ready job body from Chronomq
@@ -79,7 +82,7 @@ func (c *Client) Next(timeout time.Duration) (string, []byte, error) {
 		return "", nil, ErrClientDisconnected
 	}
 	var job Job
-	err := c.client.Call("RPCServer.Next", timeout, &job)
+	err := c.client.Call("Server.Next", timeout, &job)
 	if err != nil {
 		return "", nil, err
 	}
@@ -100,7 +103,7 @@ func (c *Client) Ping() error {
 		return ErrClientDisconnected
 	}
 	var pong string
-	err := c.client.Call("RPCServer.Ping", 0, &pong)
+	err := c.client.Call("Server.Ping", 0, &pong)
 	if err != nil {
 		return err
 	}
@@ -114,7 +117,7 @@ func (c *Client) Ping() error {
 // InspectN fetches upto n number of jobs from the server without consuming them
 func (c *Client) InspectN(n int, jobs *[]*Job) error {
 	if c.client != nil {
-		return c.client.Call("RPCServer.InspectN", n, jobs)
+		return c.client.Call("Server.InspectN", n, jobs)
 	}
 	return nil
 }
