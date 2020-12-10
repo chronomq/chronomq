@@ -1,6 +1,6 @@
 module github.com/chronomq/chronomq
 
-go 1.13
+go 1.15
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20200125003136-cc367df7c24e

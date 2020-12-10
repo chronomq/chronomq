@@ -114,7 +114,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		n := 10
 		hw := "Hello world"
 		for i := 0; i < n; i++ {
-			err := client.PutWithID("foo"+string(i), []byte(hw), time.Nanosecond)
+			err := client.PutWithID(fmt.Sprintf("foo%d",i), []byte(hw), time.Nanosecond)
 			ExpectNoErr(err)
 		}
 
@@ -125,7 +125,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
 		for i := 0; i < inspectN; i++ {
-			Expect(rpcJobs[i].ID).To(Equal("foo" + string(i)))
+			Expect(rpcJobs[i].ID).To(Equal(fmt.Sprintf("foo%d",i)))
 			Expect(rpcJobs[i].Body).To(Equal([]byte(hw)))
 		}
 		// InspectN == n
@@ -135,7 +135,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(inspectN))
 		for i := 0; i < inspectN; i++ {
-			Expect(rpcJobs[i].ID).To(Equal("foo" + string(i)))
+			Expect(rpcJobs[i].ID).To(Equal(fmt.Sprintf("foo%d",i)))
 			Expect(rpcJobs[i].Body).To(Equal([]byte(hw)))
 		}
 
@@ -146,7 +146,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		Expect(err).To(BeNil())
 		Expect(len(rpcJobs)).To(Equal(n))
 		for i := 0; i < n; i++ {
-			Expect(rpcJobs[i].ID).To(Equal("foo" + string(i)))
+			Expect(rpcJobs[i].ID).To(Equal(fmt.Sprintf("foo%d",i)))
 			Expect(rpcJobs[i].Body).To(Equal([]byte(hw)))
 		}
 
@@ -154,7 +154,7 @@ var _ = Describe("Test rpc protocol:", func() {
 		for i := 0; i < n; i++ {
 			rid, body, err := client.Next(1 * time.Minute)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rid).To(Equal("foo" + string(i)))
+			Expect(rid).To(Equal(fmt.Sprintf("foo%d",i)))
 			Expect(string(body)).To(Equal(hw))
 		}
 	}, 20)
