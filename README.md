@@ -5,6 +5,7 @@ Chronomq is a high-throughput scheduleable-job queue. Jobs with different trigge
 [![Go Report Card](https://goreportcard.com/badge/github.com/chronomq/chronomq)](https://goreportcard.com/report/github.com/chronomq/chronomq)
 [![Build Status](https://travis-ci.com/chronomq/chronomq.svg?branch=master)](https://travis-ci.com/chronomq/chronomq)
 [![GoDoc](https://godoc.org/github.com/chronomq/chronomq/pkg?status.svg)](https://godoc.org/github.com/chronomq/chronomq/pkg)
+[![Go Reference](https://pkg.go.dev/badge/chronomq/chronomq.svg)](https://pkg.go.dev/chronomq/chronomq)
 
 - [What is Chronomq?](#what-is-chronomq)
 - [Quickstart](#quickstart)
